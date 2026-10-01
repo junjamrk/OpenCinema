@@ -1,0 +1,19 @@
+{
+  "name": "@toonflow/tool-canvas",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./runtime": "./src/runtime.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@toonflow/tools-scaffold": "workspace:*",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}

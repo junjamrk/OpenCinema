@@ -1,0 +1,17 @@
+{
+  "name": "opencinema",
+  "version": "0.4.0",
+  "description": "在 Codex 中发现并操作 OpenCinema 实时画布与插件，核实任务、产物和保存结果。",
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "OpenCinema Studio",
+    "shortDescription": "在 Codex 中创作视频",
+    "longDescription": "复用现有画布、节点、工程文件、Blockout、Motion 与协作，通过 Codex 对话操作当前工程。",
+    "developerName": "OpenCinema",
+    "category": "Productivity",
+    "capabilities": ["Fullscreen canvas", "Node editing", "Project-local persistence", "Blockout", "Motion", "Collaboration"],
+    "defaultPrompt": ["打开当前 OpenCinema 工程。"]
+  }
+}

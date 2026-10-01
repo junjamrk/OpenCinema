@@ -1,0 +1,14 @@
+{
+  "name": "@opencinema/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "go run ./go -listen 127.0.0.1:47920 -webRoot ../../build/web -dataDirectory ../../data",
+    "start": "../../build/server/openCinema -listen 127.0.0.1:47920 -webRoot ../../build/web -dataDirectory ../../data",
+    "build": "bun scripts/build.ts",
+    "typecheck": "go vet ./go"
+  },
+  "devDependencies": {
+    "@toonflow/file": "workspace:*"
+  }
+}

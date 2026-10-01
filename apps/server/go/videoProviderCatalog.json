@@ -1,0 +1,96 @@
+[
+  {
+    "id": "ark",
+    "label": "火山方舟 · Seedance",
+    "version": "1.1.0",
+    "videoProtocol": "ark",
+    "apiUrl": "https://ark.cn-beijing.volces.com/api/v3",
+    "cancelMode": "none",
+    "rules": [
+      { "type": "input", "field": "apiKey", "title": "火山方舟 API Key", "value": "", "props": { "type": "password" } },
+      { "type": "select", "field": "storageType", "title": "视频参考私有素材存储（可选）", "value": "", "options": [{ "label": "未配置", "value": "" }, { "label": "TOS", "value": "tos" }, { "label": "Vercel Blob", "value": "vercelBlob" }] },
+      { "type": "input", "field": "storageSignerUrl", "title": "已授权的素材签名服务 HTTPS 地址", "value": "" },
+      { "type": "input", "field": "storageAccessToken", "title": "素材签名服务独立访问令牌（与方舟 Key 分开）", "value": "", "optional": true, "props": { "type": "password" } },
+      { "type": "input", "field": "storageObjectOrigin", "title": "私有素材对象 HTTPS 原点", "value": "" },
+      { "type": "input", "field": "storagePrefix", "title": "已授权的素材对象专用前缀", "value": "toonflow/" },
+      { "type": "input", "field": "storageProjectId", "title": "签名服务授权的当前工程 UUID", "value": "" }
+    ],
+    "models": [
+      {
+        "id": "doubao-seedance-2-0-260128",
+        "label": "Seedance 2.0 · 文生 / 首尾帧 / 图片与视频参考",
+        "type": "video",
+        "mode": ["text", "singleImage", "endFrameOptional", "startEndRequired", ["imageReference:9", "videoReference:3"]],
+        "imageRatios": ["16:9", "9:16", "4:3", "3:4", "1:1", "21:9"],
+        "audio": "optional",
+        "durationResolutionMap": [{ "duration": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "resolution": ["480p", "720p", "1080p"] }]
+      }
+    ]
+  },
+  {
+    "id": "localVideo",
+    "label": "本地 / 局域网视频服务",
+    "version": "1.0.0",
+    "videoProtocol": "openaiVideo",
+    "transport": "local",
+    "apiUrl": "http://127.0.0.1:30010/v1",
+    "endpoints": { "video": "videos" },
+    "cancelMode": "none",
+    "rules": [
+      { "type": "input", "field": "apiUrl", "title": "视频服务地址", "value": "http://127.0.0.1:30010/v1" },
+      { "type": "input", "field": "apiKey", "title": "服务认证（可选）", "value": "", "props": { "type": "password" } }
+    ],
+    "models": [
+      {
+        "id": "MiniMaxAI/MiniMax-H3",
+        "label": "MiniMax H3 · 按服务实际模型名配置",
+        "type": "video",
+        "mode": ["text", "endFrameOptional"],
+        "imageRatios": ["16:9", "9:16"],
+        "audio": true,
+        "durationResolutionMap": [{ "duration": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "resolution": ["576p"] }],
+        "video": { "inputMap": { "firstFrame": "input_reference" } }
+      }
+    ]
+  },
+  {
+    "id": "fal",
+    "label": "fal",
+    "version": "1.0.0",
+    "videoProtocol": "fal",
+    "apiUrl": "https://queue.fal.run",
+    "rules": [{ "type": "input", "field": "apiKey", "title": "API Key", "value": "", "props": { "type": "password" } }],
+    "models": [
+      {
+        "id": "fal-ai/kling-video/v3/pro/text-to-video",
+        "label": "Kling 3.0 Pro · 文生视频",
+        "type": "video",
+        "mode": ["text"],
+        "imageRatios": ["16:9", "9:16", "1:1"],
+        "audio": "optional",
+        "durationResolutionMap": [{ "duration": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "resolution": [] }],
+        "video": { "stringFields": ["duration"] }
+      }
+    ]
+  },
+  {
+    "id": "replicate",
+    "label": "Replicate",
+    "version": "1.0.0",
+    "videoProtocol": "replicate",
+    "apiUrl": "https://api.replicate.com/v1",
+    "rules": [{ "type": "input", "field": "apiKey", "title": "API Token", "value": "", "props": { "type": "password" } }],
+    "models": [
+      {
+        "id": "google/veo-3.1",
+        "label": "Veo 3.1 · 8秒 / 首尾帧",
+        "type": "video",
+        "mode": ["text", "endFrameOptional", "startEndRequired"],
+        "imageRatios": ["16:9", "9:16"],
+        "audio": "optional",
+        "durationResolutionMap": [{ "duration": [8], "resolution": ["720p", "1080p"] }],
+        "video": { "inputMap": { "firstFrame": "image", "lastFrame": "last_frame" } }
+      }
+    ]
+  }
+]

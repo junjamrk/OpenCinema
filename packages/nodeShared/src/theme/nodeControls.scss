@@ -1,0 +1,130 @@
+.openCinemaWorkbench .nodeControls {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  color: var(--textPrimary, #e8eaed);
+  font-family: var(--fontUi);
+  font-size: var(--fontSizeBody);
+  font-weight: var(--fontWeightBody);
+  line-height: var(--lineHeightBody);
+  text-align: left;
+
+  button, input, select, textarea, a { font: inherit; }
+  button, select, input, textarea {
+    min-width: 0;
+    border: 1px solid var(--borderSubtle, #343840);
+    border-radius: var(--radiusControl);
+    background: var(--surfaceToolbar, #181a1f);
+    color: inherit;
+    padding: 8px;
+    transition:
+      background-color var(--motionControl) var(--easeStandard),
+      border-color var(--motionControl) var(--easeStandard),
+      color var(--motionControl) var(--easeStandard),
+      opacity var(--motionFast) var(--easeStandard);
+  }
+  button { min-height: var(--controlMinTarget); cursor: pointer; white-space: nowrap; touch-action: manipulation; }
+  button:hover:not(:disabled) { border-color: var(--borderStrong); background: var(--surfaceHover); }
+  button:active:not(:disabled) { background: var(--surfacePressed); }
+  button:disabled, select:disabled, input:disabled, textarea:disabled { opacity: var(--disabledOpacity); cursor: not-allowed; }
+  :focus-visible { outline: var(--focusRing); outline-offset: var(--focusOffset); }
+  input, select, textarea {
+    accent-color: var(--actionPrimary);
+    &::placeholder { color: var(--textMuted); opacity: 1; }
+    &:focus-visible { border-color: var(--selectionAccent); }
+    &[aria-invalid="true"] { border-color: var(--statusError); }
+    &[readonly] { color: var(--textSecondary); }
+  }
+  input[type="number"] { font-variant-numeric: tabular-nums; }
+  input[type="range"] { min-height: var(--controlMinTarget); padding: 0; border: 0; background: transparent; }
+  input[type="checkbox"], input[type="radio"] { width: 14px; height: 14px; margin: 0; padding: 0; vertical-align: middle; }
+  input[type="color"] { min-height: 32px; padding: 4px; }
+  a { color: inherit; text-decoration: none; }
+  button > svg { flex-shrink: 0; }
+  &.nodeAudioPlayer > div:has(> input[type="range"]:focus-visible) { outline: var(--focusRing); outline-offset: var(--focusOffset); border-radius: var(--radiusCompact); }
+  .nodeFileInput { display: none; }
+  .nodeMediaFrame { position: relative; min-width: 0;
+    &:hover .nodeMediaToolbarCompact, &:focus-within .nodeMediaToolbarCompact { opacity: 1; pointer-events: auto; }
+  }
+  .nodeMediaStage { display: grid; place-items: center; min-width: 0; min-height: 120px; overflow: hidden; border-radius: var(--radiusControl); background: var(--surfaceMedia); }
+  .nodeMedia { display: block; max-width: 100%; width: 100%; max-height: 320px; object-fit: contain; }
+  .nodeVideoPreview { position: relative; display: grid; place-items: center; width: 100%; min-width: 0; max-height: 320px; overflow: hidden; background: var(--surfaceMedia); border-radius: inherit;
+    > video, > img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+    .nodeVideoPreviewStatus { position: absolute; inset: 0 0 38px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 12px; color: var(--textSecondary); background: var(--surfaceMedia); pointer-events: none; font-size: var(--fontSizeSmall); text-align: center; }
+  }
+  .nodeReferencePreview .nodeVideoPreview { height: 100%; aspect-ratio: auto; border-radius: 0;
+    .nodeVideoPreviewStatus { inset: 0; gap: 0; padding: 2px; font-size: 0; }
+  }
+  audio.nodeMedia { min-height: 44px; }
+  .nodeUploadArea { min-height: 120px; width: 100%; border-style: dashed; color: var(--textSecondary, #9da4ae); &:hover:not(:disabled) { border-color: var(--selectionAccent); background: var(--surfaceSelected); color: var(--textPrimary); } }
+  .nodeComposerEmpty { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 120px; color: var(--textMuted); font-size: var(--fontSizeSmall); }
+  .nodeComposerAction { display: inline-flex; align-items: center; justify-self: start; gap: 6px; padding: 4px 6px; border-color: transparent; background: transparent; color: var(--textSecondary); &:hover:not(:disabled) { color: var(--selectionAccent); } }
+  .nodeMediaHistory { display: grid; gap: 4px; max-height: 180px; overflow: auto; }
+  .nodeMediaHistory button { text-align: left; text-overflow: ellipsis; overflow: hidden; }
+  .selected, button[aria-pressed="true"], button[aria-selected="true"] { border-color: var(--selectionAccent); background: var(--surfaceSelected); color: var(--selectionAccent); }
+  .nodeField { display: grid; gap: 4px; color: var(--textSecondary, #9da4ae); }
+  .nodeField > span { font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); }
+  .nodeFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .nodeActions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .nodePrimary { background: var(--actionPrimary); border-color: var(--actionPrimary); color: var(--textOnPrimary); font-weight: var(--fontWeightMedium); &:hover:not(:disabled) { background: var(--actionPrimaryHover); border-color: var(--actionPrimaryHover); } &:active:not(:disabled) { background: var(--actionPrimaryPressed); border-color: var(--actionPrimaryPressed); } }
+  .nodePrompt { width: 100%; min-height: 90px; resize: vertical; line-height: 1.6; }
+  .nodeError { margin: 0; color: var(--statusError); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .nodeStatus { color: var(--textSecondary, #9da4ae); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); font-variant-numeric: tabular-nums; &[data-state="completed"] { color: var(--statusSuccess); } &[data-state="failed"] { color: var(--statusError); } &[data-state="unknown"], &[data-state="interrupted"], &[data-state="cancelRequested"] { color: var(--statusWarning); } }
+  .nodeReferenceList { display: grid; gap: 4px; max-height: 100px; overflow: auto; color: var(--textSecondary, #9da4ae); }
+  .nodeReferenceList span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nodeReport { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; font-size: 11px; font-family: var(--fontMono, monospace); }
+  .nodeProgress { width: 100%; accent-color: var(--actionPrimary); height: 4px; border: 0; border-radius: var(--radiusCompact); overflow: hidden; background: var(--surfaceRaised); &::-webkit-progress-bar { background: var(--surfaceRaised); } &::-webkit-progress-value { background: var(--actionPrimary); } &::-moz-progress-bar { background: var(--actionPrimary); } }
+  .nodeDetails { border-top: 1px solid var(--borderSubtle); padding-top: 8px; }
+  .nodeDetails > summary { min-height: var(--controlMinTarget); padding: 3px 0; cursor: pointer; margin-bottom: 8px; color: var(--textSecondary); transition: color var(--motionFast) var(--easeStandard); &:hover { color: var(--textPrimary); } }
+  .nodeDetails[open] > summary { color: var(--textPrimary); }
+  .nodeGenerationSettingsBody { display: grid; gap: 8px; }
+  .nodeGenerationDetails { display: none; gap: 16px;
+    .nodeGenerationSettings > h4 { margin: 0 0 10px; font: var(--fontWeightMedium) var(--fontSizeBody)/var(--lineHeightBody) var(--fontUi); }
+  }
+  .nodeSavedInstruction { margin: 0; max-height: 160px; overflow: auto; color: var(--textSecondary); white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fontSizeSmall); line-height: var(--lineHeightBody); }
+  .imagePanoramaStage { position: relative; border-radius: var(--radiusControl); overflow: hidden; background: var(--surfaceCanvas); touch-action: none; cursor: grab; &:active { cursor: grabbing; } }
+  .imagePanoramaGrid { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 32.9%, #fff5 33%, transparent 33.2%, transparent 66.5%, #fff5 66.6%, transparent 66.8%), linear-gradient(transparent 32.9%, #fff5 33%, transparent 33.2%, transparent 66.5%, #fff5 66.6%, transparent 66.8%); }
+  .imageSpatialStage { overflow: hidden; border-radius: var(--radiusControl); background: var(--surfaceToolbar); margin-bottom: 8px; }
+}
+
+.openCinemaWorkbench .nodeMediaToolbar {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; min-width: 0; max-width: 100%; margin-top: 4px; padding: 2px 0; color: var(--textSecondary); font: var(--fontWeightBody) var(--fontSizeBody)/var(--lineHeightBody) var(--fontUi);
+  .nodeMediaToolGroup { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; & + .nodeMediaToolGroup { padding-left: 4px; border-left: 1px solid var(--borderSubtle); } }
+  .nodeMediaCreativeTools:not(:has(.nodeMediaTool)) { display: none; & + .nodeMediaToolGroup { padding-left: 0; border-left: 0; } }
+  .nodeMediaTool {
+    display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 6px; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 0; border: 1px solid transparent; border-radius: var(--radiusCompact); background: transparent; color: inherit; font: inherit; text-decoration: none; cursor: pointer; touch-action: manipulation;
+    transition: color var(--motionControl) var(--easeStandard), background-color var(--motionControl) var(--easeStandard), box-shadow var(--motionControl) var(--easeStandard);
+    > svg { width: 16px; height: 16px; flex-shrink: 0; }
+    &:hover:not(:disabled) { border-color: transparent; background: var(--surfaceHover); color: var(--textPrimary); }
+    &:active:not(:disabled) { background: var(--surfacePressed); }
+    &:disabled { opacity: var(--disabledOpacity); cursor: not-allowed; }
+    &:focus-visible { outline: var(--focusRing); outline-offset: -2px; }
+    &[aria-expanded="true"] { background: var(--surfaceSelected); color: var(--selectionAccent); }
+    &.nodeMediaToolPrimary {
+      color: var(--selectionAccent); background: color-mix(in srgb, var(--selectionAccent) 8%, transparent);
+      &:hover:not(:disabled) { color: var(--selectionAccent); background: var(--surfaceSelected); box-shadow: 0 0 12px color-mix(in srgb, var(--selectionAccent) 16%, transparent); }
+      &[aria-label="编辑图片"] { width: auto; padding: 0 8px; &::after { content: attr(aria-label); font-size: 11px; font-weight: var(--fontWeightMedium); white-space: nowrap; } }
+    }
+  }
+  &.nodeMediaToolbarMounted { flex: 0 1 auto; max-width: none; margin: 0; padding: 0; }
+  &.nodeMediaToolbarCompact { position: absolute; top: 8px; right: 8px; z-index: 2; max-width: calc(100% - 16px); margin-top: 0; padding: 3px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusChrome); background: color-mix(in srgb, var(--surfacePanel) 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 4px 16px #0003; opacity: 0; pointer-events: none; transition: opacity var(--motionFast) var(--easeStandard); }
+}
+
+.openCinemaWorkbench .expandedNodeBody .nodeControls .nodeGenerationDetails { display: grid; }
+.openCinemaWorkbench .nodeFrameSized .nodeControls .nodeVideoPreview { height: 100%; max-height: 100%; }
+.openCinemaWorkbench .nodeMediaDialog .nodeVideoPreview { max-height: 72vh; max-height: 72dvh; > video { max-height: 72vh; max-height: 72dvh; } }
+
+@media (hover: none), (pointer: coarse) {
+  .openCinemaWorkbench .nodeMediaToolbarCompact { position: static; max-width: none; margin-top: 4px; padding: 2px 0; opacity: 1; pointer-events: auto; background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; }
+}
+
+@media (pointer: coarse) {
+  .openCinemaWorkbench .nodeControls {
+    button, select, input:not([type="checkbox"]):not([type="radio"]), .nodeDetails > summary { min-height: var(--controlTouchTarget); }
+    button { min-width: var(--controlTouchTarget); }
+    input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
+    label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) { display: flex; align-items: center; gap: 8px; min-height: var(--controlTouchTarget); }
+  }
+  .openCinemaWorkbench .nodeMediaToolbar .nodeMediaTool { height: var(--controlTouchTarget); min-width: var(--controlTouchTarget); min-height: var(--controlTouchTarget); }
+}

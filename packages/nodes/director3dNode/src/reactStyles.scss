@@ -1,0 +1,330 @@
+.directorReactNode {
+  padding: 8px;
+  .directorOpen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 178px;
+    padding: 12px;
+    overflow: hidden;
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusPanel);
+    background: var(--surfacePanel);
+    color: var(--textPrimary);
+    cursor: pointer;
+    span {
+      font-size: 34px;
+      color: var(--selectionAccent);
+    }
+    strong {
+      font-size: var(--fontSizeTitle);
+      font-weight: var(--fontWeightTitle);
+    }
+    small {
+      font-size: var(--fontSizeSmall);
+      color: var(--textSecondary);
+    }
+    img {
+      display: block;
+      width: 100%;
+      max-height: 240px;
+      object-fit: contain;
+    }
+  }
+}
+.directorError {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--statusError);
+  border: 1px solid var(--statusError);
+  border-radius: 4px;
+  background: var(--surfacePanel);
+}
+.directorReactDialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  padding: var(--space4);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--textPrimary);
+  background: var(--surfaceCanvas);
+  font:
+    var(--fontSizeBody) / var(--lineHeightBody) var(--fontUi, "Inter Variable"),
+    sans-serif;
+  font-weight: 400;
+  * {
+    box-sizing: border-box;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    color: inherit;
+    font: inherit;
+    background: var(--surfacePanel);
+    border: 1px solid var(--borderSubtle);
+    border-radius: 4px;
+    padding: 5px 9px;
+    min-height: 30px;
+  }
+  button {
+    font-weight: 400;
+    cursor: pointer;
+    &:hover {
+      border-color: var(--borderStrong);
+    }
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    &.active {
+      color: var(--selectionAccent);
+      border-color: var(--borderSelected);
+      background: color-mix(in srgb, var(--actionPrimary) 12%, var(--surfacePanel));
+    }
+  }
+  input:focus,
+  select:focus,
+  textarea:focus,
+  button:focus-visible {
+    outline: 1px solid var(--selectionAccent);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"] {
+    min-height: 0;
+    accent-color: var(--actionPrimary);
+  }
+  strong,
+  h3 {
+    font-weight: var(--fontWeightTitle);
+  }
+  h3 {
+    font-size: 12px;
+    margin: 0;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--borderSubtle);
+    strong {
+      font-size: var(--fontSizeTitle);
+      color: var(--selectionAccent);
+      letter-spacing: -0.025em;
+    }
+    span,
+    small {
+      color: var(--textSecondary);
+    }
+    button {
+      margin-left: auto;
+      min-width: 60px;
+    }
+  }
+  nav,
+  .directorTabs,
+  .directorExports,
+  .directorPlayback {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space2);
+  }
+  .directorBody {
+    display: grid;
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: 175px minmax(300px, 1fr) 250px;
+    gap: 12px;
+  }
+  .directorObjects,
+  .directorInspector {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space2);
+    border: 1px solid var(--borderSubtle);
+    background: var(--surfaceToolbar);
+    border-radius: 8px;
+    overflow: auto;
+    min-height: 0;
+  }
+  .directorObjects > button {
+    text-align: left;
+  }
+  .directorAnchor {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    .directorAnchorPreview {
+      display: block;
+      grid-column: 1 / -1;
+      min-width: 0;
+      width: 100%;
+      padding: 0;
+      overflow: hidden;
+      text-align: left;
+      cursor: grab;
+      img { display: block; width: 100%; object-fit: contain; }
+      span { display: block; padding: var(--space2); white-space: nowrap; }
+    }
+    button:not(.directorAnchorPreview) {
+      min-width: 0;
+      padding: 5px;
+    }
+  }
+  .directorStage {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    gap: var(--space3);
+  }
+  .directorReactViewport {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surfaceCanvas);
+    position: relative;
+    min-height: 220px;
+    flex: 1;
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusPanel);
+    overflow: hidden;
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    p {
+      position: absolute;
+      inset: 10px;
+      color: var(--statusError);
+    }
+    .directorFlightInfo {
+      position: absolute;
+      left: var(--space2);
+      right: var(--space2);
+      bottom: var(--space2);
+      padding: var(--space1) var(--space2);
+      background: var(--surfacePanel);
+      color: var(--textSecondary);
+      font-size: var(--fontSizeSmall);
+      line-height: var(--lineHeightSmall);
+      pointer-events: none;
+    }
+  }
+  .directorPlayback {
+    input {
+      flex: 1;
+      padding: 0;
+      border: 0;
+      accent-color: var(--actionPrimary);
+    }
+    span {
+      color: var(--textSecondary);
+      font:
+        11px ui-monospace,
+        monospace;
+    }
+  }
+  .directorTabs {
+    border-top: 1px solid var(--borderSubtle);
+    padding-top: 10px;
+  }
+  .directorDocument,
+  .directorPrompt {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    max-height: 220px;
+    overflow: auto;
+    textarea {
+      width: 100%;
+      min-height: 125px;
+      resize: vertical;
+      font:
+        11px/1.6 ui-monospace,
+        monospace;
+    }
+    small {
+      color: var(--textMuted);
+    }
+  }
+  .directorInspector {
+    label {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space1);
+      span {
+        color: var(--textSecondary);
+        font-size: var(--fontSizeSmall);
+        width: 100%;
+      }
+      input:not([type="checkbox"]) {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+    details {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space2);
+      summary {
+        cursor: pointer;
+        color: var(--textSecondary);
+      }
+      label {
+        margin-top: 7px;
+      }
+    }
+  }
+  .directorDraft {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space2);
+    padding: var(--space2);
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusPanel);
+    p {
+      margin: 0;
+      color: var(--statusError);
+    }
+  }
+  .directorOutputActions {
+    display: flex;
+    gap: var(--space1);
+  }
+  footer {
+    font-size: var(--fontSizeSmall);
+    color: var(--textMuted);
+  }
+  @media (max-width: 900px) {
+    .directorBody {
+      grid-template-columns: 140px minmax(260px, 1fr) 200px;
+    }
+  }
+  @media (max-width: 700px) {
+    overflow: auto;
+    padding: 12px;
+    .directorBody {
+      min-height: 700px;
+      flex: none;
+      grid-template-columns: 130px minmax(250px, 1fr);
+    }
+    .directorInspector {
+      grid-column: 1/-1;
+      max-height: 320px;
+    }
+  }
+}

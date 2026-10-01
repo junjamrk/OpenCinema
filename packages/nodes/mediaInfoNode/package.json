@@ -1,0 +1,29 @@
+{
+  "name": "@toonflow/node-media-info",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --config viteConfig.ts",
+    "dev": "vite build --watch --config viteConfig.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./react": "./src/reactView.tsx",
+    "./reactPlugin": "./src/reactPlugin.ts"
+  },
+  "dependencies": {
+    "@toonflow/node-shared": "workspace:*",
+    "@toonflow/nodes-scaffold": "workspace:*",
+    "mediainfo.js": "0.3.8",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

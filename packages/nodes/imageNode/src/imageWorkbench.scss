@@ -1,0 +1,76 @@
+.openCinemaWorkbench .imageEditorEntry { gap: 6px; }
+.openCinemaWorkbench .nodeControls.imageWorkbenchDialog {
+  position: fixed; inset: 0; width: min(1440px, calc(100vw - 48px)); height: min(920px, calc(100dvh - 48px)); max-width: none; max-height: none; min-width: 0; margin: auto; padding: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 0; overflow: hidden; border: 1px solid var(--borderStrong); border-radius: var(--radiusPanel); background: var(--surfacePanel); box-shadow: var(--shadowFloat);
+  &:not([open]) { display: none; }
+  &[open] { animation: nodeMediaDialogContentReveal var(--motionPanel) var(--easeEnter); }
+  &::backdrop { background: var(--surfaceScrim); backdrop-filter: blur(8px); animation: nodeMediaDialogReveal var(--motionControl) var(--easeStandard); }
+  button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .imageWorkbenchHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 16px; border-bottom: 1px solid var(--borderSubtle); background: var(--surfaceToolbar);
+    > div { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+    strong { flex-shrink: 0; font-size: var(--fontSizeTitle); font-weight: var(--fontWeightTitle); }
+    span { color: var(--textMuted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fontSizeSmall); }
+    .imageWorkbenchHeaderActions { flex-shrink: 0; gap: 8px; }
+    .imageHistoryToolbar { display: flex; align-items: center; gap: 2px; padding-right: 8px; border-right: 1px solid var(--borderSubtle); }
+    button { width: 32px; height: 32px; min-height: 32px; padding: 7px; border-color: transparent; background: transparent; &:hover:not(:disabled) { background: var(--surfaceHover); } }
+  }
+  .imageWorkbenchTasks { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--borderSubtle); overflow-x: auto; flex-wrap: nowrap; background: color-mix(in srgb, var(--surfaceToolbar) 50%, transparent);
+    > button { flex-shrink: 0; min-height: 32px; padding: 6px 10px; border-color: transparent; background: transparent; color: var(--textSecondary); font-size: var(--fontSizeSmall); > svg { width: 16px; height: 16px; } &[aria-selected="true"] { background: var(--surfaceSelected); border-color: transparent; color: var(--selectionAccent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--selectionAccent) 14%, transparent); } }
+  }
+  .imageWorkbenchPanel { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: 0; overflow: hidden; &[hidden] { display: none; } }
+  .imageWorkbenchStage { min-height: 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 20px; overflow: auto; background: var(--surfaceMedia);
+    .imageSpatialStage { width: 100%; max-width: 840px; margin: 0; }
+    .imagePanoramaStage { width: 100%; }
+  }
+  .imageWorkbenchImage { position: relative; width: min(100%, calc((100dvh - 260px) * var(--imageRatio, 1))); min-width: 0; flex-shrink: 0;
+    > img, > canvas { display: block; width: 100%; height: auto; }
+  }
+  .imageMarkCanvas { touch-action: none; cursor: crosshair; }
+  .imageWorkbenchControls { display: grid; align-content: start; gap: 12px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px; border-left: 1px solid var(--borderSubtle);
+    h4 { margin: 0; font-size: var(--fontSizeBody); font-weight: var(--fontWeightMedium); }
+    .nodeField > span { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    output { font-family: var(--fontMono); font-variant-numeric: tabular-nums; color: var(--textPrimary); }
+    textarea { width: 100%; min-height: 80px; resize: vertical; }
+    input[type="color"] { width: 100%; }
+    .nodeDetails > summary { margin-bottom: 8px; }
+  }
+  .imageToolGrid, .imagePresetGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; button { min-width: 0; min-height: 32px; padding: 6px; > svg { width: 16px; height: 16px; } } }
+  .imageToolGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .imageAdvancedFields { display: grid; gap: 12px; }
+  .imageWorkbenchHint { margin: 0; color: var(--textMuted); font-size: var(--fontSizeSmall); line-height: var(--lineHeightBody); }
+  .imageCheckField { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+  .imageCropFrame { overflow: hidden; touch-action: none; cursor: crosshair; user-select: none; }
+  .imageCropSelection { position: absolute; min-width: 1px; min-height: 1px; border: 1px solid #fff; box-shadow: 0 0 0 9999px #0009; cursor: move; &:focus-visible { outline-offset: -3px; } }
+  .imageCropGrid { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent calc(33.333% - .5px), #ffffff70 33.333%, transparent calc(33.333% + .5px), transparent calc(66.666% - .5px), #ffffff70 66.666%, transparent calc(66.666% + .5px)), linear-gradient(transparent calc(33.333% - .5px), #ffffff70 33.333%, transparent calc(33.333% + .5px), transparent calc(66.666% - .5px), #ffffff70 66.666%, transparent calc(66.666% + .5px)); }
+  button.imageCropHandle { position: absolute; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 0; background: transparent;
+    &::after { content: ""; width: 8px; height: 8px; border: 1px solid #181a1f; background: #fff; }
+    &.imageCropHandlenw { left: 0; top: 0; cursor: nw-resize; } &.imageCropHandlene { right: 0; top: 0; cursor: ne-resize; }
+    &.imageCropHandlesw { left: 0; bottom: 0; cursor: sw-resize; } &.imageCropHandlese { right: 0; bottom: 0; cursor: se-resize; }
+  }
+  .imageCropSize { font: var(--fontWeightMedium) var(--fontSizeBody)/var(--lineHeightBody) var(--fontMono); }
+  .imageWorkbenchGrid > div { position: absolute; inset: 0; display: grid; pointer-events: none; > span { border: 1px solid #ffffff80; padding: 6px; font: 11px/16px var(--fontMono); color: #fff; text-shadow: 0 1px 4px #000; } }
+  .imagePanoramaWorkbench { gap: 12px; > .nodeActions { align-self: flex-start; } }
+  .imageWorkbenchFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 16px; border-top: 1px solid var(--borderSubtle); background: var(--surfaceToolbar); > .nodeActions { margin-left: auto; flex-shrink: 0; } .nodePrimary:not(:disabled) { box-shadow: 0 0 16px -6px color-mix(in srgb, var(--actionPrimary) 48%, transparent); &:hover { box-shadow: 0 0 20px -5px color-mix(in srgb, var(--actionPrimary) 64%, transparent); } } }
+  .imageWorkbenchFeedback { min-width: 0; max-height: 64px; overflow: auto; }
+}
+@media (max-width: 800px) {
+  .openCinemaWorkbench .nodeControls.imageWorkbenchDialog { width: calc(100vw - 16px); height: calc(100dvh - 16px);
+    .imageWorkbenchHeader { padding: 10px 12px; > div { gap: 8px; } }
+    .imageWorkbenchTasks { padding: 6px 8px; }
+    .imageWorkbenchPanel { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 1fr) minmax(100px, 34%); }
+    .imageWorkbenchStage { padding: 12px; }
+    .imageWorkbenchImage { width: min(100%, calc((60dvh - 160px) * var(--imageRatio, 1))); }
+    .imageWorkbenchControls { padding: 12px; border-left: 0; border-top: 1px solid var(--borderSubtle); }
+    .imageWorkbenchFooter { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+    .imageWorkbenchFeedback { flex-basis: 100%; }
+  }
+}
+@media (pointer: coarse) {
+  .openCinemaWorkbench .nodeControls.imageWorkbenchDialog {
+    button, .imageWorkbenchHeader > button, .imageWorkbenchTasks > button { min-height: var(--controlTouchTarget); min-width: var(--controlTouchTarget); }
+    button.imageCropHandle { width: var(--controlTouchTarget); height: var(--controlTouchTarget); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .openCinemaWorkbench .nodeControls.imageWorkbenchDialog,
+  .openCinemaWorkbench .nodeControls.imageWorkbenchDialog::backdrop { animation: none; }
+}

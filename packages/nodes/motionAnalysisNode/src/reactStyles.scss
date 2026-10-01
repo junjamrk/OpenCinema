@@ -1,0 +1,287 @@
+.motionReactNode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space3);
+  padding: 0;
+  width: 100%;
+  min-width: 0;
+  color: var(--textPrimary);
+  font:
+    var(--fontSizeBody) / var(--lineHeightBody) var(--fontUi, "Inter Variable"),
+    sans-serif;
+  font-weight: 400;
+  * {
+    box-sizing: border-box;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    min-height: 30px;
+    padding: 5px 8px;
+    color: inherit;
+    font: inherit;
+    background: var(--surfacePanel);
+    border: 1px solid var(--borderSubtle);
+    border-radius: 4px;
+  }
+  button {
+    cursor: pointer;
+    font-weight: 400;
+    &:hover {
+      border-color: var(--borderStrong);
+    }
+    &:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+    &.active {
+      color: var(--selectionAccent);
+      border-color: var(--borderSelected);
+      background: color-mix(in srgb, var(--actionPrimary) 12%, var(--surfacePanel));
+    }
+  }
+  input:focus,
+  select:focus,
+  textarea:focus,
+  button:focus-visible {
+    outline: 1px solid var(--selectionAccent);
+    outline-offset: 2px;
+  }
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space1);
+    color: var(--textSecondary);
+    input,
+    textarea {
+      width: 100%;
+    }
+    textarea {
+      min-height: 60px;
+      resize: vertical;
+    }
+  }
+  small {
+    color: var(--textMuted);
+    font-size: var(--fontSizeSmall);
+    line-height: var(--lineHeightSmall);
+    overflow-wrap: anywhere;
+  }
+  .motionTabs {
+    display: flex;
+    gap: 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--borderSubtle);
+    button {
+      flex: 1;
+      min-height: 28px;
+      padding: 4px 7px;
+      font-size: var(--fontSizeSmall);
+    }
+  }
+  .motionInput {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    span {
+      font:
+        10px ui-monospace,
+        monospace;
+      color: var(--selectionAccent);
+      border: 1px solid var(--borderSelected);
+      border-radius: 3px;
+      padding: 2px 4px;
+    }
+    small {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+  .motionSetting {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    input {
+      width: 120px;
+      font-family: ui-monospace, monospace;
+    }
+  }
+  .motionCheck {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--space2);
+    color: var(--textSecondary);
+    font-size: var(--fontSizeSmall);
+    input {
+      width: 13px;
+      min-height: 13px;
+      height: 13px;
+      flex-shrink: 0;
+      margin-top: 3px;
+      accent-color: var(--actionPrimary);
+    }
+  }
+  .motionActions {
+    display: flex;
+    gap: var(--space2);
+    flex-wrap: wrap;
+    button {
+      flex: 1;
+      font-size: var(--fontSizeSmall);
+    }
+  }
+  details {
+    padding: 8px 10px;
+    border: 1px solid var(--borderSubtle);
+    border-radius: 5px;
+    summary {
+      cursor: pointer;
+      color: var(--textSecondary);
+      font-size: var(--fontSizeSmall);
+    }
+    .motionLayers {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 7px;
+      margin-top: 10px;
+    }
+  }
+  .motionOutputs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space1);
+    button {
+      display: flex;
+      align-items: center;
+      gap: var(--space2);
+      text-align: left;
+      font-size: var(--fontSizeSmall);
+      small {
+        flex: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        max-width: 180px;
+      }
+    }
+  }
+  .motionSummary {
+    margin: 0;
+    padding: 9px;
+    border: 1px solid var(--borderSubtle);
+    border-radius: 5px;
+    color: var(--textSecondary);
+    font-size: var(--fontSizeSmall);
+  }
+  progress {
+    width: 100%;
+    height: 4px;
+    accent-color: var(--actionPrimary);
+  }
+  .motionError {
+    margin: 0;
+    padding: 8px 10px;
+    color: var(--statusError);
+    border: 1px solid var(--statusError);
+    border-radius: 4px;
+    background: var(--surfacePanel);
+    font-size: var(--fontSizeSmall);
+  }
+  .motionSuccess {
+    color: var(--selectionAccent);
+  }
+  .motionPreview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space2);
+    min-width: 0;
+    .motionPreviewStage {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      border: 1px solid var(--borderSubtle);
+      border-radius: var(--radiusPanel);
+      background: #000;
+      video,
+      > svg {
+        display: block;
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      > svg {
+        pointer-events: none;
+      }
+    }
+    > input[type="range"] {
+      width: 100%;
+      min-height: 20px;
+      padding: 0;
+      accent-color: var(--actionPrimary);
+    }
+    figure {
+      margin: var(--space2) 0 0;
+      figcaption {
+        font-size: var(--fontSizeSmall);
+        line-height: var(--lineHeightSmall);
+        color: var(--textSecondary);
+      }
+      svg {
+        display: block;
+        width: 100%;
+        background: var(--surfaceCanvas);
+        border: 1px solid var(--borderSubtle);
+        border-radius: var(--radiusControl);
+        polyline {
+          stroke: var(--actionPrimary);
+          stroke-width: 1.5;
+          fill: none;
+        }
+        line {
+          stroke: var(--textMuted);
+          stroke-width: 1;
+        }
+      }
+    }
+  }
+}
+
+.expandedNodeBody .motionReactNode {
+  width: min(1280px, 100%);
+  padding: 12px;
+  max-width: none;
+  min-width: 0;
+  margin: 0 auto;
+  .motionPreview {
+    display: grid;
+    grid-template-columns: minmax(320px, 2fr) minmax(260px, 1fr);
+    align-items: start;
+    > .motionPreviewStage {
+      grid-column: 1;
+      grid-row: 1 / span 8;
+      min-height: 360px;
+      height: min(56vh, 560px);
+    }
+    > details {
+      grid-column: 2;
+      grid-row: 1 / span 16;
+    }
+    > :not(.motionPreviewStage):not(details) {
+      grid-column: 1;
+    }
+  }
+  @media (max-width: 760px) {
+    .motionPreview {
+      display: flex;
+      > .motionPreviewStage {
+        height: auto;
+        min-height: 0;
+      }
+    }
+  }
+}

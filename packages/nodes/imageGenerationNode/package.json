@@ -1,0 +1,28 @@
+{
+  "name": "@toonflow/node-image-generation",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./react": "./src/reactView.tsx",
+    "./reactPlugin": "./src/reactPlugin.ts"
+  },
+  "dependencies": {
+    "@toonflow/node-image": "workspace:*",
+    "@toonflow/node-shared": "workspace:*",
+    "@toonflow/nodes-scaffold": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2",
+    "@types/react": "^19.0.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "opencinema",
+  "version": "0.4.0",
+  "description": "独立 Go / React 视频工作台，通过标准 MCP 发布可发现、可恢复的创作操作，并提供可选 MCP Apps 界面。",
+  "license": "MIT",
+  "keywords": ["video", "canvas", "blockout", "motion", "collaboration"],
+  "extensions": {
+    "com.openai": {
+      "mcpServers": "./.mcp.json",
+      "interface": {
+        "displayName": "OpenCinema Studio",
+        "shortDescription": "在 Codex 中创作视频",
+        "longDescription": "打开已有 OpenCinema 工程，选择画布节点并交给 Codex 修改，保留节点编辑、保存、撤销重做、Blockout、Motion 和协作。媒体生成继续使用原有供应商能力及用户授权。",
+        "developerName": "OpenCinema",
+        "category": "Productivity",
+        "capabilities": ["Fullscreen canvas", "Node editing", "Project-local persistence", "Blockout", "Motion", "Collaboration"],
+        "defaultPrompt": ["打开当前 OpenCinema 工程。", "读取我在 OpenCinema 中选择的节点，再按我的要求修改并保存。"]
+      }
+    }
+  }
+}

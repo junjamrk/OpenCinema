@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "openCinemaStudio": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/start.ts"]
+    }
+  }
+}

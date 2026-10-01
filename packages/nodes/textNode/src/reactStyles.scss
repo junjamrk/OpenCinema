@@ -1,0 +1,44 @@
+.openCinemaWorkbench {
+  .nodeTextView { display: flex; flex-direction: column; min-width: 0; width: 100%; gap: 8px;
+    .nodeTextToolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; min-width: 0;
+      .nodeTextTabs { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: var(--radiusControl); background: var(--surfaceMedia);
+        > button { min-height: 24px; padding: 3px 6px; border: 0; border-radius: var(--radiusCompact); background: transparent; color: var(--textSecondary); font: 400 11px/16px var(--fontUi); &[aria-selected="true"] { background: var(--surfaceRaised); color: var(--selectionAccent); } }
+      }
+      .nodeTextTools { display: flex; align-items: center; gap: 2px; margin-left: auto;
+        > button { display: grid; place-items: center; width: 24px; height: 24px; min-height: 24px; padding: 4px; border: 0; border-radius: 4px; background: transparent; color: var(--textSecondary); &:hover { color: var(--textPrimary); background: #ffffff0d; } svg { width: 14px; height: 14px; } }
+      }
+    }
+  }
+  .nodeTextBody { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 64px; max-height: 360px; overflow: auto; overscroll-behavior: contain; }
+  .nodeMarkdownContent { min-width: 0; font: var(--fontSizeBody)/var(--lineHeightBody) var(--fontUi, system-ui, sans-serif); color: var(--textPrimary); overflow-wrap: anywhere;
+    > :first-child { margin-top: 0; } > :last-child { margin-bottom: 0; }
+    h1,h2,h3,h4 { font-weight: 600; line-height: 1.4; margin: 1em 0 .5em; }
+    h1 { font-size: 22px; } h2 { font-size: 18px; } h3 { font-size: 15px; }
+    p { margin: 0 0 .7em; } a { color: #2dd4bf; } img { max-width: 100%; height: auto; }
+    blockquote { margin: 10px 0; border-left: 2px solid #53616b; padding-left: 12px; color: #9da4ae; }
+    pre { padding: 10px; border: 1px solid #343840; border-radius: 4px; overflow: auto; background: #15171b; }
+    code { font-family: var(--fontMono, monospace); font-size: 12px; } ul,ol { padding-left: 22px; }
+    table { width: 100%; border-collapse: collapse; } th,td { padding: 6px 8px; border: 1px solid #343840; } th { font-weight: 500; }
+    ul[data-type="taskList"] { padding-left: 0; list-style: none; } li[data-type="taskItem"] { display: flex; gap: 6px; }
+  }
+  .nodeRichEditor { border: 1px solid var(--borderSubtle); border-radius: var(--radiusControl); padding: 8px; min-height: 72px; }
+  .nodeRichEditor .tiptap { outline: none; min-height: 56px; }
+  .nodeTextSource { display: block; width: 100%; min-width: 0; min-height: 96px; resize: vertical; font: 12px/1.6 var(--fontMono, monospace); }
+  .nodeFrameSized .nodeContentMount:has(> .nodeTextView) { height: 100%; }
+  .nodeFrameSized .nodeContentMount > .nodeTextView { height: 100%; min-height: 0;
+    > :not(.nodeTextBody) { flex-shrink: 0; }
+    > .nodeTextBody { flex: 1; min-height: 0; max-height: none;
+      > .nodeActions { flex-shrink: 0; gap: 4px; }
+      > .nodeMarkdownContent { flex-shrink: 0; }
+      > .nodeTextSource { flex: 1; min-height: 0; resize: none; }
+      > .nodeRichEditor { flex: 1; min-height: 0; overflow: auto; .tiptap { min-height: 0; } }
+    }
+  }
+  .nodeTextDialog { width: min(960px, calc(100vw - 64px)); height: calc(100vh - 80px); border: 1px solid var(--borderStrong); border-radius: var(--radiusChrome); background: var(--surfacePanel); color: var(--textPrimary); padding: 16px;
+    > .nodeControls { display: flex; flex-direction: column; height: 100%; min-height: 0; > .nodeActions { flex-shrink: 0; } }
+  }
+  .nodeTextDialog::backdrop { background: #0009; backdrop-filter: blur(6px); }
+  .nodeTextDialog .nodeTextBody { flex: 1; min-height: 0; max-height: none; }
+  .nodeTextDialog .nodeTextSource { flex: 1; min-height: 0; resize: none; }
+  .nodeTextDialog .nodeRichEditor { flex: 1; min-height: 0; .tiptap { min-height: 0; } }
+}

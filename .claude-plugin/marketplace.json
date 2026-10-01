@@ -1,0 +1,16 @@
+{
+  "name": "openCinemaStandalone",
+  "owner": {
+    "name": "OpenCinema"
+  },
+  "metadata": {
+    "description": "OpenCinema Studio 本地构建插件目录；先构建再安装。"
+  },
+  "plugins": [
+    {
+      "name": "opencinema",
+      "source": "./build/openCinema",
+      "description": "Agent 主导的 Go / React 视频画布工作台"
+    }
+  ]
+}

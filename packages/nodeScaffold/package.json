@@ -1,0 +1,40 @@
+{
+  "name": "@toonflow/nodes-scaffold",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./connection": "./src/connection.ts",
+    "./values": "./src/values.ts",
+    "./nodeCapabilities": "./src/nodeCapabilities.ts",
+    "./nodeResources": "./src/nodeResources.ts",
+    "./contracts": "./src/contracts.ts",
+    "./toolErrors": "./src/toolErrors.ts",
+    "./pluginRuntime": "./src/pluginRuntime.ts",
+    "./hostAdapter": "./src/hostAdapter.ts",
+    "./workspaceDocuments": "./src/workspaceDocuments.ts",
+    "./react": "./src/react.ts",
+    "./nodeAiClient": "./src/nodeAiClient.ts",
+    "./nodeFiles": "./src/nodeFiles.ts",
+    "./workbenchServices": "./src/workbenchServices.ts",
+    "./nodePortValues": "./src/nodePortValues.ts",
+    "./reactBuild": "./src/reactBuildConfig.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@toonflow/ffmpeg": "workspace:*",
+    "@toonflow/tools-scaffold": "workspace:*",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@toonflow/file": "workspace:*",
+    "@types/react": "^19.0.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "react": "^19.0.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  }
+}
