@@ -1,88 +1,118 @@
-# OpenCinema Studio
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/logoDark.png">
+    <img src="assets/brand/logoLight.png" alt="OpenCinema" width="460">
+  </picture>
+</p>
 
-**A local video creation workbench operated by your agent.**
+<h3 align="center">Your agent. Your canvas. Your film.</h3>
 
-[中文](readme.md) · [Claude setup](docs/claudeSetup.md) · [Contributing](contributing.md) · [Releases](docs/releaseGuide.md) · [MIT](LICENSE)
+<p align="center">
+  Direct in Codex or Claude. Create, refine, and finish in OpenCinema.<br>
+  A shared canvas for shots, media, previs, and the final edit.
+</p>
 
-OpenCinema combines a React node canvas, Go server and extensible media tools. Codex, Claude Code or another MCP host provides planning and conversation. The workbench owns projects, assets, editing, undo/redo and persistence. There is no separate required desktop application or embedded general chat model.
+<p align="center">
+  <a href="readme.md">中文</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="docs/claudeSetup.md">Claude setup</a> ·
+  <a href="contributing.md">Contributing</a> ·
+  <a href="LICENSE">MIT</a>
+</p>
 
-Version **0.4.0 is unreleased**. The instructions below use a local source checkout or a complete package built for your OS and CPU.
+<p align="center">
+  <a href="assets/promo/openCinemaPromo.mp4">
+    <img src="assets/promo/promoPreview.gif" alt="OpenCinema: AI tools, canvas workflows, providers and plugins" width="960">
+  </a>
+</p>
 
-## Capabilities
+<p align="center">
+  <a href="assets/promo/openCinemaPromo.mp4">Watch the full film · 58 seconds · 1080p</a> ·
+  <a href="assets/promo/promoPoster.jpg">Full-resolution poster</a>
+</p>
 
-- Text, image, video, audio and generation nodes; selection, groups, connections, alignment and history.
-- Local media editors, clipping, speed changes, keyframes and metadata.
-- Blockout scenes, takes, camera moves, full animatics, per-shot RGB/depth snapshots and video depth analysis.
-- Explicit generation plans and reference roles; candidate review, 2–16-shot edit plans, individual shot replacement and a mixed/replaced audio track.
-- Fourteen built-in node/extension packages with discoverable schemas, target/revision guards and operation recovery.
+<p align="center"><sub>Product motion concept. Generated footage depends on the chosen model, references, and shot review.</sub></p>
 
-Completion of a technical task is distinct from an approved shot or a high-quality finished film.
+## One canvas. The whole creative process.
 
-## Source quick start
+- **Selection sets the scope.** Refine one node or direct a whole sequence.
+- **Create with your agent.** Direct from Codex, Claude, or another MCP host.
+- **Edit where your ideas live.** Image, audio, and video tools share the canvas.
+- **Previsualize before you generate.** Stage action and cameras, then freeze per-shot RGB and depth references.
+- **Keep the good takes. Refine the rest.** Review, trim, replace a shot, and render the full edit.
+- **Your models. Your tools.** Extend the workbench through MCP and plugins, using explicitly configured generation services.
 
-Prerequisites: Bun 1.3.14+, Go 1.26+, and Node.js 22+ for the plugin runtime.
+## Start with a conversation
 
-```sh
+1. **Choose the scope.** Select a node or a group of shots and describe the change in the bottom composer.
+2. **See and refine.** Your agent works on the same canvas. Open a local editor, adjust a reference, or keep a take you like.
+3. **Review and finish.** Check the actual footage, revise the affected shots, save the edit plan, and export.
+
+Learn more: [shot workflow](docs/videoShotWorkflow.md) · [video providers](docs/videoProvider.md).
+
+## Quick start
+
+**0.4.0 · In development.** Source builds need **Bun 1.3.14+ and Go 1.26+**. Plugin execution needs **Node.js 22+**.
+
+~~~sh
+git clone https://github.com/junjamrk/OpenCinema.git
+cd OpenCinema
 bun install --frozen-lockfile
 bun run build
 bun start
-```
+~~~
 
-Open http://127.0.0.1:47920 and select your project directory. Builds do not install models, download weights or submit generation requests. For development, explicitly build node packages with `bun run build:nodes`, then run `bun run dev:server` and `bun run dev:web` in separate terminals.
+Open [the local workbench](http://127.0.0.1:47920) and select a project folder. See [contributing](contributing.md) for development and [releases](docs/releaseGuide.md) for complete native packages.
 
-## Claude Code
+### Claude Code
 
-Use the built plugin directory, not its TypeScript source:
+From a fully built checkout, load the plugin for one session:
 
-```sh
-claude plugin validate ./build/openCinema --strict
+~~~sh
 claude --plugin-dir ./build/openCinema
-```
+~~~
 
-Or install from the local marketplace:
+Or install it locally for this project:
 
-```sh
+~~~sh
 claude plugin marketplace add ./ --scope local
 claude plugin install opencinema@openCinemaStandalone --scope local
-```
+~~~
 
-The optional Claude plugin configuration `runtimeInfo` selects an existing local runtime explicitly; leave it empty for managed startup. The reported backend revision remains the actual version.
+Invoke <code>/opencinema:opencinema</code>, read <code>getAppState</code>, then open an existing project. See [Claude setup](docs/claudeSetup.md) for connection options.
 
-Invoke `/opencinema:opencinema`. Discover `getAppState` first, select an explicit project and connection, then discover the actual node tools. Claude Code requires a connected React Web provider for canvas operations. A desktop login does not imply that a separately installed CLI is authenticated. See [Claude setup](docs/claudeSetup.md) for installation, external-runtime connections and troubleshooting.
-
-## Codex
+### Codex
 
 From a fully built checkout:
 
-```sh
+~~~sh
 codex plugin marketplace add . --json
 codex plugin add opencinema@openCinemaStandalone --json
-```
+~~~
 
-Enable OpenCinema Studio, discover its actual tools, call `getAppState`, then use `renderOpenCinema` on a host supporting MCP Apps. The source marketplace points to the ignored build/openCinema directory: cloning this repository as a Git marketplace is not a no-build install. Distribute a complete native package for end users.
+Enable **OpenCinema Studio** and discover the live connection with <code>getAppState</code>. Hosts supporting MCP Apps can open the workbench with <code>renderOpenCinema</code>.
 
-## Media and models
+<details>
+<summary>Runtime and model notes</summary>
 
-FFmpeg/FFprobe are optional local processing tools configured in the workbench. Video Depth Anything Small uses an explicitly prepared Python 3.10–3.12 environment and model weights. Weights are not included.
+- Your host agent provides planning and conversation. React owns editing; Go owns authorization, files, and tasks. The ordinary Web composer needs an online Host to receive and process instructions.
+- Build before installing the source marketplace, or use a complete package matching your OS and CPU. Tool access and visual Widget support depend on the specific host.
+- Specialized generation services are configured separately and may charge fees. A host subscription does not include every video model. Keep credentials local and out of projects and Git.
+- Local processing uses configured FFmpeg/FFprobe. Video Depth Anything Small needs Python 3.10–3.12 and an explicitly prepared environment and weights; builds do not download models.
+- Previs and relative depth are references. Ordinary video references do not guarantee exact motion control. The current edit plan supports 2–16 shots and one external mixed/replaced audio track.
 
-General agent capabilities and specialized video providers are separate. A Codex or Claude subscription does not promise access to every video model or free generation. Configure your own authorized provider locally. Never commit credentials or runtime metadata. Ordinary video references are soft references unless the provider explicitly declares dedicated depth control.
+</details>
 
-A complete workflow is discovery → scoped edits or authorized tasks → actual playback and review → saved edit plan → export → save and readback. See [shot workflow](docs/videoShotWorkflow.md). Preserve rejected candidates and replace only the affected shot.
+## Extend your creative toolkit
 
-## Development and distribution
+A Go service, React canvas, framework-independent editing session, and node SDK make up the workbench. Fourteen built-in node/extension packages share manual and agent operations, discoverable schemas, revision guards, history, save, and readback.
 
-```sh
-bun run typecheck
-bun run build
-bun run release
-```
+[Contributing](contributing.md) · [Node SDK](packages/nodeScaffold/readme.md) · [MCP SDK](packages/mcp/README.md) · [Plugin guide](packages/openCinema/readme.md) · [Changelog](changelog.md)
 
-The release command archives existing build/openCinema output and writes SHA-256 checksums and a release manifest; it does not install dependencies, rebuild or publish. It currently requires system zip on macOS/Linux. Native platform compatibility and actual host execution must be verified separately.
-
-See [contribution guidance](contributing.md), [issue template](docs/issueTemplate.md), [PR template](docs/pullRequestTemplate.md), [security policy](security.md) and [code of conduct](codeOfConduct.md).
+[Issues](https://github.com/junjamrk/OpenCinema/issues) · [Security](security.md) · [Code of conduct](codeOfConduct.md)
 
 ## License and acknowledgments
 
-[MIT](LICENSE), preserving HBAI-Ltd copyright. Third-party components, fonts, icons, model weights and FFmpeg builds retain their own licenses. Packages include [third-party notices](thirdPartyNotices.md), an installed-dependency license catalog and available license texts; this catalog is a dependency superset rather than exact bundle attribution.
+[MIT](LICENSE), preserving HBAI-Ltd copyright. Blockout, Motion, fonts, and icons keep their own licenses; model weights, FFmpeg builds, and user media retain their respective terms. See [third-party notices](thirdPartyNotices.md).
 
-The distribution/documentation approach references [Cowart](https://github.com/zhongerxin/Cowart). OpenCinema retains its own Go/React architecture and explicit host/runtime boundaries.
+The distribution/documentation approach references [Cowart](https://github.com/zhongerxin/Cowart).

@@ -1,142 +1,118 @@
-# OpenCinema Studio
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/logoDark.png">
+    <img src="assets/brand/logoLight.png" alt="OpenCinema" width="460">
+  </picture>
+</p>
 
-**让 Agent 操作完整的视频创作工作台。**
+<h3 align="center">从想法到成片，与 Agent 一起掌镜。</h3>
 
-[English](readmeEn.md) · [Claude 接入](docs/claudeSetup.md) · [开发与贡献](contributing.md) · [发行说明](docs/releaseGuide.md) · [变更记录](changelog.md) · [MIT](LICENSE)
+<p align="center">
+  在 Codex 或 Claude 中对话，在 OpenCinema 中看见、编辑并完成作品。<br>
+  一张画布，连接分镜、素材、白模参考与最终剪辑。
+</p>
 
-OpenCinema 是面向 Codex、Claude Code 和其他 MCP Agent 的本地视频画布。宿主负责规划与对话；React 工作台负责作品、节点、媒体编辑和历史，Go 服务负责文件授权、持久化与任务。没有另一个必需的独立桌面端，也不在插件里重复实现通用聊天模型。
+<p align="center">
+  <a href="readmeEn.md">English</a> ·
+  <a href="#快速开始">快速开始</a> ·
+  <a href="docs/claudeSetup.md">Claude 接入</a> ·
+  <a href="contributing.md">参与开发</a> ·
+  <a href="LICENSE">MIT</a>
+</p>
 
-> 当前版本 **0.4.0，未正式发布**。可从源码构建，或使用维护者为相同操作系统／CPU 架构提供的完整发行包。
+<p align="center">
+  <a href="assets/promo/openCinemaPromo.mp4">
+    <img src="assets/promo/promoPreview.gif" alt="OpenCinema：AI 工具闭环、多节点画布、多 Provider 与插件扩展" width="960">
+  </a>
+</p>
 
-## 可以做什么
+<p align="center">
+  <a href="assets/promo/openCinemaPromo.mp4">观看完整宣传片 · 58 秒 · 1080p</a> ·
+  <a href="assets/promo/promoPoster.jpg">高清封面</a>
+</p>
 
-- **节点画布**：文本、图片、视频、音频与生成节点；多选、分组、连线、对齐、撤销重做、保存与协作入口。
-- **专业编辑**：图片局部编辑台，音视频预览、截取、变速、关键帧和媒体信息；手工与 Agent 共用业务工具。
-- **白模与动作参考**：Blockout 场景、Take、摄影机与完整预演；按镜固定 RGB／Depth 参考，视频深度白模与动作分析。
-- **逐镜制作**：生成计划明确参考职责、请求槽位与源版本；候选审片、2–16 镜剪辑计划、局部换镜、音轨混合／替换与完整成片导出。
-- **可扩展**：14 个内置节点／扩展发行包，公开节点与工作区工具契约，按需发现 Schema、执行状态与恢复方式。
+<p align="center"><sub>产品动效演绎；实际生成效果依所选模型、参考与审片结果而定。</sub></p>
 
-画布是作品，不是模型连线样例。一次可靠操作包括：发现当前能力 → 固定目标和版本 → 执行 → 观察实际产物 → 保存 → 回读。技术任务完成不自动表示审片通过。
+## 一张画布，贯穿创作全程
 
-## 选择运行方式
+- **选中，即是创作范围。** 选择一个节点精修细节，或选择一组节点组织整段创作。
+- **与熟悉的 Agent 一起创作。** 在 Codex、Claude 或其他 MCP 宿主中发出指令，画布展示实际结果。
+- **素材编辑，就在画布里。** 图片局部编辑台与音视频工具，保留手工操作的精细控制。
+- **先看清镜头，再开始生成。** 用 Blockout 编排走位、摄影机与预演，固定每一镜的 RGB／Depth 参考。
+- **保留好镜头，只返修需要的部分。** 审阅候选、调整采用范围、替换单镜，再输出完整剪辑。
+- **你的模型，你的工具。** 通过公开 MCP 与插件接口扩展工作台，连接明确配置的生成服务。
 
-| 入口 | 需要什么 | 说明 |
-| --- | --- | --- |
-| Claude Code 插件 | Node.js 22+、已登录的 Claude Code、完整发行目录 | 标准 MCP 工具；可视化依赖同一 React Web provider。 |
-| Codex 插件 | Node.js 22+、支持插件的 Codex、完整发行目录 | 支持 MCP Apps 的宿主可打开原生 Widget，须实际确认工具和连接。 |
-| 普通 Web + MCP Agent | Go Web 服务或发行启动器、浏览器、MCP 客户端 | 画布底部输入需要实际宿主接收与处理；仅打开网页不等于 Agent 在线。 |
+## 创作，从一次对话开始
 
-Claude Code、Claude 桌面端的 Code 会话、claude.ai／Cowork 和 Codex Widget 的支持情况不可互相推断。详细步骤见 [Claude 接入](docs/claudeSetup.md)。
+1. **圈定目标。** 打开工程，选择一个节点或一组镜头，在底部写下创作要求。
+2. **边看边改。** Agent 操作同一张画布；你随时打开局部编辑台、调整参考或保留一个满意版本。
+3. **审阅并完成。** 检查实际画面，只返修需要的镜头，保存剪辑计划并导出成片。
 
-## 从源码启动 Web
+深入了解：[镜头工作流](docs/videoShotWorkflow.md) · [视频供应商](docs/videoProvider.md)。
 
-需要 **Bun 1.3.14+、Go 1.26+**；运行插件另需 **Node.js 22+**。以下命令在仓库根目录执行：
+## 快速开始
 
-```sh
+当前版本 **0.4.0 · 开发中**。从源码运行需要 **Bun 1.3.14+、Go 1.26+**；插件运行需要 **Node.js 22+**。
+
+~~~sh
+git clone https://github.com/junjamrk/OpenCinema.git
+cd OpenCinema
 bun install --frozen-lockfile
 bun run build
 bun start
-```
+~~~
 
-打开 [本地工作台](http://127.0.0.1:47920)，选择自己的工程目录。已有画布保持原文件格式，素材位于工程内。构建不会安装模型、下载权重或发起媒体生成。
+打开 [本地工作台](http://127.0.0.1:47920)，选择工程目录即可开始。开发模式见 [贡献指南](contributing.md)，完整平台归档见 [发行指南](docs/releaseGuide.md)。
 
-开发时先显式构建内置插件，再分终端运行：
+### Claude Code
 
-```sh
-bun run build:nodes
-bun run dev:server
-```
+在完成构建的仓库中，为当前会话加载：
 
-```sh
-bun run dev:web
-```
-
-Vite 默认代理到本机 Go 的 47920 端口。每次修改源码后按对应包重新构建；开发服务不会悄悄安装依赖或运行检查。
-
-## 在 Claude Code 使用
-
-完整构建后，可只为当前会话加载：
-
-```sh
-claude plugin validate ./build/openCinema --strict
+~~~sh
 claude --plugin-dir ./build/openCinema
-```
+~~~
 
-也可将此仓库注册为本地 marketplace，然后只在当前工程安装：
+也可安装为当前工程的插件：
 
-```sh
+~~~sh
 claude plugin marketplace add ./ --scope local
 claude plugin install opencinema@openCinemaStandalone --scope local
-```
+~~~
 
-旧运行实例仍由其他聊天使用时，可通过插件runtimeInfo可选项显式接入该实例，保持真实后端版本；详见[实例连接](docs/claudeSetup.md)。
+调用 <code>/opencinema:opencinema</code>，先读取 <code>getAppState</code>，再打开已有工程。更多连接方式见 [Claude 接入](docs/claudeSetup.md)。
 
-加载后调用 `/opencinema:opencinema`，先让 Claude 读取 `getAppState`，再指定已有工程。未登录时，Claude Code 官方 CLI 的 `claude auth status` 会说明；桌面端登录不代表另装的 CLI 已登录。不要复制或共享认证文件。
+### Codex
 
-插件使用 **build/openCinema**，不要把未打包的 packages/openCinema 源码目录当成 Node 发行包。安装后按宿主官方入口重新加载插件；不要改缓存、抢锁或强停其他聊天。
+在完成构建的仓库中：
 
-## 在 Codex 使用
-
-在当前已完整构建的源码目录中：
-
-```sh
+~~~sh
 codex plugin marketplace add . --json
 codex plugin add opencinema@openCinemaStandalone --json
-```
+~~~
 
-选择 **OpenCinema Studio**，确认实际存在 `openCinemaStudio` 工具，再读取 `getAppState`；支持 MCP Apps 时调用 `renderOpenCinema`。源码 marketplace 引用被 Git 忽略的 build/openCinema，所以**不能把源码 Git URL 当作无需构建的现成安装源**。面向新用户应分发完整平台归档，见 [发行指南](docs/releaseGuide.md)。
+启用 **OpenCinema Studio**，通过 <code>getAppState</code> 读取当前连接；支持 MCP Apps 的宿主可用 <code>renderOpenCinema</code> 打开工作台。
 
-## 一次最小创作流程
+<details>
+<summary>运行方式与模型说明</summary>
 
-1. 打开已有工程与画布，选择一个或一组节点。
-2. 在底部输入创作要求。单选约束到该节点，多选约束到所选组；宿主按当次冻结目标执行。
-3. Agent 读取实际节点和工具 Schema，再修改或提交已授权任务；节点与专业编辑台展示同一状态。
-4. 播放真实候选，记录采用范围与审片结论。拒收保留原片；仅返修对应镜头。
-5. 保存完整剪辑计划，处理逐镜阻塞，再导出新成片；保存并回读工程与实际文件。
+- Codex、Claude Code 和其他 MCP Agent 提供规划与对话，React 工作台负责编辑，Go 服务负责授权、文件和任务。普通 Web 的底部输入需要在线 Host 接收与处理。
+- 源码 marketplace 引用构建目录；先构建再安装，或使用匹配本机系统与架构的完整发行包。插件工具与可视化 Widget 的支持取决于具体宿主。
+- 专用生成服务独立配置，可能计费；宿主订阅不包含所有视频模型。凭据留在本机，不进入工程或版本库。
+- 本地处理使用显式配置的 FFmpeg／FFprobe。Video Depth Anything Small 需要 Python 3.10–3.12，以及显式准备的运行环境和权重；构建不会自动下载模型。
+- 白模与相对深度用于预演和参考；普通视频参考不保证模型严格复现运动。当前剪辑计划支持 2–16 镜及单条外部音轨混合／替换。
 
-更多：[镜头工作流](docs/videoShotWorkflow.md) · [视频供应商](docs/videoProvider.md)。
+</details>
 
-## 模型与可选工具
+## 为创作扩展工具
 
-通用规划、文本和宿主具备的生成能力由宿主 Agent 提供。专用视频供应商及本地模型使用明确配置和授权；**Codex／Claude 登录不等于拥有所有视频模型或免费生成额度**。
+Go 服务、React 画布、框架无关编辑会话和节点 SDK 共同构成工作台。14 个内置节点／扩展共享手工与 Agent 操作；通过实际 Schema 发现工具，并保留修订、撤销重做、保存与回读。
 
-- FFmpeg／FFprobe 用于本地处理，在设置中配置并确认实际可用版本。
-- Video Depth Anything **Small** 是原视频转相对深度的独立处理链，需要 Python 3.10–3.12 和用户显式准备的运行环境／权重；不是普通灰度滤镜，也不随发行包附送权重。
-- 白模 Depth 可作为参考媒体；供应商未声明专用 Depth Control 时仍是普通视频软参考，不能保证严格复现运动。
-- 真实生成可能计费，需要用户自己的可用服务和凭据。凭据只在本机配置，不进画布、文档、日志或插件 manifest；欠费等明确拒绝不循环重试。
+[开发与贡献](contributing.md) · [节点 SDK](packages/nodeScaffold/readme.md) · [MCP SDK](packages/mcp/README.md) · [插件说明](packages/openCinema/readme.md) · [变更记录](changelog.md)
 
-## 开发与架构
-
-| 路径 | 职责 |
-| --- | --- |
-| apps/web | React 工作台、画布会话、宿主适配 |
-| apps/server/go | Go HTTP／MCP、授权、原子文件与媒体任务 |
-| packages/workbenchCore | 框架无关会话、命令与协议 |
-| packages/nodeScaffold / nodeShared | 节点 SDK 与共享媒体交互 |
-| packages/nodes | 14 个内置业务节点／扩展 |
-| packages/mcp / openCinema | MCP、Widget、宿主 manifest 与自包含发行 |
-| packages/file | TypeScript 统一文件原语 |
-
-`@toonflow/*` 包名及 `toonflowCanvas` 标记保留文件格式兼容，不依赖原仓库目录。开发规范见 [贡献指南](contributing.md)。
-
-```sh
-bun run typecheck
-bun run build
-bun run release
-```
-
-最后一步只将已有 build/openCinema 打成平台 ZIP，输出 SHA-256 和发行清单，不隐式安装、构建或发布。当前归档命令支持有系统 zip 的 macOS／Linux；其他系统的运行与打包须分别验证。
-
-## 当前边界与反馈
-
-- 普通 Web 的底部对话需要实际在线 Host；Go 服务不另造画布执行器。
-- Claude Code 的工具连通不能证明 Claude 可视化 Widget 已挂载。
-- 当前剪辑计划为 2–16 镜、单条外部音轨混合／替换；不是完整多轨声音编辑器。
-- 白模预演、技术合成和商业影片质量是不同交付，不能以几秒功能片段或成功回执冒充完整影片。
-- [问题反馈模板](docs/issueTemplate.md) · [PR 模板](docs/pullRequestTemplate.md) · [安全说明](security.md) · [行为准则](codeOfConduct.md)。
+[问题反馈](https://github.com/junjamrk/OpenCinema/issues) · [安全说明](security.md) · [行为准则](codeOfConduct.md)
 
 ## 许可与致谢
 
-本项目采用 [MIT](LICENSE)，保留 HBAI-Ltd 原版权。Blockout／Motion 等第三方组件、图标和字体另遵其原许可；模型权重、FFmpeg 构建及用户素材不自动归入本项目 MIT。见 [第三方声明](thirdPartyNotices.md)，发行包同时附带本机安装依赖许可清单与可获得的原许可文件。
+[MIT](LICENSE)，保留 HBAI-Ltd 原版权。Blockout、Motion、字体、图标等保留各自许可；模型权重、FFmpeg 构建及用户素材遵循各自条款。详见 [第三方声明](thirdPartyNotices.md)。
 
-插件分发与文档结构参考 [Cowart](https://github.com/zhongerxin/Cowart)；OpenCinema 保留自己的 Go／React、MCP 与视频制作边界，不复制其认证或运行数据。
+插件分发与文档结构参考 [Cowart](https://github.com/zhongerxin/Cowart)。
