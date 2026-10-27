@@ -1,0 +1,32 @@
+{
+  "name": "opencinema",
+  "displayName": "OpenCinema Studio",
+  "version": "0.4.0",
+  "description": "通过标准 MCP 操作独立 Go / React 视频工作台，按需发现节点工具并核实任务与保存；可视化界面支持由具体宿主决定。",
+  "author": {
+    "name": "OpenCinema"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": {
+    "openCinemaStudio": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/start.ts"
+      ],
+      "env": {
+        "OPENCINEMA_RUNTIME": "${user_config.runtimeInfo}"
+      }
+    }
+  },
+  "userConfig": {
+    "runtimeInfo": {
+      "type": "file",
+      "title": "已有本机实例（可选）",
+      "description": "复用同一工作台时选择当前用户的runtime.json绝对路径；留空由插件管理启动。不要填写令牌或其他配置文件。",
+      "required": false,
+      "default": ""
+    }
+  }
+}

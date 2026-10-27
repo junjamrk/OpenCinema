@@ -1,0 +1,28 @@
+{
+  "name": "@toonflow/node-video-generation",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./react": "./src/reactView.tsx",
+    "./reactPlugin": "./src/reactPlugin.ts"
+  },
+  "dependencies": {
+    "@toonflow/node-video-depth": "workspace:*",
+    "@toonflow/node-shared": "workspace:*",
+    "@toonflow/nodes-scaffold": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

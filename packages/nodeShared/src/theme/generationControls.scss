@@ -1,0 +1,36 @@
+.openCinemaWorkbench .nodeControls {
+  .nodeMediaStageGenerating { position: relative; min-height: 180px; aspect-ratio: 16 / 9; }
+  .nodeGenerationLoading {
+    --generationMono: var(--fontMono);
+    --generationUi: var(--fontUi);
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; isolation: isolate; background: var(--surfaceMedia); color: var(--textPrimary); animation: generationReveal var(--motionControl) var(--easeStandard);
+    .nodeGenerationPrior { position: absolute; inset: 0; filter: blur(20px) saturate(.8) brightness(.65); transform: scale(1.1); opacity: .7; background: radial-gradient(ellipse at 30% 65%, color-mix(in srgb, var(--selectionAccent) 36%, transparent), transparent 65%), radial-gradient(ellipse at 80% 30%, color-mix(in srgb, var(--selectionAccent) 20%, transparent), transparent 70%); img { width: 100%; height: 100%; object-fit: cover; } }
+    .nodeGenerationAmbient { position: absolute; inset: 0; background: linear-gradient(135deg, var(--surfaceSelected), transparent 45%, color-mix(in srgb, var(--surfaceMedia) 40%, transparent)); }
+    .nodeGenerationBeam { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--selectionAccent) 20%, transparent), transparent); transform: skewX(-12deg); animation: generationPulse 2.2s ease-in-out infinite; }
+    .nodeGenerationScan { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--selectionAccent) 50%, transparent), transparent) 0 0 / 100% 1px no-repeat; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--selectionAccent) 26%, transparent)); animation: generationScan 3.6s linear infinite; }
+    .nodeGenerationBadge { position: absolute; top: 8px; right: 8px; padding: 2px 6px; border-radius: 2px; color: var(--selectionAccent); background: var(--surfaceSelected); font: 400 10px/12px var(--generationMono); letter-spacing: .02em; }
+    .nodeGenerationCapsule { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; min-width: 0; max-width: calc(100% - 24px); padding: 8px 14px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusChrome); background: color-mix(in srgb, var(--surfaceRaised) 85%, transparent); backdrop-filter: blur(12px); box-shadow: var(--shadowFloat); }
+    .nodeGenerationRadial { position: relative; flex: 0 0 16px; width: 16px; height: 16px; display: grid; place-items: center; svg { width: 100%; height: 100%; transform: rotate(-90deg); animation: generationSpin 1.2s linear infinite; } circle { fill: none; stroke: var(--surfacePressed); stroke-width: 4; } .nodeGenerationArc { stroke: var(--selectionAccent); stroke-linecap: round; stroke-dasharray: 48 52; } i { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--selectionAccent); animation: generationPing 1.8s cubic-bezier(0, 0, .2, 1) infinite; } }
+    .nodeGenerationCopy { display: grid; min-width: 0; gap: 2px; strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--selectionAccent); font: 500 11px/14px var(--generationMono); } small { font: 400 11px/14px var(--generationUi); color: var(--textSecondary); white-space: nowrap; } }
+    .nodeGenerationCapsule button { display: grid; place-items: center; flex-shrink: 0; padding: 4px; width: 24px; height: 24px; border: 0; border-radius: var(--radiusControl); background: transparent; color: var(--textMuted); font: 400 15px/16px var(--fontUi); transition: background-color var(--motionControl) var(--easeStandard), color var(--motionControl) var(--easeStandard), scale var(--motionFast) var(--easeStandard); &:hover:not(:disabled) { background: var(--statusErrorSurface); color: var(--statusError); } &:active:not(:disabled) { background: var(--surfacePressed); scale: .98; } }
+    .nodeGenerationElapsed { position: absolute; right: 8px; bottom: 8px; padding: 2px 6px; border-radius: 2px; background: color-mix(in srgb, var(--surfaceMedia) 80%, transparent); color: var(--textMuted); font: 400 10px/12px var(--generationMono); font-variant-numeric: tabular-nums; }
+  }
+}
+@keyframes generationPulse { 0%, 100% { opacity: .3; translate: -35% 0; } 50% { opacity: 1; translate: 35% 0; } }
+@keyframes generationSpin { to { transform: rotate(270deg); } }
+@keyframes generationPing { 75%, 100% { transform: scale(2); opacity: 0; } }
+@keyframes generationScan { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes generationReveal { from { opacity: 0; } to { opacity: 1; } }
+@media (pointer: coarse) {
+  .openCinemaWorkbench .nodeControls {
+    .nodeGenerationLoading .nodeGenerationCapsule button { width: var(--controlTouchTarget); height: var(--controlTouchTarget); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .openCinemaWorkbench .nodeGenerationLoading {
+    animation: none;
+    .nodeGenerationBeam, .nodeGenerationScan, .nodeGenerationRadial svg, .nodeGenerationRadial i { animation: none !important; }
+    .nodeGenerationBeam { opacity: 0.3; }
+    .nodeGenerationScan, .nodeGenerationRadial i { display: none; }
+  }
+}

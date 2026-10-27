@@ -1,0 +1,21 @@
+{
+  "name": "@toonflow/ffmpeg",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./types": "./src/types.ts",
+    "./browser": "./src/browser.ts",
+    ".": "./src/browser.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@renmu/fluent-ffmpeg": "2.3.3",
+    "eventsource-parser": "3.1.1"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}

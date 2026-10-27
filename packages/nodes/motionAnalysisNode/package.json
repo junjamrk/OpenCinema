@@ -1,0 +1,32 @@
+{
+  "name": "@toonflow/node-motion-analysis",
+  "version": "4.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --config viteConfig.ts",
+    "dev": "vite build --watch --config viteConfig.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./react": "./src/reactView.tsx",
+    "./reactPlugin": "./src/reactPlugin.ts"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.1",
+    "@toonflow/ffmpeg": "workspace:*",
+    "@toonflow/node-shared": "workspace:*",
+    "@toonflow/nodes-scaffold": "workspace:*",
+    "fflate": "^0.8.3",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "sass": "^1.104.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

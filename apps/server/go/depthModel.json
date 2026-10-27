@@ -1,0 +1,112 @@
+{
+  "id": "videoDepthAnythingSmall",
+  "revision": "256875362cff76724b920335dfb4b29dd611f66e",
+  "backend": "pytorch",
+  "sourceRevision": "4f5ae23172ba60fd7bc11ef671cca678842c7072",
+  "sourceArchiveSha256": "c6b168840ef9c3bea586eb60cda474d01b840843cc68dee58eee36e11ab6c087",
+  "sourceArchiveSize": 7868252,
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "name": "video_depth_anything_vits.pth",
+      "sha256": "13379300b739e659f076a59d52e9801bd8d38c541a7e71f73bbca4dcfb013609",
+      "size": 116440756
+    },
+    {
+      "name": "source/LICENSE",
+      "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "size": 11356
+    },
+    {
+      "name": "source/utils/util.py",
+      "sha256": "f02cf85f5a9543ce0f832a4fde1492076026650c8eb25c6a8cc4315bf67a8ed2",
+      "size": 2449
+    },
+    {
+      "name": "source/video_depth_anything/dinov2.py",
+      "sha256": "d22df8d0da44c8525ebed898fd9c33b3acfcda919a84d577cc2a08bfd3d50ac1",
+      "size": 15178
+    },
+    {
+      "name": "source/video_depth_anything/dinov2_layers/__init__.py",
+      "sha256": "e3c28c7b775165b6844000eb69f44d104d6c3803ac7da5d59f6ac3ecfb46d9d8",
+      "size": 382
+    },
+    {
+      "name": "source/video_depth_anything/dinov2_layers/attention.py",
+      "sha256": "0d2410ce8b8b4499a6b0cdab939ae2bceab8971efd8660d999b0f3088f28cbf7",
+      "size": 2343
+    },
+    {
+      "name": "source/video_depth_anything/dinov2_layers/block.py",
+      "sha256": "093266ea08084c7cce7b8ddd779ecfaaa13055735faa8a7d68b5924f385b395b",
+      "size": 9332
+    },
+    {
+      "name": "source/video_depth_anything/dinov2_layers/drop_path.py",
+      "sha256": "949100aac4d9c19c9d65319dbd362886c5d46a72d7586ba4fd500e9f1d51570c",
+      "size": 1160
+    },
+    {
+      "name": "source/video_depth_anything/dinov2_layers/layer_scale.py",
+      "sha256": "356817b5d1390737128cbcc03a5333fd3060b73beae478772282ccb851d0ef85",
+      "size": 823
+    },
+    {
+      "name": "source/video_depth_anything/dinov2_layers/mlp.py",
+      "sha256": "c18c5b3f021408597a473bb710070ec3fb3b39f5a2e42e88ae83ced425a608b5",
+      "size": 1272
+    },
+    {
+      "name": "source/video_depth_anything/dinov2_layers/patch_embed.py",
+      "sha256": "b3f82e19926c9cfb63f10136aca5e8a723bde1ad62dae1d04f90d405f9439baf",
+      "size": 2832
+    },
+    {
+      "name": "source/video_depth_anything/dinov2_layers/swiglu_ffn.py",
+      "sha256": "df81d9901240214edc1831ce1b77558dcd6227b29a2f000fc5f546df55d2d09a",
+      "size": 1859
+    },
+    {
+      "name": "source/video_depth_anything/dpt.py",
+      "sha256": "4751fac16206892889d74fd7f564f275e0efa3a903172c9350a1b55ed850c7d8",
+      "size": 5467
+    },
+    {
+      "name": "source/video_depth_anything/dpt_temporal.py",
+      "sha256": "b80c448f4fe66d0ca7092be887c0ea3925a4ce7c03cffa0083480e7e2f55805d",
+      "size": 5909
+    },
+    {
+      "name": "source/video_depth_anything/motion_module/attention.py",
+      "sha256": "15e4049641f04f73027ea520ada3ba2c81196cea1339f0d6a6063d944df61c8b",
+      "size": 16719
+    },
+    {
+      "name": "source/video_depth_anything/motion_module/motion_module.py",
+      "sha256": "73d6a9cee40681532ae2603dd426405e840dc5c592a313005fa367f6fe4c69e8",
+      "size": 12744
+    },
+    {
+      "name": "source/video_depth_anything/util/blocks.py",
+      "sha256": "8a9fde84bddbfa2498b5f5ef06895ddc941c1fc12c5919e9891fad481997b7dd",
+      "size": 4064
+    },
+    {
+      "name": "source/video_depth_anything/util/transform.py",
+      "sha256": "a97df1dbb687457a40c387fdc3482edee7ddc5c142c7d2735ca6235a8ae2885f",
+      "size": 6075
+    },
+    {
+      "name": "source/video_depth_anything/video_depth.py",
+      "sha256": "208e882d60a41434b3a0d9935a7025b01cce0756c17b3d889c6db0c4c945eb29",
+      "size": 6712
+    },
+    {
+      "name": "source/video_depth_anything/video_depth_stream.py",
+      "sha256": "23ebab70525f318cf0bfeba38dfcac3f1c345ba50aaa1bb5c6dbae671b0caa6d",
+      "size": 6833
+    }
+  ],
+  "fingerprint": "65131c8e43421ed4a1ec56a6ddc85497b5c5047432e612daa1f7e34ebc5d9d7c"
+}

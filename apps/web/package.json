@@ -1,0 +1,52 @@
+{
+  "name": "@toonflow/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@tabler/icons-react": "^3.0.0",
+    "@toonflow/ffmpeg": "workspace:*",
+    "@toonflow/node-audio": "workspace:*",
+    "@toonflow/node-audio-generation": "workspace:*",
+    "@toonflow/node-blockout": "workspace:*",
+    "@toonflow/node-collaboration": "workspace:*",
+    "@toonflow/node-director3d": "workspace:*",
+    "@toonflow/node-frame-analysis": "workspace:*",
+    "@toonflow/node-image": "workspace:*",
+    "@toonflow/node-image-generation": "workspace:*",
+    "@toonflow/node-media-info": "workspace:*",
+    "@toonflow/node-motion-analysis": "workspace:*",
+    "@toonflow/node-shared": "workspace:*",
+    "@toonflow/node-text": "workspace:*",
+    "@toonflow/node-video": "workspace:*",
+    "@toonflow/node-video-generation": "workspace:*",
+    "@toonflow/nodes-scaffold": "workspace:*",
+    "@toonflow/tool-canvas": "workspace:*",
+    "@toonflow/tools-scaffold": "workspace:*",
+    "@toonflow/workbench-core": "workspace:*",
+    "@xyflow/react": "^12.0.0",
+    "axios": "^1.20.0",
+    "eventsource-parser": "3.1.1",
+    "motion": "14.6.0",
+    "zod": "^4.6.2",
+    "react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "@toonflow/node-video-depth": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "sass": "^1.104.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  }
+}

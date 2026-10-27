@@ -1,0 +1,89 @@
+.openCinemaWorkbench .nodeControls {
+  .nodeReferences { min-width: 0; }
+  .nodeReferenceStrip { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .nodeReferenceCaption { flex-shrink: 0; color: var(--textMuted); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); }
+  .imageGridPreview { position: relative; img { display: block; width: 100%; } > div { display: grid; position: absolute; inset: 0; span { border: 1px solid #4fdbc880; padding: 2px; color: #fff; text-shadow: 0 1px 3px #000; font: 10px/14px var(--fontMono); } } }
+  .nodeAudioClipEditor { display: grid; gap: 8px; .nodeClipTrack { position: relative; height: 110px; background: var(--surfaceMedia); border-radius: var(--radiusCompact); overflow: hidden; > button { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; padding: 8px; border: 1px solid var(--borderSelected); border-radius: var(--radiusCompact); background: var(--surfaceSelected); color: var(--selectionAccent); overflow: hidden; text-align: left; &[aria-pressed="true"] { border-color: var(--selectionAccent); box-shadow: inset 0 0 0 1px var(--selectionAccent); background: rgba(45, 212, 191, 0.18); } &:focus-visible { outline-offset: -3px; } > span, > small { z-index: 1; white-space: nowrap; font: 11px/14px var(--fontMono); font-variant-numeric: tabular-nums; } svg { position: absolute; top: 30px; height: 50px; fill: currentColor; opacity: .5; pointer-events: none; } } .nodeClipPlayhead { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--statusError); pointer-events: none; } } }
+  .nodeReferenceCards { display: flex; min-width: 0; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; padding: 4px; scroll-padding-inline: 4px; }
+  .nodeReferenceCard {
+    flex: 0 0 56px; min-width: 0;
+    .nodeReferencePreview { position: relative; padding: 0; width: 100%; height: 40px; overflow: hidden; background: var(--surfaceMedia); &:hover { border-color: var(--borderSelected); }
+      img, video { width: 100%; height: 100%; object-fit: cover; }
+      > span:not(.nodeReferenceBadge) { font-size: 10px; }
+    }
+    .nodeReferenceBadge { position: absolute; top: 2px; left: 2px; background: #292a2de6; padding: 0 4px; border-radius: 2px; font: 10px/14px var(--fontMono); font-variant-numeric: tabular-nums; }
+  }
+  .nodeReferenceActions { gap: 6px;
+    button, a { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    a { min-height: var(--controlMinTarget); padding: 8px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusControl); &:hover { background: var(--surfaceHover); } }
+    .nodeReferenceDisconnect { margin-left: auto; color: var(--statusError); }
+  }
+  .nodeMediaDialog {
+    position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; box-sizing: border-box; margin: 0; width: 100vw; max-width: none; height: 100vh; height: 100dvh; max-height: none; padding: 24px; border: 0; background: var(--surfaceScrim); color: inherit; animation: nodeMediaDialogReveal var(--motionControl) var(--easeStandard);
+    &:not([open]) { display: none; }
+    > section { display: grid; gap: 12px; width: min(1100px, 90vw); max-height: 90vh; max-height: 90dvh; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 16px; border: 1px solid var(--borderStrong); border-radius: var(--radiusPanel); background: var(--surfacePanel); box-shadow: var(--shadowFloat); animation: nodeMediaDialogContentReveal var(--motionPanel) var(--easeEnter); }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; strong { font-size: var(--fontSizeTitle); font-weight: var(--fontWeightTitle); line-height: var(--lineHeightTitle); } }
+    img, video { display: block; max-width: 100%; max-height: 72vh; width: auto; height: auto; margin: auto; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+    .nodeShotDialog { display: grid; gap: 12px; width: min(760px, 100%); margin-inline: auto;
+      > p { margin: 0; }
+      textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+      > video { width: 100%; max-height: 42vh; }
+      .nodeShotPlanReferences { display: grid; gap: 4px; margin-bottom: 10px; color: var(--textSecondary); font-size: var(--fontSizeSmall); }
+      .nodeEditPlanSummary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px;
+        > strong { font-weight: var(--fontWeightMedium); font-variant-numeric: tabular-nums; }
+        > span { color: var(--textSecondary); font-size: var(--fontSizeSmall); }
+        > button { margin-left: auto; }
+      }
+      .nodeEditPlanClips { display: grid; gap: 12px; }
+      .nodeEditPlanClip { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusControl);
+        &.nodeEditPlanClipBlocked { border-color: color-mix(in srgb, var(--statusError) 45%, var(--borderSubtle)); }
+        > p { margin: 0; }
+        .nodeActions strong { min-width: 0; margin-right: auto; font-weight: var(--fontWeightMedium); overflow-wrap: anywhere; }
+        .nodeActions button { display: grid; place-items: center; min-width: var(--controlMinTarget); padding: 4px; }
+        .nodeEditPlanSource { display: grid; gap: 6px; min-width: 0; color: var(--textMuted); font-size: var(--fontSizeSmall);
+          > summary { cursor: pointer; padding-block: 4px; }
+          > input { width: 100%; box-sizing: border-box; }
+          > p { margin: 6px 0 0; overflow-wrap: anywhere; }
+        }
+        .nodeEditPlanLocate { justify-self: start; }
+      }
+      .nodeReviewComparison { display: grid; gap: 12px; min-width: 0;
+        .nodeReviewReference { min-width: 0; border: 1px solid var(--borderSubtle); border-radius: var(--radiusControl);
+          > summary { padding: 8px 10px; color: var(--textSecondary); cursor: pointer; font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); &:hover { color: var(--textPrimary); } }
+        }
+        .nodeReviewReferenceBody { display: grid; gap: 8px; min-width: 0; padding: 8px 10px 10px;
+          > p { margin: 0; }
+          > img { width: 100%; max-height: 38vh; object-fit: contain; border-radius: var(--radiusControl); background: var(--surfaceMedia); }
+        }
+        .nodeReviewReferenceFile { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--textMuted); font-size: var(--fontSizeSmall); }
+        .nodeReviewCandidate { display: grid; align-content: start; gap: 8px; min-width: 0; border: 1px solid var(--borderSubtle); border-radius: var(--radiusControl);
+          > h4 { margin: 0; padding: 8px 10px; font: var(--fontWeightMedium) var(--fontSizeSmall)/var(--lineHeightSmall) var(--fontUi); color: var(--textSecondary); }
+          > p { margin: 0; padding: 8px 10px 10px; }
+          > .nodeVideoPreview { width: calc(100% - 20px); margin: 0 10px 10px; }
+        }
+        .nodeVideoPreview { max-height: 38vh; > video { max-height: 38vh; } }
+        &.nodeReviewComparisonOpen { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+      }
+      .nodeReviewCompareControls { display: grid; gap: 6px; > p { margin: 0; } }
+    }
+  }
+}
+
+@media (max-width: 680px) {
+  .openCinemaWorkbench .nodeControls .nodeMediaDialog .nodeShotDialog .nodeReviewComparison.nodeReviewComparisonOpen { grid-template-columns: minmax(0, 1fr); }
+}
+
+@keyframes nodeMediaDialogReveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nodeMediaDialogContentReveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (pointer: coarse) {
+  .openCinemaWorkbench .nodeControls {
+    .nodeReferenceCard { flex-basis: 64px; .nodeReferencePreview { height: 48px; } }
+    .nodeReferenceActions a { min-width: var(--controlTouchTarget); min-height: var(--controlTouchTarget); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .openCinemaWorkbench .nodeControls .nodeMediaDialog, .openCinemaWorkbench .nodeControls .nodeMediaDialog > section { animation: none; }
+}

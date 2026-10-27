@@ -1,0 +1,8 @@
+{
+  "name": "@opencinema/plugin",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "bun scripts/build.ts", "typecheck": "tsc" },
+  "dependencies": { "@toonflow/file": "workspace:*", "@toonflow/mcp": "workspace:*", "zod": "^4.6.2" }
+}

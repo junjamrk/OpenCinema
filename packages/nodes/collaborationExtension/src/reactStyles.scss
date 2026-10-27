@@ -1,0 +1,215 @@
+.collaborationReactPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space4);
+  width: 100%;
+  padding: var(--space4);
+  color: var(--textPrimary);
+  font: var(--fontSizeBody) / var(--lineHeightBody) var(--fontUi);
+  p {
+    margin: 0;
+    color: var(--textSecondary);
+  }
+  small {
+    color: var(--textMuted);
+    font-size: var(--fontSizeSmall);
+    line-height: var(--lineHeightSmall);
+  }
+  strong {
+    font-size: inherit;
+    font-weight: var(--fontWeightTitle);
+  }
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space2);
+    color: var(--textSecondary);
+  }
+  button,
+  input,
+  select,
+  textarea {
+    min-height: 34px;
+    padding: 7px 10px;
+    color: inherit;
+    font: inherit;
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusControl);
+    background: var(--surfaceToolbar);
+  }
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    width: 100%;
+  }
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    &:hover:not(:disabled) {
+      border-color: var(--borderStrong);
+      background: var(--surfaceHover);
+    }
+    &:disabled {
+      cursor: default;
+      opacity: var(--disabledOpacity);
+    }
+    &[data-tone="danger"] {
+      color: var(--statusError);
+    }
+  }
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible,
+  summary:focus-visible {
+    outline: var(--focusRing);
+    outline-offset: var(--focusOffset);
+  }
+  .collaborationPrimary {
+    color: var(--textOnPrimary);
+    background: var(--actionPrimary);
+    border-color: transparent;
+    font-weight: var(--fontWeightMedium);
+    &:hover:not(:disabled) {
+      border-color: transparent;
+      background: var(--actionPrimaryHover);
+    }
+  }
+  .collaborationState {
+    display: flex;
+    align-items: center;
+    gap: var(--space2);
+    > .nodeIcon {
+      color: var(--textMuted);
+      flex-shrink: 0;
+    }
+    > div {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      span {
+        color: var(--textMuted);
+      }
+    }
+    &[data-state="connected"] > .nodeIcon {
+      color: var(--statusSuccess);
+    }
+    &[data-state="paused"] > .nodeIcon {
+      color: var(--statusWarning);
+    }
+    .collaborationRole {
+      padding: 3px 7px;
+      border: 1px solid var(--borderSubtle);
+      border-radius: var(--radiusCompact);
+      color: var(--textSecondary);
+      white-space: nowrap;
+    }
+  }
+  .collaborationModes {
+    display: flex;
+    padding: 3px;
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusControl);
+    background: var(--surfaceCanvas);
+    button {
+      flex: 1;
+      border-color: transparent;
+      background: transparent;
+      color: var(--textMuted);
+      &[aria-pressed="true"] {
+        background: var(--surfaceRaised);
+        color: var(--textPrimary);
+      }
+    }
+  }
+  .collaborationStep,
+  .collaborationSession,
+  .collaborationInvite,
+  .collaborationInvitation,
+  .collaborationRecovery {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space2);
+  }
+  .collaborationInvite,
+  .collaborationManagement {
+    padding-top: var(--space4);
+    border-top: 1px solid var(--borderSubtle);
+  }
+  .collaborationInvitation {
+    padding: var(--space3);
+    margin-top: var(--space1);
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusControl);
+    background: var(--surfaceToolbar);
+    > div:first-child {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+  }
+  .collaborationRecovery {
+    padding: var(--space3);
+    border: 1px solid var(--statusWarningBorder);
+    border-radius: var(--radiusControl);
+    background: var(--statusWarningSurface);
+    strong {
+      color: var(--statusWarning);
+    }
+  }
+  .invitationActions {
+    display: flex;
+    gap: var(--space2);
+    button {
+      flex: 1;
+    }
+  }
+  details {
+    color: var(--textSecondary);
+    summary {
+      width: fit-content;
+      cursor: pointer;
+    }
+    > p,
+    > button,
+    > div {
+      margin-top: var(--space2);
+    }
+    textarea {
+      display: block;
+      margin-top: var(--space2);
+      resize: vertical;
+      font: 11px/1.6 var(--fontMono);
+      overflow-wrap: anywhere;
+    }
+  }
+  .collaborationNetworkHint {
+    display: flex;
+    gap: var(--space2);
+    color: var(--textMuted);
+    font-size: var(--fontSizeSmall);
+    line-height: var(--lineHeightSmall);
+    > .nodeIcon {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+  }
+  .collaborationError {
+    padding: var(--space2);
+    border: 1px solid var(--statusErrorBorder);
+    border-radius: var(--radiusControl);
+    color: var(--statusError);
+    background: var(--statusErrorSurface);
+  }
+}

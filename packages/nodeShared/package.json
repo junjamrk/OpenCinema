@@ -1,0 +1,58 @@
+{
+  "name": "@toonflow/node-shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./reactIcon": "./src/components/reactIcon.tsx",
+    "./audioWaveform": "./src/audioWaveform.ts",
+    "./reactAudioPlayer": "./src/components/reactAudioPlayer.tsx",
+    "./groupNodeModels": "./src/groupNodeModels.ts",
+    "./director/schema": "./src/director/schema.ts",
+    "./director/motion": "./src/director/motion.ts",
+    "./reactMediaPreview": "./src/components/reactMediaPreview.tsx",
+    "./theme": "./src/theme/workbench.scss",
+    "./mediaSampling": "./src/mediaSampling.ts",
+    "./mediaError": "./src/mediaError.ts",
+    "./motionProduction": "./src/motionProduction.ts",
+    "./referenceDepth": "./src/referenceDepth.ts",
+    "./canvasDocument": "./src/canvasDocument.ts",
+    "./reactNode": "./src/reactNode.ts",
+    "./reactMediaNode": "./src/components/reactMediaNode.tsx",
+    "./nodeControls": "./src/nodeControls.ts",
+    "./reactGeneration": "./src/reactGeneration.ts",
+    "./reactGenerationNode": "./src/components/reactGenerationNode.tsx",
+    "./reactMediaActions": "./src/reactMediaActions.ts",
+    "./reactMediaActionsView": "./src/components/reactMediaActions.tsx",
+    "./useReferenceDepth": "./src/useReferenceDepth.ts",
+    "./reactReferences": "./src/reactReferences.ts",
+    "./reactReferencesView": "./src/components/reactReferences.tsx",
+    "./reactMediaDialog": "./src/components/reactMediaDialog.tsx",
+    "./reactHostRequest": "./src/reactHostRequest.ts",
+    "./editorSession": "./src/editorSession.ts",
+    "./mediaEditor": "./src/mediaEditor.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tabler/icons-react": "^3.0.0",
+    "@toonflow/asr": "workspace:*",
+    "@toonflow/ffmpeg": "workspace:*",
+    "@toonflow/nodes-scaffold": "workspace:*",
+    "three": "0.184.0",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "0.184.0",
+    "sass": "^1.104.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

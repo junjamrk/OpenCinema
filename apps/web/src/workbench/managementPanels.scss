@@ -1,0 +1,85 @@
+.openCinemaWorkbench .managementPanel {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
+  border: 1px solid var(--borderStrong);
+  border-radius: 12px;
+  background: rgba(32, 35, 42, 0.96);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(24px);
+  font-size: 12px;
+  line-height: 18px;
+
+  button { flex-shrink: 0; min-height: 28px; padding: 4px 8px; border-radius: 8px; font-weight: 500; }
+  button:hover:not(:disabled) { background: var(--surfaceHover); }
+  button:active:not(:disabled) { background: var(--surfacePressed); }
+  button:focus-visible { outline: var(--focusRing); outline-offset: -2px; }
+  input, select { width: 100%; min-width: 0; min-height: 30px; padding: 6px 10px; border: 1px solid var(--borderSubtle); border-radius: 8px; background: var(--surfaceToolbar); }
+  label { display: flex; flex-direction: column; gap: 4px; color: var(--textSecondary); font-size: 11px; }
+  strong { font-size: 12px; font-weight: 600; line-height: 16px; }
+
+  .managementHeading { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; padding: 10px 14px; border-bottom: 1px solid var(--borderSubtle); background: rgba(40, 44, 53, 0.6); }
+  .managementProjectName { display: flex; align-items: end; gap: 8px; padding: 12px 14px 0; label { flex: 1; } }
+  .managementToolbar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 12px 14px; border-bottom: 1px solid var(--borderSubtle); }
+  .managementSearch { position: relative; flex: 1; min-width: 100px; svg { position: absolute; left: 10px; top: 8px; color: var(--textMuted); } input { padding-left: 30px; } }
+  .managementLocation { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 14px; color: var(--textMuted); font-size: 10px; overflow-wrap: anywhere; button { min-height: 24px; padding: 2px 6px; font-size: 10px; } }
+  .managementEntries { min-height: 130px; max-height: 360px; flex: 1; overflow: auto; padding: 4px 8px; }
+  .managementEntry { display: flex; align-items: center; min-height: 36px; gap: 8px; border: 1px solid transparent; border-radius: 8px; }
+  .managementEntrySelected { border-color: var(--borderSelected); background: var(--surfaceSelected); }
+  .managementEntryName { flex: 1; min-width: 0; justify-content: flex-start; text-align: left; svg { flex-shrink: 0; color: var(--textSecondary); } span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } small { color: var(--selectionAccent); font-size: 10px; } }
+  .managementEntryActions { display: flex; gap: 2px; padding-right: 4px; button { min-height: 26px; padding: 4px 6px; font-size: 10px; } }
+  .managementAction { flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; margin: 8px 14px 12px; padding: 12px; border: 1px solid var(--borderStrong); border-radius: 12px; background: var(--surfaceToolbar); p { margin: 0; color: var(--textSecondary); overflow-wrap: anywhere; } }
+  .managementActionButtons { display: flex; justify-content: flex-end; gap: 8px; }
+  .managementPrimary { background: var(--actionPrimary); color: var(--textOnPrimary); &:hover:not(:disabled) { background: var(--actionPrimaryHover); } &:active:not(:disabled) { background: var(--actionPrimaryPressed); } }
+  .managementDanger { color: var(--statusError); &:hover:not(:disabled) { background: var(--statusErrorSurface); } }
+  .managementSecondary { background: var(--surfaceRaised); }
+  .managementError { flex-shrink: 0; margin: 0; padding: 8px 14px; color: var(--statusError); overflow-wrap: anywhere; }
+  .managementFooter { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; min-height: 42px; padding: 8px 14px; border-top: 1px solid var(--borderSubtle); color: var(--textMuted); font: 10px / 16px var(--fontMono); }
+
+  &.assetLibrary { width: min(980px, calc(100vw - 32px)); }
+  .assetLibraryBody { display: flex; min-height: 200px; overflow: hidden; }
+  .assetDirectories { display: flex; flex-direction: column; flex: 0 0 180px; gap: 4px; overflow: auto; padding: 10px 8px; border-right: 1px solid var(--borderSubtle); button { width: 100%; justify-content: flex-start; text-align: left; font-size: 11px; span { overflow: hidden; text-overflow: ellipsis; } &[aria-current="page"] { color: var(--selectionAccent); background: rgba(45, 212, 191, 0.12); } } }
+  .assetLibraryMain { flex: 1; min-width: 0; overflow: auto; }
+  .assetKindFilters { display: flex; gap: 4px; padding: 0 14px 10px; button { min-height: 26px; font-size: 11px; &[aria-pressed="true"] { background: var(--surfaceRaised); color: var(--selectionAccent); } } }
+  .assetGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; padding: 12px 14px; }
+  .assetCard { overflow: hidden; border: 1px solid var(--borderSubtle); border-radius: 12px; background: var(--surfaceToolbar); &[aria-selected="true"] { border-color: var(--selectionAccent); } .assetOpen { display: flex; flex-direction: column; align-items: stretch; width: 100%; min-height: 0; padding: 0; gap: 0; text-align: left; border-radius: 0; } .assetVisual { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 10; overflow: hidden; background: #121316; color: var(--textMuted); img { width: 100%; height: 100%; object-fit: cover; } } .assetName { padding: 8px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 16px; } }
+  .assetPreview { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--borderSubtle); img, video { display: block; max-width: 100%; max-height: 260px; margin: auto; object-fit: contain; } audio { width: 100%; } .assetPreviewHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; strong { overflow-wrap: anywhere; } } }
+  .assetEmpty { margin: 24px 14px; color: var(--textMuted); font-size: 11px; }
+}
+
+@media (max-width: 640px) {
+  .openCinemaWorkbench .managementPanel { .managementEntryActions { gap: 0; button { padding: 4px; } } .assetDirectories { flex-basis: 120px; } .managementToolbar { flex-wrap: wrap; } .managementProjectName { flex-wrap: wrap; } }
+}
+
+.openCinemaWorkbench .settingsPanel {
+  > nav { flex-wrap: wrap; }
+
+  .settingsContent {
+    .settingEditor, .pluginSettingsCard, .settingConfirmation {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--borderSubtle);
+      border-radius: var(--radiusPanel);
+      background: var(--surfaceToolbar);
+      > label { display: grid; gap: 6px; color: var(--textSecondary); }
+      > button { justify-self: start; }
+    }
+
+    .pluginSettingsCard .pluginSetting { padding: 0; border: 0; }
+    .settingToggle { display: flex !important; align-items: center; justify-content: space-between; input { width: auto; } }
+    .settingConfirmation { border-color: var(--borderStrong); }
+    textarea { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusControl); background: var(--surfaceCanvas); color: var(--textPrimary); font: 11px / 18px var(--fontMono); resize: vertical; &:focus-visible { outline: var(--focusRing); outline-offset: 2px; } }
+    details { min-width: 0; summary { cursor: pointer; color: var(--textSecondary); font-size: 12px; line-height: 18px; } > label { display: grid; gap: 6px; margin-top: 10px; } }
+    .providerModelEditor { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--borderSubtle); }
+    .providerModelFields { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 88px auto; align-items: end; gap: 8px; label { display: grid; gap: 6px; } button { height: 36px; } }
+    .settingProgress { display: grid; gap: 8px; color: var(--textSecondary); font-size: 12px; progress { width: 100%; accent-color: var(--selectionAccent); } }
+    .ffmpegTool { display: grid; gap: 6px; margin-top: 12px; code { color: var(--textSecondary); overflow-wrap: anywhere; user-select: text; } }
+  }
+}
+
+@media (max-width: 640px) {
+  .openCinemaWorkbench .settingsPanel .settingsContent .providerModelFields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}

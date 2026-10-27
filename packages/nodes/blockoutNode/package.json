@@ -1,0 +1,36 @@
+{
+  "name": "@toonflow/node-blockout",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build --config viteConfig.ts",
+    "dev": "vite build --watch --config viteConfig.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./react": "./src/reactView.tsx",
+    "./reactPlugin": "./src/reactPlugin.ts"
+  },
+  "dependencies": {
+    "@mkkellogg/gaussian-splats-3d": "0.4.7",
+    "@toonflow/ffmpeg": "workspace:*",
+    "@toonflow/node-shared": "workspace:*",
+    "@toonflow/nodes-scaffold": "workspace:*",
+    "fflate": "^0.8.3",
+    "three": "0.184.0",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "0.184.0",
+    "sass": "^1.104.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

@@ -1,0 +1,576 @@
+.blockoutReactNode {
+  padding: 8px;
+  .blockoutOpen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space3);
+    width: 100%;
+    min-height: 178px;
+    padding: 20px;
+    color: var(--textPrimary);
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusPanel);
+    background: var(--surfaceRaised);
+    cursor: pointer;
+    strong {
+      font-size: var(--fontSizeTitle);
+      font-weight: var(--fontWeightTitle);
+    }
+    small {
+      font-size: 12px;
+      color: var(--textMuted);
+    }
+    .blockoutGlyph {
+      color: var(--actionPrimary);
+      font-size: 34px;
+      font-weight: 300;
+    }
+  }
+}
+.blockoutError {
+  padding: 8px 12px;
+  margin: 0;
+  color: var(--statusError);
+  background: var(--surfacePanel);
+  border: 1px solid var(--statusError);
+  border-radius: 5px;
+  font-size: 12px;
+}
+.blockoutLegacy {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--borderSubtle);
+  border-radius: var(--radiusPanel);
+  color: var(--textSecondary);
+  font-size: var(--fontSizeSmall);
+  line-height: var(--lineHeightSmall);
+}
+.blockoutReactDialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--space4);
+  background: var(--surfaceCanvas, #121316);
+  color: var(--textPrimary, #e3e5e8);
+  font-family: var(--fontUi, "Inter Variable"), sans-serif;
+  font-size: var(--fontSizeBody);
+  font-weight: 400;
+  line-height: var(--lineHeightBody);
+  box-sizing: border-box;
+  * {
+    box-sizing: border-box;
+  }
+  button,
+  select,
+  input,
+  textarea {
+    color: inherit;
+    font: inherit;
+    background: var(--surfacePanel, #20232a);
+    border: 1px solid var(--borderSubtle, #343943);
+    border-radius: 4px;
+    min-height: 30px;
+    padding: 5px 9px;
+  }
+  button {
+    cursor: pointer;
+    font-weight: 400;
+    &:hover {
+      border-color: var(--borderStrong);
+      background: var(--surfaceRaised);
+    }
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    &.active {
+      color: var(--selectionAccent);
+      border-color: var(--borderSelected);
+      background: color-mix(in srgb, var(--actionPrimary) 12%, var(--surfacePanel));
+    }
+  }
+  input:focus,
+  select:focus,
+  textarea:focus,
+  button:focus-visible {
+    outline: 1px solid var(--selectionAccent);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"] {
+    min-height: 0;
+    accent-color: var(--actionPrimary);
+  }
+  strong,
+  h3 {
+    font-weight: var(--fontWeightTitle);
+  }
+  h3 {
+    font-size: var(--fontSizeTitle);
+    margin: 0;
+    letter-spacing: 0.02em;
+  }
+  .blockoutHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--borderSubtle);
+    padding-bottom: 12px;
+    strong {
+      color: var(--selectionAccent);
+      font-size: var(--fontSizeTitle);
+      letter-spacing: -0.025em;
+    }
+    span,
+    small {
+      color: var(--textSecondary);
+    }
+    button {
+      margin-left: auto;
+      min-width: 60px;
+    }
+  }
+  .blockoutToolbar {
+    display: flex;
+    gap: var(--space2);
+    flex-wrap: wrap;
+    select {
+      max-width: 180px;
+    }
+  }
+  .blockoutBody {
+    display: grid;
+    grid-template-columns: 180px minmax(300px, 1fr) 274px;
+    gap: 12px;
+    min-height: 0;
+    flex: 1;
+    &.inspectorClosed {
+      grid-template-columns: 180px minmax(300px, 1fr);
+    }
+  }
+  .blockoutLibrary,
+  .blockoutInspector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space2);
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+    border: 1px solid var(--borderSubtle);
+    border-radius: 8px;
+    background: var(--surfaceToolbar);
+    &[hidden] {
+      display: none;
+    }
+  }
+  .blockoutAssetList,
+  .blockoutEntityList {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 42px;
+    max-height: 28%;
+    overflow: auto;
+    button {
+      text-align: left;
+      padding: 6px 9px;
+    }
+  }
+  .blockoutStage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space3);
+    min-width: 0;
+    min-height: 0;
+  }
+  .blockoutStageTitle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    span {
+      color: var(--textMuted);
+      font-size: var(--fontSizeSmall);
+    }
+  }
+  .blockoutReactViewport {
+    flex: 1;
+    position: relative;
+    min-height: 180px;
+    background: var(--surfacePanel);
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusPanel);
+    overflow: hidden;
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+    p {
+      position: absolute;
+      inset: 10px;
+      color: var(--statusError);
+      pointer-events: none;
+    }
+  }
+  .blockoutMonitor {
+    position: relative;
+    height: 154px;
+    flex-shrink: 0;
+    .blockoutReactViewport {
+      height: 100%;
+      min-height: 0;
+    }
+  }
+  .blockoutPlayback {
+    display: flex;
+    align-items: center;
+    gap: var(--space3);
+    input {
+      flex: 1;
+      accent-color: var(--actionPrimary);
+      border: 0;
+      padding: 0;
+    }
+    span {
+      color: var(--textSecondary);
+      font-family: ui-monospace, monospace;
+      font-size: var(--fontSizeSmall);
+      white-space: nowrap;
+    }
+  }
+  .blockoutMarkToolbar,
+  .blockoutMarkList,
+  .blockoutBottomTabs,
+  .blockoutOptions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space2);
+  }
+  .blockoutMarkList {
+    min-height: 30px;
+    max-height: 90px;
+    overflow: auto;
+  }
+  .blockoutBottomTabs {
+    border-top: 1px solid var(--borderSubtle);
+    padding-top: 10px;
+  }
+  .blockoutOptions {
+    max-height: 180px;
+    overflow: auto;
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space1);
+      select {
+        max-width: 260px;
+      }
+    }
+  }
+  .blockoutField {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space1);
+    span {
+      color: var(--textSecondary);
+      font-size: var(--fontSizeSmall);
+    }
+    input,
+    select {
+      min-width: 0;
+      width: 100%;
+    }
+  }
+  .blockoutImport {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--textSecondary);
+    font-size: var(--fontSizeSmall);
+    input {
+      max-width: 100%;
+      font-size: var(--fontSizeSmall);
+    }
+  }
+  .blockoutScanRow {
+    display: block;
+    padding: var(--space2);
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusControl);
+    label {
+      flex: 1;
+    }
+    button {
+      min-height: 24px;
+      padding: 2px 5px;
+    }
+  }
+  .blockoutDocument {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: var(--space2);
+    max-height: 240px;
+    overflow: auto;
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      font:
+        11px/1.6 ui-monospace,
+        monospace;
+      resize: vertical;
+    }
+  }
+  .blockoutFooter {
+    display: flex;
+    justify-content: space-between;
+    color: var(--textMuted);
+    font-size: var(--fontSizeSmall);
+  }
+  @media (max-width: 1000px) {
+    .blockoutBody {
+      grid-template-columns: 150px minmax(260px, 1fr) 220px;
+    }
+  }
+  @media (max-width: 760px) {
+    padding: 12px;
+    overflow: auto;
+    .blockoutBody {
+      grid-template-columns: 130px minmax(250px, 1fr);
+      min-height: 650px;
+      flex: none;
+    }
+    .blockoutInspector {
+      grid-column: 1/-1;
+      max-height: 350px;
+    }
+    .blockoutFooter {
+      flex-direction: column;
+    }
+  }
+}
+
+.blockoutReactDialog {
+  .blockoutParityPanel {
+    flex-shrink: 0;
+    min-width: 0;
+    max-height: 240px;
+    overflow: auto;
+    padding: var(--space2);
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusPanel);
+    font-size: var(--fontSizeSmall);
+    line-height: var(--lineHeightSmall);
+    fieldset {
+      border: 0;
+      padding: 0;
+      margin: 0;
+      min-width: 0;
+      display: grid;
+      gap: var(--space2);
+    }
+    details {
+      display: grid;
+      gap: var(--space2);
+      min-width: 0;
+      &[open] > :not(summary) {
+        margin-top: var(--space2);
+      }
+    }
+    summary {
+      cursor: pointer;
+      font-weight: var(--fontWeightMedium);
+    }
+    label:not(.blockoutCheck),
+    .blockoutField {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space1);
+      min-width: 0;
+    }
+    p,
+    small {
+      margin: 0;
+      color: var(--textSecondary);
+    }
+    input,
+    select {
+      min-width: 0;
+      max-width: 100%;
+    }
+  }
+  .blockoutFieldRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space1);
+    min-width: 0;
+    flex-wrap: wrap;
+    > input {
+      flex: 1;
+      min-width: 60px;
+    }
+    > label {
+      flex: 1;
+    }
+  }
+  .blockoutCheck {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space1);
+    input {
+      flex: 0 0 auto;
+    }
+  }
+  .blockoutReferencePreview {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    .blockoutReferenceLayer {
+      position: absolute;
+      overflow: hidden;
+      &.pip {
+        border: 1px solid var(--borderStrong);
+        border-radius: var(--radiusControl);
+      }
+      video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      span {
+        position: absolute;
+        top: var(--space1);
+        left: var(--space1);
+        padding: 0 var(--space1);
+        color: var(--textPrimary);
+        background: var(--surfaceCanvas);
+        font: var(--fontSizeSmall) / var(--lineHeightSmall) var(--fontUi);
+      }
+    }
+    > small {
+      position: absolute;
+      bottom: var(--space1);
+      left: var(--space1);
+      padding: 0 var(--space1);
+      background: var(--surfaceCanvas);
+      color: var(--textSecondary);
+    }
+  }
+  .blockoutTimeline {
+    max-height: 200px;
+    overflow: auto;
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusPanel);
+    > small {
+      display: block;
+      color: var(--textSecondary);
+      padding: var(--space2);
+    }
+    .blockoutTimelineRow {
+      display: flex;
+      height: 32px;
+      border-bottom: 1px solid var(--borderSubtle);
+      > button {
+        flex: 0 0 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border: 0;
+        border-right: 1px solid var(--borderSubtle);
+        border-radius: 0;
+        text-align: left;
+      }
+      .blockoutTimelineTrack {
+        position: relative;
+        flex: 1;
+        margin: 0 var(--space3);
+        > i {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          background: var(--selectionAccent);
+          pointer-events: none;
+        }
+        > button {
+          position: absolute;
+          top: 8px;
+          min-height: 12px;
+          width: 12px;
+          padding: 0;
+          transform: translateX(-50%) rotate(45deg);
+          border: 1px solid var(--actionPrimary);
+          border-radius: 2px;
+          background: var(--surfaceRaised);
+          cursor: grab;
+          &.active {
+            background: var(--actionPrimary);
+          }
+        }
+      }
+    }
+  }
+  .blockoutWarnings {
+    flex-shrink: 0;
+    max-height: 100px;
+    overflow: auto;
+    padding: var(--space2);
+    border: 1px solid var(--borderSubtle);
+    border-radius: var(--radiusPanel);
+    color: var(--textSecondary);
+    font-size: var(--fontSizeSmall);
+    line-height: var(--lineHeightSmall);
+    summary {
+      cursor: pointer;
+    }
+    p {
+      margin: var(--space1) 0 0;
+    }
+  }
+}
+
+.blockoutReactDialog {
+  .blockoutRecordingBar,
+  .blockoutRecordingControls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space2);
+    small,
+    span {
+      color: var(--textSecondary);
+      font-size: var(--fontSizeSmall);
+    }
+  }
+  .blockoutRecordingBar {
+    padding: 9px 12px;
+    border: 1px solid var(--borderSelected);
+    border-radius: var(--radiusPanel);
+    background: color-mix(in srgb, var(--actionPrimary) 12%, var(--surfacePanel));
+    strong {
+      color: var(--selectionAccent);
+      margin-right: 6px;
+    }
+    span {
+      flex: 1;
+      min-width: 180px;
+    }
+  }
+  .blockoutRecordingControls {
+    button,
+    select {
+      min-height: 28px;
+      padding: 4px 7px;
+      font-size: var(--fontSizeSmall);
+    }
+  }
+}

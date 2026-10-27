@@ -1,0 +1,37 @@
+node_modules/
+build/
+data/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+*.pid
+
+# Local editor state and generated caches
+.idea/
+.vscode/
+.vite/
+.cache/
+.venv/
+__pycache__/
+*.pyc
+# Local host credentials and runtime/model state
+.mcp.local.json
+.claude/settings.local.json
+runtime.json
+.runtimeLock/
+.models/
+
+# Internal project notes
+/AGENTS.md
+/docs/internal/
+
+# Test sources and generated reports
+*.test.*
+*.spec.*
+**/__tests__/
+/tests/
+coverage/
+test-results/
+playwright-report/
