@@ -26,10 +26,7 @@
   </a>
 </p>
 
-<p align="center">
-  <a href="assets/promo/openCinemaPromo.mp4">观看完整宣传片 · 58 秒 · 1080p</a> ·
-  <a href="assets/promo/promoPoster.jpg">高清封面</a>
-</p>
+
 
 <p align="center"><sub>产品动效演绎；实际生成效果依所选模型、参考与审片结果而定。</sub></p>
 
