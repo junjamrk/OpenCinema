@@ -27,7 +27,7 @@
     "@tiptap/starter-kit": "3.31.3",
     "@toonflow/node-shared": "workspace:*",
     "@toonflow/nodes-scaffold": "workspace:*",
-    "dompurify": "3.4.16",
+    "dompurify": "3.4.17",
     "marked": "18.0.13",
     "zod": "^4.6.2"
   },
