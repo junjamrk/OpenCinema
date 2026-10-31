@@ -1,7 +1,7 @@
 {
   "schema": "openCinema-pluginMarket-v1",
   "name": "OpenCinema Plugin Market",
-  "generatedAt": "2026-10-31T12:59:18.852Z",
+  "generatedAt": "2026-10-31T13:03:32.064Z",
   "plugins": [
     {
       "id": "gaussianSplatNode",
@@ -35,8 +35,8 @@
         "worker": 1
       },
       "url": "plugins/gaussianSplatNode/1.0.0/install.json",
-      "sha256": "bfcd3cf64bb75e8a31f24c52bd62e497d89008f2d499fd8904de1d1c6bcea170",
-      "size": 1083318,
+      "sha256": "d6e25f4bbcf3adfa7a156636fe8defbecfabfc8df8aa8206964a9cd17a586c37",
+      "size": 1083322,
       "publishedAt": "2026-10-31T00:00:00Z",
       "minHost": "0.4.0",
       "agentGuide": true

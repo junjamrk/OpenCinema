@@ -15,6 +15,7 @@ const sceneFormats: Record<SplatFormat, SceneFormat> = { ply: SceneFormat.Ply, s
 const vec = (value: THREE.Vector3): Vec3 => [round(value.x), round(value.y), round(value.z)];
 const round = (value: number) => Math.round(value * 10000) / 10000;
 const nextFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 /** 以包围球为依据放置相机：方位角绕 +Y，仰角向上为正，distanceScale 1 刚好把包围球放进较短的画面边。 */
 export function frameCamera(bounds: SplatBounds, fov: number, aspect: number, options: FrameOptions = {}): SplatCamera {
@@ -145,20 +146,22 @@ export function createSplatStage(options: { canvas?: HTMLCanvasElement; interact
   }
   /**
    * 排序在 Worker 中异步完成，首次排序完成前一个 Gaussian 都不会绘制（splatRenderCount 为 0）。
-   * 连续渲染：等到至少一次排序开始并结束、且已有可绘制数量后再截帧；相机未变时不会触发排序，20 帧后视为已就绪。
+   * 一次渲染即可触发排序（update 在 onBeforeRender 内同步启动 Worker）；之后只等待 Worker 回传，不重复渲染，
+   * 最后再渲染一帧供截取。软件渲染下每帧很贵，这里把每次截帧压到两次渲染。
    */
   async function settle(signal?: AbortSignal) {
     const core = requireViewer().viewer;
-    let sortSeen = false, idle = 0;
-    for (let step = 0; step < 900; step++) {
+    const waitForSort = async () => { for (let step = 0; step < 4000 && core.sortRunning; step++) { signal?.throwIfAborted(); await delay(5); } };
+    render();
+    await waitForSort();
+    for (let step = 0; step < 30 && !(core.splatRenderCount > 0); step++) {
+      // 排序尚未发生（例如首次初始化那一帧）：再渲染一帧触发，并等待其完成。
       signal?.throwIfAborted();
-      render();
       await nextFrame();
-      if (core.sortRunning) { sortSeen = true; idle = 0; continue; }
-      if (!(core.splatRenderCount > 0)) { idle = 0; continue; }
-      idle++;
-      if ((sortSeen && idle >= 2) || (!sortSeen && idle >= 20)) break;
+      render();
+      await waitForSort();
     }
+    signal?.throwIfAborted();
     render();
   }
   async function capturePng(width: number, height: number, value: { camera?: SplatCamera; background?: string | null } = {}, signal?: AbortSignal) {
