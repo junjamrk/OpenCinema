@@ -5,7 +5,7 @@ import { createDocumentSession, parseCanvasDocument, parseDocumentCommand, type 
 import { createPluginRuntime, getComposerState } from "@toonflow/nodes-scaffold/pluginRuntime";
 import { ToolExecutionError } from "@toonflow/nodes-scaffold/toolErrors";
 import { isTypeCompatible } from "@toonflow/nodes-scaffold/connection";
-import { nodeRequirementsSchema } from "@toonflow/nodes-scaffold/nodeCapabilities";
+import { hostCapabilityVersions, nodeRequirementsSchema } from "@toonflow/nodes-scaffold/nodeCapabilities";
 import type { HostAdapter, HostContext, HostToolProvider, NodePluginDefinition, PluginInstance, PluginModule, PluginSource } from "@toonflow/nodes-scaffold/contracts";
 import type { NodeDocumentService } from "@toonflow/nodes-scaffold/react";
 import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchServices";
@@ -43,6 +43,7 @@ function installedPluginUrl(source: string) {
   if (!url || !(url.pathname === "/api/nodes/files" || /^\/api\/nodes\/modules\/[a-z][a-zA-Z0-9]{0,95}\/[a-f0-9]{64}\/index\.js$/.test(url.pathname))) throw new Error("已安装插件地址必须来自本机插件目录");
   return url;
 }
+const { webAssembly, worker, ...alwaysProvided } = hostCapabilityVersions;
 const supportedCanvas = new Set<string>([...canvasOperations, ...additionalCanvasOperations].map(tool => tool.name));
 
 export function createWorkbenchController() {
@@ -95,7 +96,7 @@ export function createWorkbenchController() {
     canUndo: false, canRedo: false, readOnly: false, transitioning: false, projectName: "", canvasFiles: [], canvasFolders: [], plugins: [],
     host: { name: "未连接宿主", connected: false, canSend: false }, selectedIds: [], workspacePlugins: [],
   };
-  const runtime = createPluginRuntime<View>({ loadModule: createInstalledPluginLoader(controllerLifetime.signal) as (source: string) => Promise<PluginModule<View>>, capabilities: { document: 1, workbench: 1, files: 1, inputs: 1, state: 1, documentEditing: 1, workspaceFiles: 1, workspaceReadRange: 1, nodeHistory: 1, workspaceDocuments: 1, workspaceExtensions: 1, collaboration: 1, pluginResources: 1, ffmpeg: 1, ...(typeof WebAssembly === "object" ? { webAssembly: 1 } : {}), ...(typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function" ? { worker: 1 } : {}) }, renderer: "react" });
+  const runtime = createPluginRuntime<View>({ loadModule: createInstalledPluginLoader(controllerLifetime.signal) as (source: string) => Promise<PluginModule<View>>, capabilities: { ...alwaysProvided, ...(typeof WebAssembly === "object" ? { webAssembly } : {}), ...(typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function" ? { worker } : {}) }, renderer: "react" });
 
   function publish(patch: Partial<WorkbenchSnapshot> = {}) {
     const current = session?.getSnapshot();

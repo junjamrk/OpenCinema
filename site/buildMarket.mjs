@@ -12,6 +12,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(here, "..");
 const marketRoot = path.join(here, "market");
 const pluginId = /^[a-z][a-zA-Z0-9]{0,95}$/;
+const hostVersion = /^\d+\.\d+\.\d+$/;
+const hostCapabilities = JSON.parse(readFileSync(path.join(repositoryRoot, "packages/nodeScaffold/src/hostCapabilities.json"), "utf8"));
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 export function buildMarket({ log = console.log } = {}) {
@@ -37,6 +39,10 @@ export function buildMarket({ log = console.log } = {}) {
     }
     if (manifest.id !== entry.id) throw new Error(`${entry.id}: package manifest id is ${manifest.id}`);
     if (manifest.apiVersion !== 1 || manifest.renderer !== "react") throw new Error(`${entry.id}: unsupported package`);
+    if (entry.minHost !== undefined && !hostVersion.test(entry.minHost)) throw new Error(`${entry.id}: minHost must look like 0.4.0, got ${entry.minHost}`);
+    for (const [name, version] of Object.entries(manifest.requires ?? {})) {
+      if (!Number.isInteger(version) || version < 1 || version > (hostCapabilities[name]?.version ?? 0)) throw new Error(`${entry.id}: the host does not provide ${name}@${version}`);
+    }
     const versionRoot = path.join(marketRoot, "plugins", entry.id, manifest.version);
     const target = path.join(versionRoot, "install.json");
     const digest = sha256(bytes);
