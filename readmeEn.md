@@ -256,86 +256,69 @@ A plugin is made of:
 | `view` | The React view |
 | `registerTool` | Publishes a tool with Zod parameters. Buttons and Agents call the same tool |
 | `composer` | Optional hook into the bottom input |
-| `requires` | Required host capabilities such as `workspaceFiles`, `ffmpeg` or `webAssembly` |
+| `requires` | Required services and host capabilities such as `workbench`, `workspaceFiles` or `ffmpeg`. `getService` only returns declared services |
+| `category`, `description` | The node's group and summary in the add-node palette |
 | `onDispose` | Releases workers, listeners and other resources |
 
 Where code belongs: node-specific logic stays in its plugin package, logic shared by several plugins goes in `packages/nodeShared`, and generic contracts go in `packages/nodeScaffold`.
 
 ### Write a node plugin
 
-This example counts the characters of upstream text. The code below has been built, installed and called end to end. For now, plugins are developed inside this repository because the scaffold is not yet published to npm.
+Plugins can be developed outside this repository. This example counts the characters of upstream text, and the code below has passed type checking and a build. The scaffold is not on npm yet, so pack it from this repository first.
 
-**1. Create the folder**
+**1. Pack the scaffold**
+
+Run this from the repository root. It produces `packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz`:
 
 ```bash
-mkdir -p packages/nodes/helloNode/src
+cd packages/nodeScaffold && npm pack
+```
+
+**2. Generate a plugin project**
+
+Run this where you keep your plugins, replacing `<repo>` with the real path:
+
+```bash
+npx --yes --package <repo>/packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz createOpenCinemaPlugin helloNode --name "Word Count" --scaffold file:<repo>/packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz
 ```
 
 ```bash
-cp packages/nodes/mediaInfoNode/tsconfig.json packages/nodes/helloNode/
+cd helloNode && npm install
 ```
 
-**2. `packages/nodes/helloNode/package.json`**
+**3. Declare the plugin in `package.json`**
+
+The name, category, description and permissions live in the `openCinema` block. `getService` only returns services declared in `requires`:
 
 ```json
-{
-  "name": "@toonflow/node-hello",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "vite build --config viteConfig.ts",
-    "typecheck": "tsc --noEmit"
-  },
-  "exports": {
-    "./react": "./src/reactView.tsx",
-    "./reactPlugin": "./src/reactPlugin.ts"
-  },
-  "dependencies": {
-    "@toonflow/node-shared": "workspace:*",
-    "@toonflow/nodes-scaffold": "workspace:*",
-    "zod": "^4.6.2"
-  },
-  "devDependencies": {
-    "@types/react": "^19.0.0",
-    "typescript": "~6.0.3",
-    "vite": "^8.2.2"
-  },
-  "peerDependencies": {
-    "react": "^19.0.0"
-  }
+"openCinema": {
+  "id": "helloNode",
+  "name": "Word Count",
+  "description": "Counts the characters of upstream text",
+  "category": "Text and media",
+  "requires": { "workbench": 1 }
 }
 ```
 
-**3. `packages/nodes/helloNode/viteConfig.ts`**
-
-```ts
-import { createNodeConfig } from "@toonflow/nodes-scaffold";
-
-export default createNodeConfig({
-  name: "helloNode", displayName: "Word Count", author: "Your Name", github: "https://github.com/you/helloNode",
-  requires: { nodeHistory: 1 },
-}, import.meta.url);
-```
-
-**4. `packages/nodes/helloNode/src/reactPlugin.ts`**
+**4. `src/reactPlugin.ts`**
 
 ```ts
 import { z } from "zod";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
-import { pluginServices } from "@toonflow/node-shared/reactNode";
-import HelloNodeView from "./reactView";
+import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchServices";
+import { openCinema, version } from "../package.json";
+import PluginView from "./reactView";
 
-const plugin: NodePluginDefinition<typeof HelloNodeView> = {
-  apiVersion: 1, id: "helloNode", name: "Word Count", version: "1.0.0", renderer: "react", view: HelloNodeView,
-  createData: () => ({ label: "Word Count", handles: [
+const plugin: NodePluginDefinition<typeof PluginView> = {
+  ...openCinema, version, apiVersion: 1, renderer: "react", view: PluginView,
+  createData: () => ({ label: openCinema.name, handles: [
     { id: "text", type: "target", dataType: "STRING", label: "Text" },
     { id: "count", type: "source", dataType: "STRING", label: "Count" },
   ], outputs: {} }),
   activate(context) {
-    const { workbench } = pluginServices(context);
+    const workbench = context.getService<NodeWorkbenchService>("workbench");
     context.registerTool({
-      name: "countText", description: "Counts characters of the upstream text and writes the count output port.",
+      name: "countText", description: "Counts the characters of upstream text and writes the result to the count output.",
       parameters: z.strictObject({}),
       outputSchema: z.strictObject({ count: z.number().int().nonnegative() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -348,19 +331,20 @@ const plugin: NodePluginDefinition<typeof HelloNodeView> = {
     });
   },
 };
+
 export default plugin;
 ```
 
-**5. `packages/nodes/helloNode/src/reactView.tsx`**
+**5. `src/reactView.tsx`**
 
 ```tsx
-import type { NodeViewProps } from "@toonflow/node-shared/reactNode";
+import type { ReactNodeViewProps } from "@toonflow/nodes-scaffold/react";
 
-export default function HelloNodeView({ node, controller, readOnly }: NodeViewProps) {
+export default function PluginView({ node, controller, readOnly }: ReactNodeViewProps) {
   const outputs = node.data?.outputs as { count?: { value?: string } } | undefined;
-  return <div className="nodeControls">
+  return <div className="nodrag">
     <button type="button" disabled={readOnly} onClick={() => void controller.callNodeTool(node.id, "countText", {})}>Count</button>
-    <span className="nodeStatus">{outputs?.count?.value ?? "Not counted yet"}</span>
+    <span>{outputs?.count?.value ?? "Not counted yet"}</span>
   </div>;
 }
 ```
@@ -368,18 +352,14 @@ export default function HelloNodeView({ node, controller, readOnly }: NodeViewPr
 **6. Build**
 
 ```bash
-bun install
+npm run typecheck
 ```
 
 ```bash
-bun run --cwd packages/nodes/helloNode typecheck
+npm run build
 ```
 
-```bash
-bun run --cwd packages/nodes/helloNode build
-```
-
-The output is in `build/nodes/helloNode/`. `install.json` is the distributable plugin package.
+The output is in `dist/`, and `install.json` is the package you can share.
 
 **7. Install and use**
 
@@ -387,7 +367,18 @@ Open **Settings → 插件 → 安装插件包** (Plugins → Install package), 
 
 Agents discover the tool with no extra setup: `getNodeTools` returns `node:countText` with its schema.
 
-> Installed plugins run in the page and can read and write the workspace. Only install packages you trust.
+**Provide a generation service from a plugin**
+
+Declare `providers` in `viteConfig.ts`. The format matches the JSON manifest in [Adding a provider](#adding-a-provider) and passes the same validation at install time. The provider appears in the media service list while the plugin is enabled and disappears when it is disabled or uninstalled. Its ID must not clash with a built-in or user-added provider:
+
+```ts
+export default createNodeConfig({
+  author: "", github: "",
+  providers: [{ id: "myVideo", label: "My Video", apiUrl: "https://video.example.com/v1", videoProtocol: "openaiVideo", endpoints: { video: "videos" }, rules: [], models: [] }],
+}, import.meta.url);
+```
+
+> Installed plugins run in the page. `requires` only limits `getService` and is not a sandbox, so a plugin can still read and write the workspace. Only install packages you trust.
 
 See the [node SDK](packages/nodeScaffold/readme.md) for the full plugin contract, resource bundling and host capabilities.
 
@@ -455,11 +446,12 @@ If a service does not fit, for example because of a different auth scheme or job
 
 ### Making a plugin built-in
 
-A plugin package can be shared and installed directly. To ship it as a built-in node, submit `packages/nodes/<id>/` and register it in three places:
+A plugin package can be shared and installed directly. To ship it as a built-in node:
 
-1. [`apps/web/package.json`](apps/web/package.json): add the workspace dependency.
-2. [`apps/web/src/lib/workbenchController.ts`](apps/web/src/lib/workbenchController.ts): add it to `builtinPlugins`.
-3. [`apps/server/go/plugins.go`](apps/server/go/plugins.go): add it to `builtinNodes()`.
+1. Move the project to `packages/nodes/<id>/`, import the build config from `@toonflow/nodes-scaffold/reactBuild`, and set `outDir: "../../../build/nodes/<id>"`.
+2. Add `order` to the `openCinema` block in `package.json` to set its place in the menu.
+3. Add the workspace dependency to [`apps/web/package.json`](apps/web/package.json).
+4. Run `bun run generate:nodes` to regenerate the built-in catalog, and commit the result.
 
 ### Submitting code
 
