@@ -13,7 +13,7 @@ import { activeVideoReferences, readVideoReview } from "../videoShot";
 
 export default function GenerationNode(props: NodeViewProps & { mediaType: MediaType; children?: ReactNode; cardAction?: ReactNode; onVideoReady?(video: HTMLVideoElement): void; onAudioReady?(audio: HTMLAudioElement): void }) {
   const { node, controller, mediaType, readOnly } = props;
-  const [models, setModels] = useState<NodeMediaModel[]>([]);
+  const [models, setModels] = useState<NodeMediaModel[]>();
   const [error, setError] = useState("");
   const [observeError, setObserveError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,7 +60,11 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
     window.addEventListener("toonflow:provider-config-changed", refresh);
     return () => { lifetime.abort(); window.removeEventListener("toonflow:provider-config-changed", refresh); };
   }, [mediaType]);
-  const model = models.find(value => JSON.stringify([value.providerId, value.modelId]) === node.data?.model);
+  const model = models?.find(value => JSON.stringify([value.providerId, value.modelId]) === node.data?.model);
+  const modelGone = !!models && !!node.data?.model && !model;
+  // 已配置的排前面。同名模型来自不同供应商，下拉收起时只显示选项文字，要带上供应商才分得清。
+  const modelGroups = groupNodeModels(models ?? []).toSorted((left, right) => Number(!!left.models[0]!.credentialMissing) - Number(!!right.models[0]!.credentialMissing));
+  const modelOption = (item: NodeMediaModel) => `${item.label}${models!.filter(other => other.label === item.label).length > 1 ? ` · ${item.providerLabel}` : ""}${item.credentialMissing ? "（未配置 Key）" : ""}`;
   const inputs = readReferences(workbench, node.data ?? {});
   const videoInputs = mediaType === "video" ? activeVideoReferences(node.data ?? {}, inputs) : inputs;
   const shotReview = mediaType === "video" ? readVideoReview(node.data ?? {}) : null;
@@ -114,9 +118,10 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
     <section className="nodeGenerationSettings"><h4>生成设置</h4><div className="nodeGenerationSettingsBody">
     <label className="nodeField"><span>{mediaType === "video" ? "视频专项模型" : "执行方式"}</span><select value={String(node.data?.model ?? "")} disabled={readOnly || blocked || busy} onChange={event => {
       if (!event.target.value) { void call("useHost"); return; }
-      const choice = models.find(value => JSON.stringify([value.providerId, value.modelId]) === event.target.value);
+      const choice = models?.find(value => JSON.stringify([value.providerId, value.modelId]) === event.target.value);
       if (choice) void call("setConfig", { providerId: choice.providerId, modelId: choice.modelId });
-    }}><option value="">宿主 Agent</option>{groupNodeModels(models).map(group => <optgroup key={group.id} label={group.label}>{group.models.map(model => <option key={model.modelId} value={JSON.stringify([model.providerId, model.modelId])}>{model.label}</option>)}</optgroup>)}</select></label>
+    }}><option value="">宿主 Agent</option>{modelGone && <option value={String(node.data?.model)} disabled>已失效的模型，请重新选择</option>}{modelGroups.map(group => <optgroup key={group.id} label={group.models[0]!.credentialMissing ? `${group.label}（未配置 Key）` : group.label}>{group.models.map(model => <option key={model.modelId} value={JSON.stringify([model.providerId, model.modelId])}>{modelOption(model)}</option>)}</optgroup>)}</select></label>
+    <div className="nodeActions"><button type="button" onClick={() => window.dispatchEvent(new CustomEvent("openCinema:open-settings", { detail: { tab: "models" } }))}>配置模型</button></div>
     {model && <div className="nodeFields">
       {field("ratio", "画幅", mediaType === "video" ? model.imageRatios?.length ? model.imageRatios : model.execution?.protocol === "comfyui" ? undefined : ["16:9", "9:16", "1:1", "4:3", "3:4"] : model.imageRatios)}{field("size", "分辨率", model.imageSizes)}{field("resolution", "分辨率", [...new Set(model.durationResolutionMap?.filter(item => item.duration.includes(Number(node.data?.duration))).flatMap(item => item.resolution))])}{field("duration", "时长（秒）", [...new Set(model.durationResolutionMap?.flatMap(item => item.duration))])}
       {mediaType === "video" && model.mode?.length ? <label className="nodeField"><span>参考模式</span><select value={String(node.data?.mode ?? "")} disabled={readOnly || blocked || busy} onChange={event => void call("setConfig", { mode: JSON.parse(event.target.value) })}><option value="" disabled>选择模式</option>{matchingVideoModes(model, videoInputs).map(mode => <option key={JSON.stringify(mode)} value={JSON.stringify(mode)}>{Array.isArray(mode) ? mode.join(" · ") : ({ text: "文生视频", singleImage: "单图参考", startEndRequired: "首尾帧", startFrameOptional: "尾帧 / 首尾帧", endFrameOptional: "首帧 / 首尾帧" } as Record<string, string>)[mode] ?? mode}</option>)}</select></label> : null}

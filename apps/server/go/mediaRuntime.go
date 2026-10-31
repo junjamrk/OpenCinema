@@ -201,11 +201,14 @@ func providerSnapshot(value object) object {
 }
 func (s *server) mediaModels() []any {
 	models := []any{}
+	configs := asObject(s.settings()["mediaProviderConfigs"])
 	for _, raw := range s.providers() {
 		p := asObject(raw)
 		if videoProtocol(p) == "comfyui" && !s.comfyEnabled(p) {
 			continue
 		}
+		// 只看生成实际读取的 apiKey：优云智算的 minimaxApiKey 只影响一个模型，不能让其他模型都显示未配置。
+		credentialMissing := str(p["transport"]) != "local" && videoProtocol(p) != "adapter" && strings.TrimSpace(str(asObject(configs[str(p["id"])])["apiKey"])) == ""
 		for _, rawModel := range array(p["models"]) {
 			model := asObject(clone(rawModel))
 			delete(model, "comfy")
@@ -213,6 +216,7 @@ func (s *server) mediaModels() []any {
 			model["providerLabel"] = p["label"]
 			model["modelId"] = model["id"]
 			model["supportsPrice"] = p["supportsPrice"]
+			model["credentialMissing"] = credentialMissing
 			if model["type"] == "video" {
 				protocol, location := videoProtocol(p), "platform"
 				if protocol == "" {
