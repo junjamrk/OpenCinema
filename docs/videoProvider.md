@@ -195,7 +195,9 @@ API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应�
 
 ### fal 与 Replicate 的图片和音频
 
-这两个协议可以声明 `image`、`audio` 模型，沿用同一条任务提交、查询、取消和恢复链路。在设置里给内置 `fal`、`replicate` 添加模型即可，字段映射同样写在 `video` 对象里。
+这两个协议可以声明 `image`、`audio` 模型，沿用同一条任务提交、查询、取消和恢复链路。内置 `fal` 预置 `fal-ai/flux-pro/v1.1-ultra` 和 `fal-ai/elevenlabs/tts/multilingual-v2`，`replicate` 预置 `black-forest-labs/flux-1.1-pro` 和 `minimax/speech-02-hd`，都只做文生图或语音合成。保存过模型列表的供应商继续用保存的列表，不会自动并入新预置。
+
+要用其他模型，在设置里添加即可，字段映射同样写在 `video` 对象里。
 
 ```json
 {

@@ -77,15 +77,26 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
   const config = settings.mediaProviderConfigs && typeof settings.mediaProviderConfigs === "object" ? settings.mediaProviderConfigs as Record<string, Record<string, unknown>> : {};
   useEffect(() => {
     let active = true;
-    void Promise.all([api("settings/get"), api("providers/media/list"), workbenchSettingsClient.providerCatalog(new AbortController().signal), workbenchSettingsClient.generalConfiguration(new AbortController().signal)]).then(([values, list, catalog, general]) => {
+    void Promise.all([api("settings/get"), workbenchSettingsClient.providerCatalog(new AbortController().signal), workbenchSettingsClient.generalConfiguration(new AbortController().signal)]).then(([values, catalog, general]) => {
       if (!active) return;
       setSettings(z.record(z.string(), z.unknown()).parse(values));
-      setProviders(z.array(mediaProviderSchema).parse(list));
       setProviderCatalog(catalog);
       setGeneralConfiguration(general);
     }).catch(value => { if (active) setError(value instanceof Error ? value.message : String(value)); });
     return () => { active = false; };
   }, []);
+  // 插件的安装、停用和卸载发生在别的标签页或 Agent 工具里，所以进入本页和配置变化时都重新读取。
+  useEffect(() => {
+    if (tab !== "models") return;
+    const controller = new AbortController();
+    async function refresh() {
+      try { const list = await workbenchSettingsClient.providers(controller.signal); if (!controller.signal.aborted) setProviders(list); }
+      catch (value) { if (!controller.signal.aborted) setError(value instanceof Error ? value.message : String(value)); }
+    }
+    void refresh();
+    window.addEventListener("toonflow:provider-config-changed", refresh);
+    return () => { controller.abort(); window.removeEventListener("toonflow:provider-config-changed", refresh); };
+  }, [tab]);
   useEffect(() => {
     if (tab !== "plugins" && tab !== "ffmpeg") return;
     const controller = new AbortController();

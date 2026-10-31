@@ -183,8 +183,8 @@ Image, video and audio generation can each go through your host Agent or a confi
 | Compshare | ✓ | ✓ | | |
 | Metaso MiniMax H3 | | ✓ | | |
 | Volcengine Ark Seedance | | ✓ | | Multimodal image and video references |
-| fal | ✓ | ✓ | ✓ | Add more models on the same protocol in Settings |
-| Replicate | ✓ | ✓ | ✓ | Add more models on the same protocol in Settings |
+| fal | ✓ | ✓ | ✓ | Presets Kling, FLUX and ElevenLabs; add more models in Settings |
+| Replicate | ✓ | ✓ | ✓ | Presets Veo, FLUX and MiniMax Speech; add more models in Settings |
 | Local / LAN video service | | ✓ | | Connects to an OpenAI-style service on your machine or network |
 | ComfyUI workflows | ✓ | ✓ | ✓ | ComfyUI on your machine or network. Import a workflow and use it as a model, see [Use ComfyUI workflows](#use-comfyui-workflows) |
 | Custom | ✓ | ✓ | ✓ | JSON manifest, see [Adding a provider](#adding-a-provider) |
