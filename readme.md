@@ -95,7 +95,7 @@ Open <http://127.0.0.1:47920>. The server listens on localhost only. Settings an
 
 ### 3. Open a project
 
-Click **打开工程** (Open Project) and enter the absolute path of an existing folder, such as `/Users/me/Movies/myFilm`. An empty folder works too; the first canvas is created for you. After that, the home screen lists it under recent projects so you can get back in one click.
+Click **新建工程** (New Project), name it and pick a location, or click **打开工程** (Open Project) and browse to an existing folder. An empty folder works too; the first canvas is created for you. A ZIP from **导出工程** (Export Project) comes back in through **导入工程包** (Import Project) in the new project dialog. After that, the home screen lists the project under recent projects so you can get back in one click.
 
 ### 4. Choose how to generate
 
