@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createMediaAiClient, type NodeMediaCost, type NodeMediaModel, type NodeModelParameter } from "@toonflow/nodes-scaffold/nodeAiClient";
 import MediaNode from "./reactMediaNode";
 import { errorText, isGenerationLocked, mediaLabels, readMedia, type MediaType, type NodeViewProps } from "../reactNode";
-import { matchingVideoModes, normalizeParameters, parameterIssue } from "../reactGeneration";
+import { canAbandonGeneration, matchingVideoModes, normalizeParameters, parameterIssue } from "../reactGeneration";
 import { readReferences } from "../reactReferences";
 import ReferenceList from "./reactReferences";
 import GenerationLoading from "./reactGenerationLoading";
@@ -16,6 +16,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const [models, setModels] = useState<NodeMediaModel[]>();
   const [error, setError] = useState("");
   const [observeError, setObserveError] = useState("");
+  const [confirmingAbandon, setConfirmingAbandon] = useState(false);
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState("");
   const [runtimeState, setRuntimeState] = useState<string>();
@@ -31,11 +32,9 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const generationState = runtimeState ?? generation?.status;
   const blocked = isGenerationLocked(generationState);
   const running = generationState === "running";
-  // 只有动作真的会取消时才给取消按钮：未确认的任务要有远端任务且供应商支持中止，交给 Agent 的任务只能放弃等待。
-  const cancelLabel = running ? "取消生成" : generationState === "unknown" && remoteCancel ? "取消任务" : undefined;
   // ACT: 错误文本第一行是给用户的结论，其余行是供应商原文。两段沿用一个字符串，Agent 读到的状态也带着原文。
-  const failure = error || (generationState === "running" || generationState === "resultReady" ? undefined : generation?.error);
-  const abandonable = ["unknown", "interrupted", "resultReady", "delegated"].includes(generationState ?? "") && generation?.status !== "failed";
+  const failure = error || (running || generationState === "resultReady" ? undefined : generation?.error);
+  const abandonable = canAbandonGeneration(generationState) && generation?.status !== "failed";
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -68,6 +67,8 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   }, [mediaType]);
   const model = models?.find(value => JSON.stringify([value.providerId, value.modelId]) === node.data?.model);
   const modelGone = !!models && !!node.data?.model && !model;
+  // 按钮只写实际动作：供应商不支持中止时只能停止等待，未确认的任务要有远端任务才能取消，交给 Agent 的任务没有取消。
+  const cancelLabel = running ? model?.execution?.cancelMode === "none" ? "停止等待，远端任务无法取消" : "取消生成" : generationState === "unknown" && remoteCancel ? "取消任务" : undefined;
   // 已配置的排前面。同名模型来自不同供应商，下拉收起时只显示选项文字，要带上供应商才分得清。
   const modelGroups = groupNodeModels(models ?? []).toSorted((left, right) => Number(!!left.models[0]!.credentialMissing) - Number(!!right.models[0]!.credentialMissing));
   const modelOption = (item: NodeMediaModel) => `${item.label}${models!.filter(other => other.label === item.label).length > 1 ? ` · ${item.providerLabel}` : ""}${item.credentialMissing ? "（未配置 Key）" : ""}`;
@@ -88,9 +89,6 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   }
   function callStatusTool(name: string) {
     void call(name).then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); });
-  }
-  function abandon() {
-    if (window.confirm("放弃后节点会解锁，但原任务可能仍在运行。可能已扣费，重新生成可能重复计费。确定放弃此任务吗？")) callStatusTool("abandonGeneration");
   }
   const field = (key: string, title: string, choices: readonly unknown[] | undefined) => choices?.length ? <label className="nodeField"><span>{title}</span><select disabled={locked} value={String(node.data?.[key] ?? "")} onChange={event => void call("setConfig", { [key]: key === "duration" ? Number(event.target.value) : event.target.value })}>
     <option value="" disabled>跟随模型</option>{choices.map(value => <option key={String(value)} value={String(value)}>{String(value)}</option>)}
@@ -119,7 +117,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   }
   const toolbarAction = props.cardAction || !blocked && (value || guide) ? <>{props.cardAction}{!blocked && (value || guide) && <button type="button" className="nodeMediaTool nodeMediaToolPrimary" disabled={busy || readOnly} title={value ? "在底部继续创作" : "在底部描述重绘要求"} aria-label={value ? "在底部继续创作" : "在底部描述重绘要求"} onClick={() => compose()}><NodeIcon name="generate" /></button>}</> : undefined;
   return <MediaNode {...props} compact disabled={blocked || busy} toolbarAction={toolbarAction} emptyAction={<button type="button" className="nodeComposerEmpty" disabled={busy || readOnly} onClick={() => compose()}><NodeIcon name="generate" size={20} /><span>描述创作要求</span></button>} fallbackPreview={mediaType === "image" && guide ? { url: guide, mimeType: "image/png" } : undefined} fallbackCaption="红色标注为重绘区域" stageOverlay={blocked ? <GenerationLoading controller={controller} mediaType={mediaType} status={generationState} prior={prior} startedAt={generation?.startedAt} disabled={busy || readOnly} cancelLabel={cancelLabel} onCancel={() => void call("cancelGeneration")} /> : undefined}>
-    <p className="nodeStatus nodeModelName" title={model ? model.providerLabel : undefined}>{model?.label ?? (modelGone ? "模型已失效" : "连接的 Agent")}</p>
+    <p className="nodeStatus nodeModelName" title={model ? model.providerLabel : undefined}>{model?.label ?? (node.data?.model ? modelGone ? "模型已失效" : "" : "连接的 Agent")}</p>
     <ReferenceList {...props} readOnly={locked} videoRoles={mediaType === "video"} onMention={compose} />
     <div className="nodeGenerationDetails">
     <section className="nodeGenerationSettings"><h4>生成设置</h4><div className="nodeGenerationSettingsBody">
@@ -150,14 +148,20 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
     {generationState && generationState !== "idle" && <div className="nodeActions">
       {(generationState === "interrupted" || generationState === "unknown" || generationState === "failed" && generation?.taskId && !!node.data?.model) && <button type="button" disabled={busy || readOnly} onClick={() => callStatusTool("getGenerationStatus")}>重新核对</button>}
       {generationState === "resultReady" && <button type="button" disabled={busy || readOnly} onClick={() => callStatusTool("applyGenerationResult")}>采用已完成{mediaLabels[mediaType]}</button>}
-      {abandonable && <button type="button" disabled={busy || readOnly} onClick={abandon}>放弃此任务</button>}
+      {abandonable && !confirmingAbandon && <button type="button" disabled={busy || readOnly} onClick={() => setConfirmingAbandon(true)}>放弃此任务</button>}
       {(["failed", "cancelled"].includes(generationState) || generationState === "completed" && !value) && <button type="button" disabled={busy || readOnly} title="回填提示词到底部输入框，确认后发送" onClick={() => focusComposer({ prompt })}>重新生成</button>}
       <span className="nodeStatus" data-state={generationState} role="status">{({ running: "生成中", delegated: "已交给 Agent，等待产物", completed: value ? "产物已保存" : "任务已结束，节点没有产物", resultReady: `${mediaLabels[mediaType]}已生成，待采用`, cancelled: "已取消", failed: generation?.abandoned ? "已放弃此任务" : "生成失败", interrupted: "上次生成已中断", unknown: "任务结果未确认", cancelRequested: "正在取消" } as Record<string, string>)[generationState] ?? generationState}{progress !== undefined && running ? ` · ${Math.round(progress)}%` : ""}</span>
       {cost && <span className="nodeStatus">预估 {cost.estimate?.price ?? "无报价"} · 实际 {cost.actual ? `${cost.actual.amount} ${cost.actual.unit}（${cost.actual.source === "vendor" ? "厂商返回" : "余额差"}）` : "未知"}</span>}
       {mediaType === "video" && generationState === "completed" && value && <span className="nodeStatus" data-state={shotReview?.status === "rejected" ? "failed" : "pending"} title="审片记录绑定源文件版本；打开审片或合成时会重新核对当前版本">{shotReview?.source === value.url ? shotReview.status === "approved" ? `通过记录 · ${shotReview.start}–${shotReview.end}s（合成前核版本）` : "候选已拒收" : "视频候选 · 待审"}</span>}
     </div>}
+    {/* 不用 window.confirm：MCP Apps 的沙箱 iframe 里它会直接返回 false，按钮就没反应了。 */}
+    {abandonable && confirmingAbandon && <div className="nodeActions" role="group" aria-label="确认放弃此任务">
+      <p className="nodeStatus">放弃后节点会解锁，但原任务可能仍在运行。可能已扣费，重新生成可能重复计费。</p>
+      <button type="button" autoFocus disabled={busy} onClick={() => setConfirmingAbandon(false)}>继续等待</button>
+      <button type="button" disabled={busy || readOnly} onClick={() => { setConfirmingAbandon(false); callStatusTool("abandonGeneration"); }}>确认放弃</button>
+    </div>}
     {warning && blocked && <p className="nodeStatus" role="status">正在重试：{warning}</p>}
-    {observeError && <p className="nodeStatus" role="status">暂时读不到任务状态，正在重试：{observeError}</p>}
+    {observeError && blocked && <p className="nodeStatus" role="status">暂时读不到任务状态，正在重试：{observeError}</p>}
     {failure && <p className="nodeError" role="alert">{failure.split("\n")[0]}</p>}
     {failure?.includes("\n") && <details className="nodeDetails"><summary>错误详情</summary><p className="nodeSavedInstruction">{failure.split("\n").slice(1).join("\n")}</p></details>}
   </MediaNode>;

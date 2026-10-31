@@ -5,7 +5,7 @@ import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchSer
 import type { NodeDocumentService } from "@toonflow/nodes-scaffold/react";
 import { isBrowserAudioAsrSupported, transcribeBrowserAudio } from "@toonflow/asr";
 import { ToolExecutionError } from "@toonflow/nodes-scaffold/toolErrors";
-import { isExecutionUnknown, mediaValueSchema, nodePreconditionError, pluginServices, readMedia, readNodeData, relativePathSchema, type MediaType } from "./reactNode";
+import { isExecutionUnknown, isGenerationLocked, mediaValueSchema, nodePreconditionError, pluginServices, readMedia, readNodeData, relativePathSchema, type MediaType } from "./reactNode";
 import { mediaClipPosition, mediaDraftSchema, mediaEditor, mediaHistorySchema, mediaPlayer, mediaRangeSchema, mediaView, mediaViewSchema, readMediaSourceRevision } from "./mediaEditor";
 import { compareVideoReviews, isGeneratedVideo, readVideoReviews, readVideoSources, videoReviewAllows, videoReviewSchema, type VideoSource } from "./videoShot";
 import { compositionAudioStream, compositionSourceSchema, readVideoEditPlan, resolveCompositionClip, videoCompositionSchema, videoEditPlanOutputSchema, videoEditPlanSchema, type StoredVideoEditPlan, type VideoComposition, type VideoEditPlanSnapshot } from "./videoEditPlan";
@@ -148,7 +148,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
       if (current.revision !== args.expectedDraftRevision) throw nodePreconditionError(workbench, id, "媒体草稿已变化，未操作局部历史", "draftRevisionConflict");
       if (source().url !== args.source || current.value.source !== args.source || current.value.sourceRevision !== args.sourceRevision) throw nodePreconditionError(workbench, id, "源媒体或草稿绑定版本已变化，未操作历史", "draftSourceChanged");
       const data = readNodeData(document, id);
-      if (job || unknown || [data.generation, data.mediaOperation].some(value => value && typeof value === "object" && "status" in value && ["running", "delegated", "cancelRequested", "unknown"].includes(String(value.status)))) throw nodePreconditionError(workbench, id, "媒体任务尚未收尾，请先确认任务终态", "mediaOperationBusy");
+      if (job || unknown || [data.generation, data.mediaOperation].some(value => value && typeof value === "object" && "status" in value && isGenerationLocked(value.status))) throw nodePreconditionError(workbench, id, "媒体任务尚未收尾，请先确认任务终态", "mediaOperationBusy");
     }
     requireCurrent(); await readMediaSourceRevision(workbench.files, args.source, args.sourceRevision, signal); requireCurrent();
     mediaPlayer(workbench, "clip")?.pause(); draft[direction](args.expectedDraftRevision); return readDraft();

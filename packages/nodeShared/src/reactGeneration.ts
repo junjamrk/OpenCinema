@@ -27,6 +27,8 @@ const videoConfigSchema = z.strictObject({ providerId: configSchema.shape.provid
 const parameterSchema = z.strictObject({ type: z.enum(["string", "number", "integer", "boolean"]).optional(), title: z.string().optional(), default: parameterValueSchema.optional(), minimum: z.number().optional(), maximum: z.number().optional(), enum: z.array(parameterValueSchema).optional() });
 const modelSchema = z.strictObject({ id: z.string().optional().describe("供应商模型目录保留的原始ID；modelId为规范化调用ID"), supportsPrice: z.boolean().optional(), credentialMissing: z.boolean().optional().describe("供应商尚未配置 API Key，生成会被拒绝"), providerId: z.string(), providerLabel: z.string(), modelId: z.string(), label: z.string(), type: z.enum(["image", "video", "audio"]), mode: z.array(z.union([z.string(), z.array(z.string())])).optional(), imageSizes: z.array(z.string()).optional(), imageRatios: z.array(z.string()).optional(), durationResolutionMap: z.array(z.strictObject({ duration: z.array(z.number()), resolution: z.array(z.string()) })).optional(), audio: z.union([z.boolean(), z.literal("optional")]).optional(), voices: z.array(z.strictObject({ title: z.string(), voice: z.string() })).optional(), video: z.strictObject({ inputMap: z.record(z.string(), z.string()).optional(), defaults: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(), stringFields: z.array(z.string()).optional() }).optional(), execution: z.strictObject({ protocol: z.string(), location: z.enum(["local", "remote", "platform"]), cancelMode: z.enum(["none", "request"]) }).optional(), parameters: z.strictObject({ type: z.literal("object"), properties: z.record(z.string(), parameterSchema) }).optional() });
 
+export function canAbandonGeneration(status: unknown) { return ["unknown", "interrupted", "resultReady", "delegated"].includes(String(status)); }
+
 export function getGenerationComposerState(data: Readonly<Record<string, unknown>>) {
   const generation = data.generation;
   const status = generation && typeof generation === "object" && "status" in generation ? String(generation.status) : "";
@@ -374,8 +376,8 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
   context.registerTool({ name: "abandonGeneration", outputSchema: generationStatusSchema, annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }, description: "放弃等待此节点结果未确认或尚未采用的任务，解除节点锁定。不会取消远端任务，原任务可能仍在运行，费用不会退回，再次生成可能重复计费。只有用户明确决定不再等待时才能调用，不能为了继续生成而自行调用。状态变为 failed 并保留 taskId，之后仍可用 getGenerationStatus 核对，用 applyGenerationResult 采用原产物。", parameters: z.strictObject({}),
     async execute(_args, { signal }) {
       workbench.assertWritable();
-      if (!["unknown", "interrupted", "resultReady", "delegated"].includes(status().status)) throw new Error("只有结果未确认或待采用的任务可以放弃；运行中的任务请先取消");
-      await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), status: "failed", abandoned: true, error: "已放弃等待此任务。原任务可能仍在运行或已经扣费，任务 ID 已保留，可以重新核对。", finishedAt: new Date().toISOString() } }, signal);
+      if (!canAbandonGeneration(status().status)) throw new Error("只有结果未确认或待采用的任务可以放弃；运行中的任务请先取消");
+      await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), status: "failed", abandoned: true, error: "已放弃等待此任务。原任务可能仍在运行或已经扣费，任务 ID 已保留。", finishedAt: new Date().toISOString() } }, signal);
       task = undefined;
       await document.save();
       return status();
