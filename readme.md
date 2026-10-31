@@ -1,59 +1,86 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/logoDark.png">
-    <img src="assets/brand/logoLight.png" alt="OpenCinema" width="460">
+    <img src="assets/brand/logoLight.png" alt="OpenCinema" width="420">
   </picture>
 </p>
 
-<h3 align="center">从想法到成片，与 Agent 一起掌镜。</h3>
+<h3 align="center">Your agent. Your canvas. Your film.</h3>
 
 <p align="center">
-  本地优先的 AI 视频创作工作台。一张画布连接分镜、素材、白模预演、生成与剪辑，<br>
-  你手动做的每一步，Agent 都能用同一套工具接着做。
+  A local-first AI video studio. One canvas connects storyboards, assets, 3D previs, generation and editing,<br>
+  and every step you take by hand, your agent can continue with the same tools.
 </p>
 
 <p align="center">
-  <a href="#快速开始">快速开始</a> ·
-  <a href="#功能">功能</a> ·
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-4FDBC8?style=flat-square"></a>
+  <img alt="0.4.0 in development" src="https://img.shields.io/badge/version-0.4.0%20in%20development-101315?style=flat-square">
+  <img alt="Bun 1.3.14+" src="https://img.shields.io/badge/Bun-1.3.14%2B-101315?style=flat-square">
+  <img alt="Go 1.26+" src="https://img.shields.io/badge/Go-1.26%2B-101315?style=flat-square">
+  <img alt="Node 22+" src="https://img.shields.io/badge/Node.js-22%2B-101315?style=flat-square">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-stdio%20%2B%20Streamable%20HTTP-101315?style=flat-square">
+</p>
+
+<p align="center">
+  <strong>English</strong> ·
+  <a href="readmeZh.md">中文</a> ·
+  <a href="readmeJa.md">日本語</a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
   <a href="roadmap.md">Roadmap</a> ·
-  <a href="#开发插件与贡献代码">开发插件</a> ·
-  <a href="docs/claudeSetup.md">Claude 接入</a> ·
-  <a href="readmeEn.md">English</a> ·
-  <a href="LICENSE">MIT</a>
+  <a href="#architecture">Architecture</a> ·
+  <a href="#extend-opencinema">Extend</a> ·
+  <a href="#contributing">Contribute</a> ·
+  <a href="assets/promo/openCinemaPromo.mp4">Product film</a>
 </p>
 
 <p align="center">
-  <a href="assets/promo/openCinemaPromo.mp4">
-    <img src="assets/promo/promoPreview.gif" alt="OpenCinema：AI 工具闭环、多节点画布、多 Provider 与插件扩展" width="960">
-  </a>
+  <img src="assets/screenshots/canvas.png" alt="The OpenCinema canvas: text, image, video and audio sources, a Blockout previs and generation nodes wired into one graph" width="960">
 </p>
+<p align="center"><sub>Real interface screenshot of a sample project. Generated results depend on the models, references and reviews you configure.</sub></p>
 
-<p align="center"><sub>产品动效演绎；实际生成效果依所选模型、参考与审片结果而定。</sub></p>
+## Why OpenCinema
 
-## 为什么用 OpenCinema
+Generation tools answer how to produce a clip. OpenCinema answers how to finish a film.
 
-生成工具回答“这段画面怎么生成”，OpenCinema 回答“这部片子怎么做完”。
+- **Previs first, then generate, then fix only what needs fixing.** Block out movement and cameras in 3D, review each shot, and replace a single shot without redoing the film.
+- **One canvas for the whole film.** Scripts, references, previs, generation, review and the edit plan are nodes on one canvas, and edges are reference relationships.
+- **Your agent works on the same canvas.** Describe what you want in Codex, Claude Code or any MCP client. The agent reads and writes nodes through public MCP tools, and you can open an editor and change things by hand at any time. Both paths share one command path, one revision and one undo history.
+- **Swap the generation backend.** Cloud models, local services and your existing ComfyUI workflows all plug into the same generation node.
+- **Everything stays local.** The Go server listens on loopback only, a project is a plain folder on your disk, and credentials stay in local settings. Agents only ever see “configured” or “not configured”.
 
-- **先预演，再生成，只返修需要的镜头。** 用 3D 白模定走位和机位，审片后替换单镜，不用整片重来。
-- **从分镜到成片在一张画布上。** 镜头计划、候选审片和剪辑计划连在一起，多个镜头按同一套流程推进。
-- **生成后端可以换。** 云端模型、本地服务和你现有的 ComfyUI 工作流，都能接到同一个生成节点上。
+> **Status: 0.4.0, in development, unreleased.** Source builds work on macOS and Linux; Windows archives are not supported yet. The workbench interface is Chinese only for now, so button names below include an English gloss. AI generation uses the provider you configure and may cost money. See [Known limitations](#known-limitations).
 
-工程是磁盘上的普通文件夹，手工操作和 Agent 共用同一套工具，凭据只留在本机。
+## How it works
 
-当前版本 **0.4.0 · 开发中**，尚未发布正式版本，已知限制见[下文](#已知限制)。
+```mermaid
+flowchart LR
+  A["Codex · Claude Code<br/>any MCP agent"] -->|MCP stdio| B["plugin bridge<br/>build/openCinema"]
+  B -->|Streamable HTTP| G["Go server<br/>authorization · files · tasks · providers"]
+  G <-->|SSE control channel| W["React workbench<br/>canvas · node plugins · editors"]
+  W -->|composer| G -->|host request queue| A
+  G --> P["generation services<br/>cloud APIs · local services · ComfyUI"]
+  G --> L["local tools<br/>FFmpeg · Video Depth Anything"]
+```
 
-## 快速开始
+An agent first calls `getAppState` to pin the project and canvas, then discovers tools from their live schemas and executes them. Side-effecting calls carry an `operationId`, and canvas writes carry `expectedRevision`. Conflicts are rejected, and unknown results are looked up rather than blindly retried.
 
-### 1. 准备环境
+## Quick start
 
-| 工具 | 版本 | 用途 |
+### 1. Requirements
+
+| Tool | Version | Used for |
 | --- | --- | --- |
-| [Bun](https://bun.sh) | 1.3.14+ | 安装依赖、构建前端和插件 |
-| [Go](https://go.dev/dl/) | 1.26+ | 编译本地服务 |
-| [Node.js](https://nodejs.org) | 22+ | 仅接入 Claude Code／Codex 时需要 |
-| FFmpeg | 可选 | 音视频处理；没有的话可在工作台 **设置 → FFmpeg** 中下载 |
+| [Bun](https://bun.sh) | 1.3.14+ | Dependencies, web and plugin builds |
+| [Go](https://go.dev/dl/) | 1.26+ | Compiling the local server |
+| [Node.js](https://nodejs.org) | 22+ | Only for Claude Code and Codex integration. A full release package needs only this |
+| FFmpeg | Optional | Audio and video processing. Download it from **Settings → FFmpeg** if you don't have it |
+| Python | 3.10–3.12, optional | Only for the Video Depth node |
 
-### 2. 构建并启动
+### 2. Build and run
 
 ```bash
 git clone https://github.com/junjamrk/OpenCinema.git
@@ -63,37 +90,42 @@ bun run build
 bun start
 ```
 
-打开 <http://127.0.0.1:47920>。服务只监听本机，配置和密钥保存在仓库下的 `data/`（已被 Git 忽略）。
+Open <http://127.0.0.1:47920>. The server listens on localhost only. Settings and credentials are stored in `data/` inside the repository, which Git ignores.
 
-### 3. 打开工程
+### 3. Open a project
 
-点击 **打开工程**，填写一个已存在文件夹的绝对路径，例如 `/Users/me/Movies/myFilm`。空文件夹也可以，会自动创建第一张画布。之后可以从首页的 **最近工程** 一键回到它。
+Click **打开工程** (Open Project) and enter the absolute path of an existing folder, such as `/Users/me/Movies/myFilm`. An empty folder works too; the first canvas is created for you. After that, the home screen lists it under recent projects so you can get back in one click.
 
-### 4. 选一种生成方式
+### 4. Choose how to generate
 
-两种方式可以同时用，节点上随时切换。
+You can use both and switch per node at any time.
 
-| | 配置媒体服务 | 连接 Agent |
+| | Configure a media provider | Connect an agent |
 | --- | --- | --- |
-| 适合 | 直接调用模型生成 | 让 Agent 规划、搭画布、批量操作 |
-| 需要 | 供应商 API Key 或本地服务 | Claude Code 或 Codex |
-| 费用 | 由供应商按量收取 | 宿主订阅不包含所有视频模型 |
+| Best for | Calling models directly | Planning, building canvases, batch work |
+| Requires | A provider API key or local service | Claude Code, Codex or another MCP client |
+| Cost | Billed by the provider | Host subscriptions do not cover every video model |
 
-**配置媒体服务**
+**Configure a media provider**
 
-1. 打开 **设置 → 媒体服务**，列表会显示每个供应商是否已配置。
-2. 选择供应商，填写 API Key，点击 **保存连接配置**。
-3. 在生成节点上点击参数按钮，选择模型。
+1. Open **Settings → 媒体服务** (Media Services). The list shows which providers are configured.
+2. Select a provider, enter the API key and save the connection.
+3. On a generation node, click the parameters button and choose a model.
 
-**连接 Agent**
+**Connect an agent**
 
-在完成构建的仓库根目录运行：
+<table>
+<tr>
+<td width="36%"><img src="assets/screenshots/settingsAgent.png" alt="Workbench settings, Host Agent tab: setup commands for Claude Code and Codex" width="100%"></td>
+<td valign="top">
+
+Claude Code, from the root of the built repository:
 
 ```bash
 claude --plugin-dir ./build/openCinema
 ```
 
-Codex 使用：
+Codex:
 
 ```bash
 codex plugin marketplace add . --json
@@ -103,205 +135,219 @@ codex plugin marketplace add . --json
 codex plugin add opencinema@openCinemaStandalone --json
 ```
 
-然后告诉 Agent「连接 OpenCinema 工作台」（Claude Code 可以直接用 `/opencinema:opencinema`）。工作台右上角显示已连接后，底部输入框的要求就会交给 Agent 执行。其他 MCP 宿主在 **设置 → 宿主 Agent → 其他 MCP 宿主** 复制连接配置，细节见 [Claude 接入](docs/claudeSetup.md)。
+Then ask the agent to connect to the OpenCinema workbench. In Claude Code you can use `/opencinema:opencinema`. Once the top right of the workbench shows it as connected, requests from the bottom input go to the agent.
 
-> 保持工作台页面打开。画布和节点工具运行在页面里，Agent 通过它操作画布。
+Other MCP clients can copy a connection config from **Settings → 宿主 Agent** (Host Agent). See [Claude setup](docs/claudeSetup.md), in Chinese, for details.
+</td>
+</tr>
+</table>
 
-### 5. 做第一个镜头
+> Keep the workbench page open. Canvas and node tools run inside the page, and the agent operates the canvas through it.
 
-1. 把一张图片拖到画布上。
-2. 按 `Tab`，选择 **视频生成**。
-3. 从图片节点右侧的端口拖一条线到视频生成节点左侧。
-4. 选中视频生成节点，点击上方的参数按钮，选模型、时长和画幅。
-5. 在底部输入框写下镜头要求，按 `⌘/Ctrl + Enter` 发送。
+### 5. Make your first shot
 
-节点会显示进度，完成后视频保存到工程的 `assets/`。播放确认后，可以继续截帧、审片，或接到下一个节点。
+1. Drag an image onto the canvas.
+2. Press `Tab` and choose **视频生成** (Video Generation).
+3. Drag a connection from the right port of the image node to the left port of the generation node.
+4. Select the generation node, click the parameters button above it, and pick a model, duration and aspect ratio.
+5. Describe the shot in the bottom input and press `⌘/Ctrl + Enter`.
 
-### 遇到问题
+The node shows progress, and the finished video is saved to `assets/` in your project. From there you can capture frames, review the take, or connect it to the next node.
 
-| 现象 | 处理 |
+### A typical session
+
+1. Open a project, drop in reference stills, a reference clip and an audio bed, and write a short brief.
+2. Block the action and the camera in Blockout, export RGB and Depth for the shot, and freeze them as reference nodes.
+3. Wire the brief, the still and the previs into a video generation node and set the reference roles.
+4. Type the request into the composer, for example “make the chase feel faster”. The agent shows the generation plan first. Confirm it, then generate candidates.
+5. Review each candidate. Rejected ones stay in the project.
+6. In the edit plan, replace only the shot that failed, add the audio track and render a new cut.
+
+### Troubleshooting
+
+| Symptom | Fix |
 | --- | --- |
-| 发送按钮是灰的 | 看输入框下方的提示，直接点 **连接 Agent** 或 **配置模型** |
-| 节点里没有可选模型 | 到 **设置 → 媒体服务** 配置，或添加自定义供应商 |
-| 音视频处理报错 | 到 **设置 → FFmpeg** 下载，或切换为系统安装版 |
-| 端口 47920 被占用 | 运行 `build/server/openCinema -listen 127.0.0.1:47921 -webRoot build/web -dataDirectory data` |
-| Agent 报“请先连接工作台” | 打开工作台页面并进入工程，再让 Agent 重新读取状态 |
+| The send button is disabled | Read the hint under the input and use its connect-agent or configure-model button |
+| No models to choose from | Configure a provider under **Settings → 媒体服务**, or add a custom one |
+| Audio or video processing fails | Download FFmpeg under **Settings → FFmpeg**, or switch to the system install |
+| Port 47920 is in use | Run `build/server/openCinema -listen 127.0.0.1:47921 -webRoot build/web -dataDirectory data` |
+| The agent asks you to connect the workbench | Open the workbench page, enter the project, and ask the agent to read the state again |
 
-## 功能
+## Features
 
-### 节点一览
+### The canvas and 13 node plugins
 
-| 节点 | 能做什么 |
+<table>
+<tr>
+<td width="34%"><img src="assets/screenshots/nodeMenu.png" alt="Add node palette" width="100%"></td>
+<td valign="top">
+
+Press <kbd>Tab</kbd> for the node palette, or drop files straight onto the canvas. Nodes connect by port type, and sources wired into a generation node appear as numbered references.
+
+| Category | Nodes |
 | --- | --- |
-| **文本** | Markdown 剧本与说明，富文本和原文两种编辑模式 |
-| **图片** | 局部重绘、裁剪、宫格切分、打光、机位、全景 |
-| **视频** | 截帧、裁切、变速、提取音轨、分离音视频、审片、语音转写 |
-| **音频** | 波形剪辑、片段拼接、变速、语音转写 |
-| **图片生成** | 提示词加参考图生成图片，也承接局部重绘、打光和机位草稿 |
-| **视频生成** | 文生视频、单图、首尾帧、多模态参考；含镜头计划和候选审片 |
-| **音频生成** | 由文本或参考素材生成配音与音效 |
-| **Blockout** | 3D 编排场景、走位和摄影机，导出 RGB／Depth 参考与 Animatic |
-| **3D 导演** | 用文字生成场景、动作和运镜，手动取景后导出关键帧或视频 |
-| **视频分析** | 本地检测切点，输出关键帧、镜头片段和音轨 |
-| **媒体信息** | 本地读取编码、时长、帧率、轨道，不上传文件 |
-| **Motion** | 分析二维运动、姿态和相对深度，导出制作参考包 |
-| **视频深度白模** | 用本地模型把视频转成深度参考 |
+| Text and media | Text · Image · Video · Audio |
+| Generation | Image · Video · Audio Generation |
+| Space and camera | Blockout · 3D Director |
+| Analysis | Video Analysis · Media Info · Motion · Video Depth |
+| Workspace extension | Collaboration |
 
-另有工作区扩展 **多人协作**，详见[协作与工程管理](#协作与工程管理)。
+Multiple canvases, groups, alignment guides, grid snapping, auto-arrange, batch connect, undo and redo are built in and shared by agents and people. Shortcuts and the node menu are customizable in Settings.
+</td>
+</tr>
+</table>
 
-### 画布
+### You set the scope
 
-- 多画布、画布文件夹、节点分组与合并，保存状态实时显示。
-- 拖入文件或粘贴内容自动建节点；从端口拖到空白处，只列出能连接的节点类型。
-- 框选后批量排列、批量连接，或拖到空白处创建并连接新节点。
-- 对齐参考线、网格吸附、导航地图、自动整理、连线高亮。
-- 工程级撤销重做，按住 `Alt` 拖动复制节点。
-- 快捷键和节点菜单都可以在设置中自定义。
+<img src="assets/screenshots/composerScope.png" alt="The composer shows the current scope: Shot 02 candidates, five references" width="960">
 
-常用快捷键：`Tab` 添加节点、`⌘/Ctrl + F` 搜索节点、`V` 选择、`H` 抓手、按住 `Space` 平移、`⌘/Ctrl + G` 成组、`Alt + Shift + F` 整理画布。
+Select one node and the composer acts on it alone. Marquee-select a group and the scope becomes those nodes. Select nothing and it is the whole canvas. Generation nodes can switch between generating and letting the agent adjust the node.
 
-### 图片编辑
+### Editors
 
-选中图片节点，点击工具栏的画笔按钮打开编辑台。所有操作都生成新副本，原图保留。
+<table>
+<tr>
+<td width="68%"><img src="assets/screenshots/imageEditor.png" alt="Image editor: inpaint and mark, crop and transform, grid split, lighting, camera angle, panorama" width="100%"></td>
+<td valign="top"><img src="assets/screenshots/mediaEditing.png" alt="Media editing on a video node: edit plan, trim, frame capture, extract audio, separate, video analysis, review" width="100%"></td>
+</tr>
+</table>
 
-- **局部重绘**：画笔或框选区域，生成蒙版后描述要求，结果只替换选中部分。
-- **标记**：画笔、矩形、圆形、文字、橡皮擦，可保存为标注副本。
-- **裁剪与变换**：固定比例裁剪、像素级参数、旋转、翻转。
-- **宫格切分**：把分镜拼图切成独立图片并自动成组。
-- **打光与机位**：在 3D 场景里调整光位或相机，转成生成草稿。
-- **全景**：球面或柱面投影，截取 1／4／12 个视角，支持镜头、透视和接缝校正。
+Every operation creates a new copy or node and keeps the original.
 
-编辑台支持缩放（`⌘/Ctrl + 滚轮`、`+`、`−`、`0`）、工具快捷键（`B` 画笔、`R` 矩形、`C` 圆形、`T` 文字、`E` 橡皮，`[` `]` 调笔宽）和独立的撤销重做。
+- **Images**: inpainting with brush or box selection, markup, crop and transform, grid split, lighting, camera angle and panorama. Lighting and camera changes become generation drafts.
+- **Video**: trim to a new node, capture first, last or current frame, extract audio, separate audio and video, change speed, video analysis, transcription, and entry points for review and the edit plan.
+- **Audio**: waveform editing, segment joining, speed change and transcription. Processing runs through local FFmpeg.
 
-### 生成与供应商
+### Blockout: see the shot before you generate
 
-图片、视频和音频生成都有两条路：交给宿主 Agent，或直接调用配置好的模型。
+<img src="assets/screenshots/blockout.png" alt="Blockout 3D previs: white-model stage, character library, camera blocking, shot monitor and timeline" width="960">
 
-| 供应商 | 图片 | 视频 | 音频 | 说明 |
-| --- | --- | --- | --- | --- |
-| TF-router | ✓ | ✓ | ✓ | 支持报价和余额查询 |
-| APIMart | ✓ | ✓ | | |
-| 优云智算 | ✓ | ✓ | | |
-| 秘塔 MiniMax H3 | | ✓ | | |
-| 火山方舟 Seedance | | ✓ | | 图片与视频全模态参考 |
-| fal | ✓ | ✓ | ✓ | 预置 Kling、FLUX 和 ElevenLabs，其他模型在设置中添加 |
-| Replicate | ✓ | ✓ | ✓ | 预置 Veo、FLUX 和 MiniMax Speech，其他模型在设置中添加 |
-| 本地／局域网视频服务 | | ✓ | | 连接本机或内网的 OpenAI 风格服务 |
-| ComfyUI 工作流 | ✓ | ✓ | ✓ | 本机或内网的 ComfyUI，导入工作流就能当模型用，见[接入 ComfyUI 工作流](#接入-comfyui-工作流) |
-| 自定义 | ✓ | ✓ | ✓ | 用 JSON 清单接入，见[接入生成服务](#接入生成服务) |
+Place characters and set pieces on a white-model stage, block the action, record camera moves, and export RGB, Depth and Normal layers per shot plus a full animatic. Freezing an export turns it into reference nodes wired into video generation. The 3D Director node generates animation options from text for you to frame by hand.
 
-生成任务会持久化：页面断线或服务重启后，fal、Replicate、方舟、OpenAI 风格服务、ComfyUI、`httpTask` 和 `adapter` 可以恢复观察原任务，不会重复提交收费请求。产物下载到工程内，经 FFprobe 校验后才算成功。协议细节见 [视频供应商文档](docs/videoProvider.md)。
+Blockouts and relative depth are **references** for framing and motion rhythm. A plain video reference does not make a model reproduce motion exactly.
 
-### 预演与镜头分析
+### Analysis
 
-- **Blockout**：场景、实体、Take 和摄影机编排，支持路径、动作预设和本地 GLB／glTF 导入。可以把 RGB／Depth 固定为参考节点接入生成。
-- **3D 导演**：由宿主 Agent 根据文字生成动画方案，再手动取景、记录关键帧。
-- **视频分析**：逐帧检测切点，不需要 Python 或模型 API。
-- **Motion**：最长 30 秒视频的运动、姿态分析，可导出 OpenPose、Depth、Edges 等参考层。
-- **视频深度白模**：Video Depth Anything Small 本地推理，需要 Python 3.10–3.12，并在 **设置 → 媒体服务** 中显式准备模型，构建不会自动下载。
+- **Video Analysis**: detects cut points and splits a clip into keyframes, shot segments and the audio track, with no Python or model API required.
+- **Motion**: pose skeleton and 2D motion for clips up to 30 seconds, with optional relative depth and an exportable production pack. It is not a 3D camera solve.
+- **Video Depth**: temporal relative depth from a locally prepared Video Depth Anything Small model. Builds never download models.
+- **Media Info**: local codec, duration, frame rate and track inspection, with no upload.
 
-白模和相对深度是预演参考。普通视频参考不保证模型严格复现运动。
+### Generation plan, review and edit plan
 
-### 镜头、审片与成片
+- **See the plan first.** `getGenerationPlan` returns the final prompt, the actual model parameters and the role of every reference, without paying or submitting anything.
+- **Review is a recorded human decision.** Six checks cover direction, action, identity, continuity, unexpected cuts and deformation. Rejected or unreviewed clips cannot enter a composition. The software never judges quality for you.
+- **Replace one shot, keep the rest.** The edit plan stores 2–16 clips with order, in and out points, format and one audio track. Replacing a clip leaves the others untouched, and rendering creates a new output node.
 
-视频生成完成只代表拿到候选，是否采用由审片决定。
+See the [shot workflow](docs/videoShotWorkflow.md), in Chinese.
 
-1. **镜头计划**：记录动作、方向和运镜，为每条参考指定职责，生成前查看实际提示词和参数。
-2. **候选审片**：标记可用区间，逐项检查方向、动作、身份、空间连续、意外切镜和形变。
-3. **剪辑计划**：保存镜头顺序、入出点、规格和音轨，支持 2–16 镜及单条外部音轨。
-4. **局部换镜**：替换某一镜后全片预检，再渲染新成片。拒收或未审的片段不能进入合成。
+### Your models, your tools
 
-完整流程见 [镜头工作流](docs/videoShotWorkflow.md)。
+<table>
+<tr>
+<td width="36%"><img src="assets/screenshots/providers.png" alt="Media services settings: the provider list with configuration status" width="100%"></td>
+<td valign="top">
 
-### Agent 与 MCP
+Image, video and audio generation can each go through your host agent or a configured model.
 
-- 通过标准 MCP 提供 50 多个工作台工具，节点专属工具按当前画布动态发现，插件新增的工具不用改协议就能被 Agent 使用。
-- 选中节点就是 Agent 的操作范围；不选则针对整张画布。
-- 写操作绑定修订号和 `operationId`：冲突时拒绝，结果未知时查询原操作，不盲目重试。
-- 文件工具不依赖工作台页面，可以直接读写工程文件；画布写入必须走工具，不允许改 JSON 冒充操作。
-- 支持 MCP Apps 的宿主可以把工作台渲染成原生 Widget。
+| Provider | Image | Video | Audio |
+| --- | --- | --- | --- |
+| TF-router | ✓ | ✓ | ✓ |
+| APIMart | ✓ | ✓ | |
+| Compshare | ✓ | ✓ | |
+| Metaso MiniMax H3 | | ✓ | |
+| Volcengine Ark Seedance | | ✓ | |
+| fal | ✓ | ✓ | ✓ |
+| Replicate | ✓ | ✓ | ✓ |
+| Local or LAN video service | | ✓ | |
+| ComfyUI workflows | ✓ | ✓ | ✓ |
+| Custom | ✓ | ✓ | ✓ |
+</td>
+</tr>
+</table>
 
-协议和数据模型见 [MCP SDK](packages/mcp/README.md)。
+- **fal and Replicate presets**: Kling, FLUX and ElevenLabs on fal, Veo, FLUX and MiniMax Speech on Replicate. Add other models in Settings.
+- **Jobs survive restarts**: after a disconnect or server restart, fal, Replicate, Ark, OpenAI-style, ComfyUI, `httpTask` and `adapter` jobs resume observing the original task instead of submitting a new paid request. Results are downloaded into the project and verified with FFprobe before they count as complete.
+- **FFmpeg**: use a system install or a per-platform, SHA-pinned download. Commands run through filter and option allowlists.
+- **Credentials** are entered only in the local settings panel. A configured credential does not mean the account is authenticated, billing is authorized or generation has been verified.
 
-### 协作与工程管理
+See the [provider docs](docs/videoProvider.md), in Chinese.
 
-- **多人协作**：同一服务上的画布协作，支持限时编辑／只读邀请、本人撤销重做和断线恢复。不会启动公网服务，也不提供字符级协同。
-- **素材库**：跨工程的全局素材，可拖到画布使用。
-- **工程导出**：把工程打包下载，包含画布和素材。
-- **历史版本**：媒体节点保留生成历史，可以随时切回。
+### ComfyUI workflows
 
-## 开发插件与贡献代码
+ComfyUI does the generation and OpenCinema treats each workflow as a model, with no manifest to write:
 
-### 插件系统
+1. Get the workflow running in ComfyUI, then choose **Export (API)**. The regular canvas save format cannot be imported.
+2. Open **Settings → 媒体服务 → ComfyUI 工作流**, enable the connection, enter the address (`http://127.0.0.1:8188` by default) and click **保存并检测** (Save and Check).
+3. Click **导入工作流** (Import Workflow), confirm which node receives the prompt, and mark each loader node as first frame, last frame, reference or keep as is.
+4. Pick the workflow in a generation node. Agents use it through the same node tools.
 
-OpenCinema 的能力大多来自插件，内置的 13 个节点和协作扩展都是插件。插件是一个 ESM 模块，在工作台页面里运行，通过端口交换数据，通过工具向用户和 Agent 暴露能力。
+Workflows run as black boxes. Only the inputs you confirmed are replaced, `seed` and `noise_seed` change on every submission, and output must go through a save node. At import you can add extra ratios and durations and tick fields to adjust on the node.
 
-```mermaid
-flowchart LR
-  agent["Claude Code / Codex"] -- "MCP" --> server["Go 本地服务"]
-  subgraph page["工作台页面"]
-    view["节点界面"] --> runtime["插件运行时"]
-    runtime --> tool["插件工具"]
-  end
-  server -- "转发工具调用" --> runtime
-  tool -- "文件与媒体任务" --> server
-  server --> disk[("工程文件夹")]
-  server --> provider["生成服务"]
-```
+> Workflows run on ComfyUI, and custom nodes can execute arbitrary code. Only import workflows you trust. Agent tools cannot add or change workflows, so only you can import them in Settings.
 
-一个插件由这几部分组成：
+### Collaboration and project management
 
-| 部分 | 作用 |
-| --- | --- |
-| `createData` | 节点的初始数据和端口。端口类型如 `STRING`、`IMAGE`、`VIDEO`、`AUDIO`、`FILE` |
-| `view` | React 界面 |
-| `registerTool` | 发布工具，用 Zod 声明参数。按钮和 Agent 调用同一个工具 |
-| `composer` | 可选，把节点接入底部输入框 |
-| `requires` | 需要的服务和宿主能力，例如 `workbench`、`workspaceFiles`、`ffmpeg`。`getService` 只能取到声明过的服务 |
-| `category`、`description` | 节点在添加面板里的分类和说明 |
-| `onDispose` | 释放 Worker、监听器等资源 |
+- **Collaboration**: canvas collaboration on one server, with time-limited edit or read-only invites, per-user undo and reconnection. It does not start a public service or offer character-level co-editing.
+- **Asset library**: global assets across projects that you can drag onto any canvas.
+- **Project export**: download the project as an archive with canvases and assets.
+- **Media history**: media nodes keep their generation history so you can switch back at any time.
 
-代码放哪里：节点专属逻辑放在自己的插件包；多个插件共用的业务放 `packages/nodeShared`；通用契约放 `packages/nodeScaffold`。
+## Architecture
 
-### 写一个节点插件
+| Layer | Where | Responsibility |
+| --- | --- | --- |
+| Go server | `apps/server` | Authorization and path boundaries, atomic file writes, the MCP endpoint and `operationId` records, media tasks and provider protocols, FFmpeg and the depth model, collaboration |
+| React workbench | `apps/web` | The canvas (@xyflow/react), node views, editors, the tool catalog, the SSE control channel to Go |
+| Editing session | `packages/workbenchCore` | Framework-independent document, revisions, undo and redo, and the save queue |
+| Node SDK | `packages/nodeScaffold` · `packages/nodeShared` | Plugin contract, Zod tool registration, build output, cross-plugin business such as generation, review and the edit plan |
+| Node plugins | `packages/nodes/*` | 13 built-in nodes and the collaboration extension |
+| MCP bridge and plugin package | `packages/mcp` · `packages/openCinema` | stdio adapter, widget resource, launcher and leases, Codex and Claude manifests and skill |
 
-插件可以在仓库外独立开发。下面做一个统计上游文本字数的节点，这份代码已实际跑通类型检查和构建。脚手架还没有发布到 npm，所以先在本仓库打一个包。
+Three invariants hold the design together: **one source of truth for schemas** (Zod → JSON Schema → Go → stdio), **one command path for people and agents** with shared revisions and undo, and **traceable side effects** (`operationId` idempotency, `unknown` is never retried automatically, outputs carry provenance and review records).
 
-**1. 打包脚手架**
+## Extend OpenCinema
 
-在仓库根目录运行，得到 `packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz`：
+### Write a node plugin
+
+Most of OpenCinema is built from plugins, including all 13 built-in nodes. A plugin is an ESM module that runs in the workbench page, exchanges data through ports, and exposes capabilities as tools. Buttons and agents call the same tool, and agents discover it with no protocol changes.
+
+Plugins can be developed outside this repository. The scaffold is not on npm yet, so pack it first from the repository root:
 
 ```bash
 cd packages/nodeScaffold && npm pack
 ```
 
-**2. 生成插件项目**
-
-在你放插件的目录运行，把 `<仓库路径>` 换成实际路径：
+Generate a project where you keep your plugins, replacing `<repo>` with the real path:
 
 ```bash
-npx --yes --package <仓库路径>/packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz createOpenCinemaPlugin helloNode --name 文字统计 --scaffold file:<仓库路径>/packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz
+npx --yes --package <repo>/packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz createOpenCinemaPlugin helloNode --name "Word Count" --scaffold file:<repo>/packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz
 ```
+
+Install, check and build it:
 
 ```bash
-cd helloNode && npm install
+cd helloNode && npm install && npm run typecheck && npm run build
 ```
 
-**3. 在 `package.json` 里声明插件**
+Then open **Settings → 插件 → 安装插件包** (Plugins → Install package) and choose `dist/install.json`.
 
-名称、分类、描述和权限都写在 `openCinema` 块里，`getService` 只能取到 `requires` 声明过的服务：
+<details>
+<summary>Example: a node that counts upstream text</summary>
+
+Declare the plugin in the `openCinema` block of `package.json`. `getService` only returns services listed in `requires`:
 
 ```json
 "openCinema": {
   "id": "helloNode",
-  "name": "文字统计",
-  "description": "统计上游文本的字数",
-  "category": "文本与媒体",
+  "name": "Word Count",
+  "description": "Counts the characters of upstream text",
+  "category": "Text and media",
   "requires": { "workbench": 1 }
 }
 ```
 
-**4. `src/reactPlugin.ts`**
+`src/reactPlugin.ts`:
 
 ```ts
 import { z } from "zod";
@@ -313,13 +359,13 @@ import PluginView from "./reactView";
 const plugin: NodePluginDefinition<typeof PluginView> = {
   ...openCinema, version, apiVersion: 1, renderer: "react", view: PluginView,
   createData: () => ({ label: openCinema.name, handles: [
-    { id: "text", type: "target", dataType: "STRING", label: "文本" },
-    { id: "count", type: "source", dataType: "STRING", label: "字数" },
+    { id: "text", type: "target", dataType: "STRING", label: "Text" },
+    { id: "count", type: "source", dataType: "STRING", label: "Count" },
   ], outputs: {} }),
   activate(context) {
     const workbench = context.getService<NodeWorkbenchService>("workbench");
     context.registerTool({
-      name: "countText", description: "统计上游文本的字符数，并写入 count 输出端口。",
+      name: "countText", description: "Counts the characters of upstream text and writes the result to the count output.",
       parameters: z.strictObject({}),
       outputSchema: z.strictObject({ count: z.number().int().nonnegative() }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -336,7 +382,7 @@ const plugin: NodePluginDefinition<typeof PluginView> = {
 export default plugin;
 ```
 
-**5. `src/reactView.tsx`**
+`src/reactView.tsx`:
 
 ```tsx
 import type { ReactNodeViewProps } from "@toonflow/nodes-scaffold/react";
@@ -344,87 +390,62 @@ import type { ReactNodeViewProps } from "@toonflow/nodes-scaffold/react";
 export default function PluginView({ node, controller, readOnly }: ReactNodeViewProps) {
   const outputs = node.data?.outputs as { count?: { value?: string } } | undefined;
   return <div className="nodrag">
-    <button type="button" disabled={readOnly} onClick={() => void controller.callNodeTool(node.id, "countText", {})}>统计字数</button>
-    <span>{outputs?.count?.value ?? "尚未统计"}</span>
+    <button type="button" disabled={readOnly} onClick={() => void controller.callNodeTool(node.id, "countText", {})}>Count</button>
+    <span>{outputs?.count?.value ?? "Not counted yet"}</span>
   </div>;
 }
 ```
 
-**6. 构建**
+After installing, **Word Count** appears in the node palette, and `getNodeTools` returns `node:countText` with its schema.
+</details>
 
-```bash
-npm run typecheck
-```
+<details>
+<summary>Plugin parts and where code belongs</summary>
 
-```bash
-npm run build
-```
-
-产物在 `dist/`，其中 `install.json` 是可分发的插件包。
-
-**7. 安装并使用**
-
-打开 **设置 → 插件 → 安装插件包**，选择 `install.json`，确认后在添加节点面板里就能找到 **文字统计**。把文本节点连到它的输入端，点击 **统计字数**。
-
-Agent 不用任何额外配置就能发现这个工具：`getNodeTools` 会返回 `node:countText` 及其 Schema。
-
-**让插件提供生成服务**
-
-在 `viteConfig.ts` 里声明 `providers`，格式和[接入生成服务](#接入生成服务)的 JSON 清单相同，安装时走同一套校验。启用插件后它出现在媒体服务列表，停用或卸载后消失。ID 不能和内置或用户添加的供应商冲突：
-
-```ts
-export default createNodeConfig({
-  author: "", github: "",
-  providers: [{ id: "myVideo", label: "My Video", apiUrl: "https://video.example.com/v1", videoProtocol: "openaiVideo", endpoints: { video: "videos" }, rules: [], models: [] }],
-}, import.meta.url);
-```
-
-> 已安装的插件在页面里运行。`requires` 只限制 `getService`，不是沙箱，插件仍能读写工作区。请只安装你信任的插件包。
-
-插件合同、资源打包和宿主能力的完整说明见 [节点 SDK](packages/nodeScaffold/readme.md)。
-
-### 接入 ComfyUI 工作流
-
-ComfyUI 负责生成，OpenCinema 把工作流当成一个模型来用。图片、视频和音频工作流都可以接入，不用写清单：
-
-1. 在 ComfyUI 里跑通工作流，选择 **导出（API）** 得到 JSON。普通保存的画布格式不能导入。
-2. 打开 **设置 → 媒体服务 → ComfyUI 工作流**，启用连接，填写地址（默认 `http://127.0.0.1:8188`），点击 **保存并检测**。
-3. 点击 **导入工作流**，确认提示词写入哪个节点，以及每个加载节点是首帧、尾帧、参考素材，还是保持原值。
-4. 在生成节点里选择这个工作流。Agent 也通过同一个节点工具使用它。
-
-工作流按黑盒执行：
-
-- 只替换你确认的输入，模型、采样器等参数保持工作流原值。
-- 提示词必须映射。连线的参考素材数量要和映射的节点数一致，否则不提交生成。
-- 每次提交自动更换 `seed` 和 `noise_seed`，否则 ComfyUI 会直接返回缓存结果。
-- 导入时可以填写额外的画幅和时长，还能勾选要在节点上调整的字段，例如负向提示词和采样器参数。
-- 要接第二台 ComfyUI，在 **添加自定义供应商** 里用 **其他 ComfyUI 服务模板**。
-- 工作流必须用保存节点输出。预览节点的临时文件不会回收。视频支持 mp4、webm，图片支持 png、jpg、webp，音频支持 flac、wav、mp3。
-
-> 工作流在 ComfyUI 上执行，自定义节点可以运行任意代码。请只导入你信任的工作流。Agent 工具不能新增或修改工作流，只能由你在设置页导入。
-
-完整的模型格式见 [视频供应商文档](docs/videoProvider.md#comfyui-工作流)。
-
-### 接入生成服务
-
-如果服务符合下面的协议，只写一份 JSON 清单就能接入，不用改代码：
-
-| 字段 | 服务形态 |
+| Part | Purpose |
 | --- | --- |
-| `videoProtocol: "openaiVideo"` | multipart 提交、按 ID 查询、下载内容的视频任务接口；本地或自建服务都可以 |
-| `videoProtocol: "fal"` | fal 队列 |
-| `videoProtocol: "replicate"` | Replicate predictions |
-| `videoProtocol: "httpTask"` | 任意任务式 HTTP 服务：在清单里声明鉴权、提交、轮询、状态映射和产物路径，不写代码 |
-| `videoProtocol: "adapter"` | 你自己写的本机程序，通过 stdin/stdout 交换 JSON，用于请求签名等特殊流程 |
-| `protocol: "openai"` | `images/generations` 风格的图片接口 |
-| `endpoints.image` 等 | 同步 JSON 接口，返回结果 URL |
+| `createData` | Initial node data and ports. Port types include `STRING`, `IMAGE`, `VIDEO`, `AUDIO`, `FILE` |
+| `view` | The React view |
+| `registerTool` | Publishes a tool with Zod parameters |
+| `composer` | Optional hook into the bottom input |
+| `requires` | Required services and host capabilities such as `workbench`, `workspaceFiles` or `ffmpeg` |
+| `category`, `description` | The node's group and summary in the node palette |
+| `onDispose` | Releases workers, listeners and other resources |
 
-打开 **设置 → 媒体服务 → 添加自定义供应商**，点击 **视频服务模板** 或 **图片服务模板**，改成你的地址和模型 ID，**校验清单**后添加，再到连接配置填写 API Key。清单里不要写密钥，服务端会拒绝。
+Node-specific logic stays in its plugin package, logic shared by several plugins goes in `packages/nodeShared`, and generic contracts go in `packages/nodeScaffold`.
+
+To ship a plugin as a built-in node, move it to `packages/nodes/<id>/`, import the build config from `@toonflow/nodes-scaffold/reactBuild`, set `outDir: "../../../build/nodes/<id>"`, add `order` to the `openCinema` block, add the workspace dependency to [`apps/web/package.json`](apps/web/package.json), and run `bun run generate:nodes`.
+</details>
+
+A plugin can also provide generation services by declaring `providers` in `viteConfig.ts`. They use the manifest format below and pass the same validation at install time.
+
+> Installed plugins run in the page. `requires` only limits `getService` and is not a sandbox, so a plugin can still read and write the workspace. Only install packages you trust.
+
+See the [node SDK](packages/nodeScaffold/readme.md), in Chinese, for the full contract.
+
+### Add a provider
+
+If a service matches one of these protocols, a JSON manifest is all you need:
+
+| Field | Service shape |
+| --- | --- |
+| `videoProtocol: "openaiVideo"` | Video jobs with multipart submit, poll by ID and content download; local or self-hosted |
+| `videoProtocol: "fal"` | fal queue |
+| `videoProtocol: "replicate"` | Replicate predictions |
+| `videoProtocol: "httpTask"` | Any task-style HTTP service. Declare auth, submit, polling, state mapping and output paths in the manifest, with no code |
+| `videoProtocol: "adapter"` | Your own local program that exchanges JSON over stdin and stdout, for flows such as request signing |
+| `protocol: "openai"` | `images/generations` style image API |
+| `endpoints.image`, etc. | Synchronous JSON API returning result URLs |
+
+Open **Settings → 媒体服务** and add a custom provider. Start from a template, replace the address and model IDs, validate the manifest and add it, then enter the API key in the connection settings. Never put credentials in the manifest; the server rejects them.
+
+<details>
+<summary>Example manifest</summary>
 
 ```json
 {
   "id": "remoteVideo",
-  "label": "自建视频服务",
+  "label": "My Video Service",
   "apiUrl": "https://video.example.com/v1",
   "videoProtocol": "openaiVideo",
   "transport": "public",
@@ -433,7 +454,7 @@ ComfyUI 负责生成，OpenCinema 把工作流当成一个模型来用。图片�
   "rules": [{ "field": "apiKey", "title": "API Key", "type": "input", "value": "", "props": { "type": "password" } }],
   "models": [{
     "id": "deployedModelName",
-    "label": "已部署的视频模型",
+    "label": "Deployed video model",
     "type": "video",
     "mode": ["text", "endFrameOptional"],
     "imageRatios": ["16:9", "9:16"],
@@ -443,25 +464,33 @@ ComfyUI 负责生成，OpenCinema 把工作流当成一个模型来用。图片�
   }]
 }
 ```
+</details>
 
-连接本机或局域网服务时，把 `transport` 设为 `"local"`，地址用明确的 IP 和端口，API Key 可以不填。图片、视频、音频都支持。
+- For a local or LAN service, set `transport` to `"local"` and use an explicit IP and port. The API key is optional, and image, video and audio all work.
+- Models can declare `parameters`, a subset of JSON Schema. Nodes generate a form from it, and agents read and write the same values.
+- An `adapter` executable must be placed by hand in `providerAdapters/<provider id>/` under the data directory. A manifest cannot declare commands.
 
-模型可以声明 `parameters`（JSON Schema 子集），节点会自动生成对应的表单，Agent 也通过同一工具读写。
+See the [provider docs](docs/videoProvider.md), in Chinese.
 
-如果 `httpTask` 也声明不了，例如需要请求签名，就写一个 `adapter`。可执行文件只能手动放到数据目录的 `providerAdapters/<供应商 ID>/`，清单不能声明命令。详见 [视频供应商文档](docs/videoProvider.md)。
+### The agent tool surface
 
-### 把插件贡献到官方
+| Tier | Discovery | Contents |
+| --- | --- | --- |
+| Core tools | `tools/list` | `getAppState`, `renderOpenCinema`, canvas read and write, `workspaceFiles`, `readWorkspaceImage`, `getOperation`, the host request queue |
+| Workbench extensions | `getWorkbenchTools` → `workbenchTools` | Grouping, arranging, canvas management, asset library, provider and plugin management, FFmpeg and depth-model configuration |
+| Node and workspace plugins | `getNodeTools` / `getWorkspaceTools` → `nodeTools` / `workspaceTools` | Shot plan, generation, review, edit plan, Blockout, motion analysis and other specialist functions |
 
-插件包可以直接分发给别人安装。想让它成为内置节点：
+Every tier has live schemas, output validation and `annotations`, and errors carry a machine code and a recovery action. Hosts that support MCP Apps can open the workbench inside the conversation with `renderOpenCinema`. See the [MCP SDK](packages/mcp/README.md) and the [plugin notes](packages/openCinema/readme.md), in Chinese.
 
-1. 把项目放到 `packages/nodes/<id>/`，构建配置改从 `@toonflow/nodes-scaffold/reactBuild` 导入，并设置 `outDir: "../../../build/nodes/<id>"`。
-2. 在 `package.json` 的 `openCinema` 块里加上 `order`，决定它在菜单里的位置。
-3. 在 [`apps/web/package.json`](apps/web/package.json) 添加工作区依赖。
-4. 运行 `bun run generate:nodes` 重新生成内置节点清单，并提交生成结果。
+### Release packages
 
-### 提交代码
+`bun run release` archives an existing `build/openCinema` as `openCinema-<version>-<platform>-<arch>.zip` with checksums and a manifest. The unpacked folder needs only Node.js 22+ to load as a plugin. See the [release guide](docs/releaseGuide.md), in Chinese.
 
-开发模式下分别运行前端和 Go 服务：
+## Contributing
+
+```bash
+bun install --frozen-lockfile
+```
 
 ```bash
 bun run dev:web
@@ -471,7 +500,7 @@ bun run dev:web
 bun run dev:server
 ```
 
-提交 PR 之前：
+Before opening a pull request:
 
 ```bash
 bun run typecheck
@@ -481,26 +510,23 @@ bun run typecheck
 bun run build
 ```
 
-- **说清楚改了什么**：问题、最终行为、你实际运行的命令和操作结果。UI 改动附前后截图，Agent 能力附调用和回读结果。
-- **遵守命名**：新建文件和目录用小驼峰，React 组件标签用 PascalCase，DOM 类名和 props 用小驼峰。
-- **不提交**：`build/`、`data/`、凭据、个人素材、机器绝对路径。
-- **不添加测试文件**：本仓库的测试由专人负责，贡献时用类型检查、构建和手工验证。
-- **新增依赖**：说明必要性和许可，保留锁文件，更新[第三方声明](thirdPartyNotices.md)。
+- **Read the [contributing guide](contributing.md) first**: new files and folders use lowerCamelCase, React component tags use PascalCase, canvas edits go through public commands or MCP tools, and file operations go through `@toonflow/file`.
+- **Explain the change**: the problem, the final behavior, and the commands you actually ran. Include before and after screenshots for UI work, call and read-back results for agent capabilities, and real output specs for media tasks. Templates: [pull request](docs/pullRequestTemplate.md), [issue](docs/issueTemplate.md).
+- **Do not commit** `build/`, `data/`, credentials, personal media or machine-specific absolute paths.
+- **Do not add test files**: testing in this repository is handled separately. Use type checks, builds and manual verification.
+- **New dependencies**: explain why they are needed and their license, keep the lockfile, and update the [third-party notices](thirdPartyNotices.md).
+- **Welcome directions**: node and provider examples, English tool descriptions and interface strings, documentation and tutorials, performance on large canvases and media previews, Windows verification.
 
-完整约定见 [贡献指南](contributing.md)，漏洞请按 [安全说明](security.md) 私下报告，参与讨论请遵守 [行为准则](codeOfConduct.md)。
+Security issues follow [security.md](security.md), and community interaction follows the [code of conduct](codeOfConduct.md). [Issues](https://github.com/junjamrk/OpenCinema/issues) · [Changelog](changelog.md)
 
-## 已知限制
+## Known limitations
 
-- 节点和画布工具运行在工作台页面里。页面关闭后，Agent 只能操作工程文件，不能运行节点。
-- 插件安装后没有沙箱隔离。`requires` 只限制 `getService`，插件仍在页面里运行。
-- ComfyUI 的进度只反映当前节点，不是整个工作流。上传的参考素材会留在它的 `input` 目录，ComfyUI 没有删除接口。它重启后任务记录会丢失，此时任务显示为未确认，不会自动重新提交。
-- 报价和余额查询只支持 TF-router，实际扣费按余额差计算，同账户任务重叠时显示未知。
-- 发行包的系统和 CPU 架构必须与本机一致。各宿主、供应商和平台分别验证，构建通过不代表全部可用。
+- Node and canvas tools run inside the workbench page. With the page closed, agents can work with project files but cannot run nodes.
+- Installed plugins are not sandboxed. `requires` only limits `getService`, and plugins still run in the page.
+- ComfyUI progress reflects the current node, not the whole workflow. Uploaded references stay in its `input` folder because ComfyUI has no delete API. ComfyUI loses job records on restart. Such a job shows as unconfirmed and is never resubmitted automatically.
+- Pricing and balance queries are available for TF-router only. Actual cost comes from the balance difference and shows as unknown when tasks on the same account overlap.
+- Release archives must match your OS and CPU architecture. Hosts, providers and platforms are verified separately, so a passing build does not mean everything works.
 
-变更记录见 [changelog.md](changelog.md)，发行流程见 [发行指南](docs/releaseGuide.md)。
+## License and acknowledgements
 
-## 许可与致谢
-
-[MIT](LICENSE)，保留 HBAI-Ltd 原版权。Blockout、Motion、字体、图标等保留各自许可；模型权重、FFmpeg 构建及用户素材遵循各自条款，详见 [第三方声明](thirdPartyNotices.md)。
-
-插件分发与文档结构参考 [Cowart](https://github.com/zhongerxin/Cowart)。
+[MIT](LICENSE), preserving the HBAI-Ltd copyright. Blockout and Motion are adapted from Sam Wasserman's tools of the same names (Apache-2.0). Fonts, icons, model weights, FFmpeg builds and user media keep their own terms, see the [third-party notices](thirdPartyNotices.md). The distribution and documentation approach references [Cowart](https://github.com/zhongerxin/Cowart).

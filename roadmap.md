@@ -14,7 +14,7 @@ The current foundation includes:
 - Image and media editing, Blockout previs, motion analysis, and video depth references.
 - Shot plans, candidate review, edit plans, and single-shot replacement.
 
-These capabilities have limits. Canvas tools require an open workbench page. Provider support, host integration, and output quality need separate verification. See [Known limitations](readmeEn.md#known-limitations).
+These capabilities have limits. Canvas tools require an open workbench page. Provider support, host integration, and output quality need separate verification. See [Known limitations](readme.md#known-limitations).
 
 ## Current focus: a dependable 0.4.0 release
 
