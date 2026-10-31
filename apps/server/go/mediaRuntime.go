@@ -194,20 +194,17 @@ func (s *server) mediaModels() []any {
 			model["modelId"] = model["id"]
 			model["supportsPrice"] = p["supportsPrice"]
 			if model["type"] == "video" {
-				protocol, location, cancelMode := videoProtocol(p), "platform", "none"
+				protocol, location := videoProtocol(p), "platform"
 				if protocol == "" {
 					protocol = "builtin"
 				}
-				if protocol == "openaiVideo" {
+				if protocol == "openaiVideo" || protocol == "httpTask" {
 					location = "remote"
 				}
 				if p["transport"] == "local" {
 					location = "local"
 				}
-				if protocol == "fal" || protocol == "replicate" || p["cancelMode"] == "request" {
-					cancelMode = "request"
-				}
-				model["execution"] = object{"protocol": protocol, "location": location, "cancelMode": cancelMode}
+				model["execution"] = object{"protocol": protocol, "location": location, "cancelMode": providerCancelMode(p, "video")}
 			}
 			models = append(models, model)
 		}

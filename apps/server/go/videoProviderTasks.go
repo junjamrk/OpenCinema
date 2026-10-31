@@ -77,6 +77,7 @@ func settleVideoRemote(ctx context.Context, job object) error {
 
 func (s *server) generateVideoProvider(ctx context.Context, provider, config, input, refs object) ([]string, error) {
 	job := currentVideoJob(ctx)
+	kind := str(input["mediaType"])
 	var response object
 	if str(job["id"]) == "" {
 		if job["protocol"] != nil {
@@ -115,7 +116,7 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 			if err != nil {
 				return
 			}
-			state := videoRemoteState(result)
+			state := remoteJobState(provider, kind, result)
 			if state == "cancelled" || state == "failed" {
 				job["status"] = state
 				_ = settleVideoRemote(ctx, job)
@@ -148,10 +149,14 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 				return nil, err
 			}
 		}
-		state := videoRemoteState(response)
+		state := remoteJobState(provider, kind, response)
 		job["status"] = state
-		if progress, ok := response["progress"].(float64); ok && progress >= 0 && progress <= 100 {
-			job["progress"] = progress
+		progress := response["progress"]
+		if path := str(asObject(taskSpec(provider, kind)["status"])["progressPath"]); path != "" {
+			progress = taskValue(response, path)
+		}
+		if value, ok := progress.(float64); ok && value >= 0 && value <= 100 {
+			job["progress"] = value
 		}
 		if err := updateVideoJob(ctx, job); err != nil {
 			return nil, err
@@ -195,7 +200,7 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 					return failCompleted("fal 已完成任务但返回生成错误")
 				}
 			}
-			urls := videoOutputURLs(response, protocol, str(input["mediaType"]))
+			urls := videoOutputURLs(response, provider, kind)
 			if len(urls) == 0 {
 				return failCompleted("媒体任务结束但未返回产物")
 			}

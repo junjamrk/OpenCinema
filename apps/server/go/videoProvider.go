@@ -68,11 +68,11 @@ func validateVideoProvider(provider object) error {
 		}
 		return nil
 	}
-	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" && protocol != "comfyui" {
+	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" && protocol != "comfyui" && protocol != "httpTask" {
 		return fail(400, "不支持的视频执行协议")
 	}
-	if transport == "local" && protocol != "openaiVideo" && protocol != "comfyui" {
-		return fail(400, "本地连接使用 openaiVideo、comfyui 或同步 HTTP 协议；平台协议保留公网边界")
+	if transport == "local" && !localProtocol(protocol) {
+		return fail(400, "本地连接使用 openaiVideo、comfyui、httpTask 或同步 HTTP 协议；平台协议保留公网边界")
 	}
 	if protocol == "comfyui" && transport != "local" {
 		return fail(400, "comfyui 协议须声明 transport: local")
@@ -88,6 +88,11 @@ func validateVideoProvider(provider object) error {
 	cancelMode := str(provider["cancelMode"])
 	if cancelMode != "" && cancelMode != "none" && cancelMode != "request" {
 		return fail(400, "cancelMode 须为 none 或 request")
+	}
+	if protocol == "httpTask" {
+		if err := validateHttpTask(provider); err != nil {
+			return err
+		}
 	}
 	if protocol == "openaiVideo" {
 		endpoint := str(asObject(provider["endpoints"])["video"])
@@ -113,7 +118,15 @@ func validateVideoProvider(provider object) error {
 				continue
 			}
 		} else if kind != "video" && (!protocolCoversAllMedia(protocol) || (kind != "image" && kind != "audio")) {
-			return fail(400, protocol+" 协议只能声明 video 模型；图片和音频须用 fal 或 replicate")
+			return fail(400, protocol+" 协议只能声明 video 模型；图片和音频须用 fal、replicate 或 httpTask")
+		}
+		if protocol == "httpTask" {
+			if len(taskSpec(provider, kind)) == 0 {
+				return fail(400, "模型 "+str(model["id"])+" 没有对应的 task."+kind+" 声明")
+			}
+			if model["video"] != nil {
+				return fail(400, "httpTask 用 task 模板映射字段，不使用 model.video")
+			}
 		}
 		if audio := model["audio"]; audio != nil && audio != "optional" {
 			if _, ok := audio.(bool); !ok {
@@ -273,7 +286,19 @@ func videoBaseBody(model, input object) object {
 
 // 这些协议的任务接口与媒体类型无关；openaiVideo 和 ark 的合同只覆盖视频。
 func protocolCoversAllMedia(protocol string) bool {
-	return protocol == "fal" || protocol == "replicate"
+	return protocol == "fal" || protocol == "replicate" || protocol == "httpTask"
+}
+
+func localProtocol(protocol string) bool {
+	return protocol == "openaiVideo" || protocol == "comfyui" || protocol == "httpTask"
+}
+
+func providerCancelMode(provider object, kind string) string {
+	protocol := videoProtocol(provider)
+	if protocol == "fal" || protocol == "replicate" || provider["cancelMode"] == "request" || len(asObject(taskSpec(provider, kind)["cancel"])) > 0 {
+		return "request"
+	}
+	return "none"
 }
 
 var mediaInputFields = map[string][]string{
@@ -467,10 +492,12 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 		}
 		base = endpoint.String()
 	}
-	u, err := videoEndpoint(base, relative)
+	path, query, _ := strings.Cut(relative, "?")
+	u, err := videoEndpoint(base, path)
 	if err != nil {
 		return nil, err
 	}
+	u.RawQuery = query
 	client, err := videoClient(provider, config)
 	if err != nil {
 		return nil, err
@@ -483,15 +510,29 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 	if key == "" && str(provider["transport"]) != "local" {
 		return nil, fail(400, "请先配置媒体供应商 API Key")
 	}
-	if key != "" {
-		prefix := "Bearer "
-		if videoProtocol(provider) == "fal" {
-			prefix = "Key "
+	if videoProtocol(provider) == "httpTask" {
+		for name, value := range asObject(provider["headers"]) {
+			req.Header.Set(name, str(value))
 		}
-		req.Header.Set("Authorization", prefix+key)
+	}
+	header, prefix := videoAuthHeader(provider)
+	if key != "" {
+		req.Header.Set(header, prefix+key)
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	if header != "Authorization" {
+		// 标准库跨域重定向只剥离 Authorization，自定义鉴权头会被带走，这里一律不跟随跨来源重定向。
+		follow := client.CheckRedirect
+		strict := *client
+		strict.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+			if r.URL.Host != via[0].URL.Host || r.URL.Scheme != via[0].URL.Scheme {
+				return fail(403, "带凭据的供应商请求不能跨来源重定向")
+			}
+			return follow(r, via)
+		}
+		client = &strict
 	}
 	response, err := client.Do(req)
 	if err != nil {
@@ -516,6 +557,18 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 		return nil, fail(502, fmt.Sprintf("媒体供应商 HTTP %d；未读取可能包含凭据的错误正文", response.StatusCode))
 	}
 	return response, nil
+}
+
+func videoAuthHeader(provider object) (string, string) {
+	switch videoProtocol(provider) {
+	case "fal":
+		return "Authorization", "Key "
+	case "httpTask":
+		if auth := asObject(provider["auth"]); str(auth["header"]) != "" {
+			return str(auth["header"]), str(auth["prefix"])
+		}
+	}
+	return "Authorization", "Bearer "
 }
 
 func videoJSON(ctx context.Context, provider, config object, method, relative string, body any) (object, error) {
@@ -693,6 +746,13 @@ func arkVideoBody(model, input, refs object) (object, error) {
 
 func submitVideo(ctx context.Context, provider, config, input, refs object) (object, object, error) {
 	protocol := videoProtocol(provider)
+	job := currentVideoJob(ctx)
+	job["protocol"], job["providerId"], job["modelId"] = protocol, provider["id"], input["modelId"]
+	job["providerRevision"], job["configRevision"], job["cancelMode"] = provider["revision"], videoConfigRevision(config), providerCancelMode(provider, str(input["mediaType"]))
+	delete(job, "phase")
+	if protocol == "httpTask" {
+		return submitHttpTask(ctx, provider, config, input, refs, job)
+	}
 	model := providerModel(provider, str(input["modelId"]))
 	body, err := videoBody(model, input, refs, protocol)
 	if err != nil {
@@ -712,13 +772,6 @@ func submitVideo(ctx context.Context, provider, config, input, refs object) (obj
 		}
 		endpoint = "models/" + parts[0] + "/" + parts[1] + "/predictions"
 		body = object{"input": body}
-	}
-	job := currentVideoJob(ctx)
-	job["protocol"], job["providerId"], job["modelId"] = protocol, provider["id"], input["modelId"]
-	job["providerRevision"], job["configRevision"], job["cancelMode"] = provider["revision"], videoConfigRevision(config), "none"
-	delete(job, "phase")
-	if protocol == "fal" || protocol == "replicate" || provider["cancelMode"] == "request" {
-		job["cancelMode"] = "request"
 	}
 	var response object
 	if protocol == "openaiVideo" {
@@ -838,7 +891,8 @@ func videoResponsePath(base, value string) (string, error) {
 	return strings.TrimPrefix(u.Path, b.Path), nil
 }
 
-func videoOutputURLs(result object, protocol, kind string) []string {
+func videoOutputURLs(result, provider object, kind string) []string {
+	protocol := videoProtocol(provider)
 	values := []string{}
 	var collect func(any)
 	collect = func(raw any) {
@@ -855,7 +909,9 @@ func videoOutputURLs(result object, protocol, kind string) []string {
 			}
 		}
 	}
-	if protocol == "ark" {
+	if protocol == "httpTask" {
+		collect(taskValue(result, str(taskSpec(provider, kind)["outputPath"])))
+	} else if protocol == "ark" {
 		collect(asObject(result["content"])["video_url"])
 	} else if protocol == "replicate" {
 		collect(result["output"])
@@ -864,6 +920,13 @@ func videoOutputURLs(result object, protocol, kind string) []string {
 		collect(result[kind+"s"])
 	}
 	return values
+}
+
+func remoteJobState(provider object, kind string, result object) string {
+	if videoProtocol(provider) == "httpTask" {
+		return httpTaskState(taskSpec(provider, kind), result)
+	}
+	return videoRemoteState(result)
 }
 
 func videoRemoteState(result object) string {
