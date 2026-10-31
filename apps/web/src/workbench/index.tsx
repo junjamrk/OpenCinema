@@ -702,6 +702,16 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
     setOpenPanel("settings");
   }
 
+  // 节点插件通过这个事件跳到设置页，不需要依赖工作台内部组件。
+  useEffect(() => {
+    function open(event: Event) {
+      const tab = (event as CustomEvent<{ tab?: SettingsTab }>).detail?.tab;
+      openSettings(tab ?? "host");
+    }
+    window.addEventListener("openCinema:open-settings", open);
+    return () => window.removeEventListener("openCinema:open-settings", open);
+  }, []);
+
   async function sendPrompt(event?: FormEvent) {
     event?.preventDefault();
     if (!prompt.trim() || sending || !canSendPrompt) return;
