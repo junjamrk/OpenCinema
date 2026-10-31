@@ -51,10 +51,23 @@ type mediaTask struct {
 
 type mediaSubmissionKey struct{}
 
-func markMediaSubmitted(ctx context.Context) {
-	if submitted, ok := ctx.Value(mediaSubmissionKey{}).(*atomic.Bool); ok {
+// 返回这次请求是否算生成提交：报价、查询、素材审核的上下文清掉了标记，不算提交。
+func markMediaSubmitted(ctx context.Context) bool {
+	submitted, ok := ctx.Value(mediaSubmissionKey{}).(*atomic.Bool)
+	if ok {
 		submitted.Store(true)
 	}
+	return ok
+}
+
+// 旧生成器没有可恢复的 job。供应商已确认任务结束时记下这一点，任务落成失败，不停在未确认。
+func failMediaRemote(ctx context.Context, message string) error {
+	if value, _ := ctx.Value(videoTaskKey{}).(*videoTaskContext); value != nil {
+		value.server.tasksMu.Lock()
+		value.task.remoteSettled = true
+		value.server.tasksMu.Unlock()
+	}
+	return fail(502, message)
 }
 func mediaTaskState(id string, task *mediaTask) object {
 	settled := !task.settled.IsZero()
@@ -96,6 +109,9 @@ func mediaTaskState(id string, task *mediaTask) object {
 
 func safeClient() *http.Client { return outboundHTTPClient }
 
+// 连接没有建立，请求不可能发出去。自定义拨号不返回 net.OpError，这里单独标记。
+var errProviderUnreachable = errors.New("无法连接远程服务")
+
 var outboundHTTPClient = &http.Client{Timeout: 5 * time.Minute, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 	if len(via) > 5 {
 		return fmt.Errorf("重定向过多")
@@ -111,7 +127,7 @@ var outboundHTTPClient = &http.Client{Timeout: 5 * time.Minute, CheckRedirect: f
 	}
 	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", errProviderUnreachable, err)
 	}
 	for _, ip := range ips {
 		if !ip.IP.IsGlobalUnicast() || ip.IP.IsLoopback() || ip.IP.IsPrivate() || ip.IP.IsLinkLocalUnicast() || ip.IP.IsUnspecified() || reservedIP(ip.IP) {
@@ -126,7 +142,7 @@ var outboundHTTPClient = &http.Client{Timeout: 5 * time.Minute, CheckRedirect: f
 			return conn, nil
 		}
 	}
-	return nil, fmt.Errorf("无法连接远程服务")
+	return nil, errProviderUnreachable
 }, IdleConnTimeout: 90 * time.Second, MaxIdleConns: 32, MaxIdleConnsPerHost: 4}}
 
 func reservedIP(ip net.IP) bool {
@@ -851,9 +867,7 @@ func providerClientJSON(ctx context.Context, client *http.Client, base, path str
 		request.Header.Set("Authorization", "Bearer "+key)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	if method == "POST" {
-		markMediaSubmitted(ctx)
-	}
+	submitting := method == "POST" && markMediaSubmitted(ctx)
 	if client == nil {
 		client = safeClient()
 	}
@@ -873,11 +887,7 @@ func providerClientJSON(ctx context.Context, client *http.Client, base, path str
 		return strings.ReplaceAll(message, key, "[REDACTED]")
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		message := redact(string(data))
-		if len(message) > 2000 {
-			message = message[:2000]
-		}
-		return nil, fail(502, fmt.Sprintf("供应商 HTTP %d: %s", response.StatusCode, message))
+		return nil, providerResponseError(submitting, response.StatusCode, redact(string(data)))
 	}
 	var result object
 	if err = json.Unmarshal(data, &result); err != nil {
@@ -891,13 +901,27 @@ func providerClientJSON(ctx context.Context, client *http.Client, base, path str
 		if message == "" {
 			message = "供应商拒绝请求"
 		}
-		message = redact(message)
-		if len(message) > 2000 {
-			message = message[:2000]
+		// 业务码不一定是 HTTP 状态；不在 4xx、5xx 范围的，只知道供应商说了失败，按拒绝处理。
+		status := int(code)
+		if status < 400 || status >= 600 {
+			status = 400
 		}
-		return nil, fail(502, message)
+		return nil, providerResponseError(submitting, status, redact(message))
 	}
 	return result, nil
+}
+
+// 4xx 说明请求没被受理；408 是读请求超时，服务端可能已经收到，和 5xx 一样算结果未知。
+func providerRejected(status int) bool { return status >= 400 && status < 500 && status != 408 }
+
+func providerResponseError(submitting bool, status int, detail string) error {
+	if len(detail) > 2000 {
+		detail = strings.ToValidUTF8(detail[:2000], "")
+	}
+	if submitting && providerRejected(status) {
+		return &videoRequestRejected{status: status, detail: detail}
+	}
+	return fail(502, fmt.Sprintf("供应商 HTTP %d: %s", status, detail))
 }
 func waitContext(ctx context.Context) error {
 	timer := time.NewTimer(3 * time.Second)
@@ -1284,8 +1308,10 @@ func generateTfRouter(ctx context.Context, base string, config, v, refs object) 
 	if kind == "audio" {
 		query = "tts/getAudioStatus"
 	}
+	// 查询也是 POST：被拒绝只说明这次查询失败，任务已经受理了。
+	polling := context.WithValue(ctx, mediaSubmissionKey{}, nil)
 	for {
-		result, err := providerJSON(ctx, base, query, config, object{"taskICode": id})
+		result, err := providerJSON(polling, base, query, config, object{"taskICode": id})
 		if err != nil {
 			return nil, err
 		}
@@ -1298,12 +1324,12 @@ func generateTfRouter(ctx context.Context, base string, config, v, refs object) 
 			recordVendorCost(ctx, data)
 			url := str(data["data"])
 			if url == "" {
-				return nil, fail(502, "TF-router 未返回媒体结果")
+				return nil, failMediaRemote(ctx, "TF-router 未返回媒体结果")
 			}
 			return []string{url}, nil
 		}
 		if status == "failed" || status == "error" || status == "rejected" {
-			return nil, fail(502, "TF-router 生成失败: "+str(data["failReason"]))
+			return nil, failMediaRemote(ctx, "TF-router 生成失败: "+str(data["failReason"]))
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1333,7 +1359,6 @@ func uploadApiMart(ctx context.Context, base string, config object, dataURL stri
 	}
 	request.Header.Set("Authorization", "Bearer "+str(config["apiKey"]))
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	markMediaSubmitted(ctx)
 	response, err := safeClient().Do(request)
 	if err != nil {
 		return "", err
@@ -1450,12 +1475,12 @@ func generateApiMart(ctx context.Context, base string, config, v, refs object) (
 				}
 			}
 			if len(urls) == 0 {
-				return nil, fail(502, "APIMart 未返回生成结果")
+				return nil, failMediaRemote(ctx, "APIMart 未返回生成结果")
 			}
 			return urls, nil
 		}
 		if status == "failed" || status == "failure" {
-			return nil, fail(502, "APIMart 生成失败")
+			return nil, failMediaRemote(ctx, "APIMart 生成失败")
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1486,12 +1511,12 @@ func generateMetaso(ctx context.Context, base string, config, v, refs object) ([
 		if status == "success" || status == "succeeded" || status == "completed" {
 			output := str(asObject(task["content"])["url"])
 			if output == "" {
-				return nil, fail(502, "未返回视频结果")
+				return nil, failMediaRemote(ctx, "未返回视频结果")
 			}
 			return []string{output}, nil
 		}
 		if status == "fail" || status == "failed" || status == "failure" || status == "blocked" || status == "cancelled" {
-			return nil, fail(502, "视频生成失败")
+			return nil, failMediaRemote(ctx, "视频生成失败")
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1535,12 +1560,12 @@ func generateCompshare(ctx context.Context, base string, config, v, refs object)
 		if status == "SUCCEEDED" || status == "success" || status == "Success" {
 			urls := extractURLs(output)
 			if len(urls) == 0 {
-				return nil, fail(502, "ModelVerse 未返回视频结果")
+				return nil, failMediaRemote(ctx, "ModelVerse 未返回视频结果")
 			}
 			return urls, nil
 		}
 		if status == "FAILED" || status == "CANCELED" || status == "Failure" || status == "Expired" || status == "Cancelled" || status == "Canceled" {
-			return nil, fail(502, "ModelVerse 生成失败")
+			return nil, failMediaRemote(ctx, "ModelVerse 生成失败")
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err

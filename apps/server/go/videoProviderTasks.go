@@ -249,7 +249,7 @@ func (s *server) runMediaTask(ctx context.Context, id string, task *mediaTask) {
 		}
 		var rejected *videoRequestRejected
 		var network *net.OpError
-		if str(task.job["id"]) == "" && (errors.As(err, &rejected) || errors.As(err, &network) && network.Op == "dial" || errors.As(err, &api) && (api.status == 400 || api.status == 403)) {
+		if str(task.job["id"]) == "" && (errors.As(err, &rejected) || errors.Is(err, errProviderUnreachable) || errors.As(err, &network) && network.Op == "dial" || errors.As(err, &api) && (api.status == 400 || api.status == 403)) {
 			task.submitted.Store(false)
 		}
 		task.unknown = task.submitted.Load() && !task.remoteSettled
