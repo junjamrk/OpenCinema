@@ -2,7 +2,7 @@
 // seek() per sub-frame, pipes PNG frames into ffmpeg.
 //
 //   node render.mjs --out film.mp4 [--audio sound.wav] [--fps 60] [--samples 4]
-//                  [--shutter 0.5] [--start 0] [--end 25] [--crf 16] [--scale 1]
+//                  [--shutter 0.5] [--start 0] [--end 30] [--crf 16] [--scale 1]
 //   node render.mjs --stills "0.5,1.2,3.0" --stillsDir frames/   (PNG stills)
 //
 // With --samples N, N sub-frames spanning `shutter` of a frame interval are
@@ -25,7 +25,7 @@ const fps = Number(args.fps || 60);
 const samples = Number(args.samples || 1);
 const shutter = Number(args.shutter || 0.5);
 const start = Number(args.start || 0);
-const end = Number(args.end || 25);
+const end = Number(args.end || 30);
 const scale = Number(args.scale || 1);
 const crf = Number(args.crf || 16);
 const W = Math.round(1920 * scale), H = Math.round(1080 * scale);

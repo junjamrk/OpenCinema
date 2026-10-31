@@ -1,6 +1,6 @@
 # Launch film · source
 
-Source and build pipeline for `assets/promo/openCinemaLaunch.mp4`, the 25-second launch film. The storyboard it was built from is [`docs/launchVideoStoryboard.md`](../../../docs/launchVideoStoryboard.md).
+Source and build pipeline for `assets/promo/openCinemaLaunch.mp4`, the 30-second launch film. The storyboard it was built from is [`docs/launchVideoStoryboard.md`](../../../docs/launchVideoStoryboard.md).
 
 ## How it is made
 
@@ -39,7 +39,7 @@ Requirements: Node 22 with Playwright and its Chromium, ffmpeg with `libx264` an
 
 ## Output
 
-MP4 · 1920 × 1080 · 60 fps · H.264 High · `yuv420p` · BT.709 · AAC 48 kHz stereo 192 kb/s · 25.000 s · `+faststart`.
+MP4 · 1920 × 1080 · 60 fps · H.264 High · `yuv420p` · BT.709 · AAC 48 kHz stereo 192 kb/s · 30.000 s · `+faststart`.
 
 ## Verification record
 

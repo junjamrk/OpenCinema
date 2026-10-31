@@ -1,4 +1,4 @@
-// The nine shots of the launch film (25 s cut). Every visual state is a function of t.
+// The nine shots of the launch film (30 s cut). Every visual state is a function of t.
 (function () {
   const E = window.Engine;
   const { P, lerp, clamp, EASE, EASE_IN, EASE_INOUT, LINEAR, reveal, cam, mulberry, pulse, show } = E;
@@ -370,7 +370,7 @@
     } });
   })();
 
-  /* ---------------- S05 3D previs · 12.0–14.5 ---------------- */
+  /* ---------------- S05 3D previs · 12.0–15.5 ---------------- */
   (function () {
     const root = document.getElementById("s5");
     const W = 1500, H = 720;
@@ -387,7 +387,7 @@
       </div>`));
     const world = root.querySelector("#s5world"), c = root.querySelector("#s5c"), layer = root.querySelector("#s5layer"), wipe = root.querySelector("#s5wipe"), tag = root.querySelector("#s5tag");
     const off = { rgb: canvas(W, H), depth: canvas(W, H), normal: canvas(W, H) };
-    const T = { start: 12.0, wipe1: 1.5, wipe2: 2.0, wipeDur: 0.5, end: 14.5 };
+    const T = { start: 12.0, wipe1: 2.5, wipe2: 3.0, wipeDur: 0.5, end: 15.5 };
     scenes.push({ el: root, from: T.start, to: T.end, render(t) {
       const u = t - T.start;
       cam(world, 960, 540, drift(t, T.start, T.end - T.start, 1.0, 1.025));
@@ -412,7 +412,7 @@
     } });
   })();
 
-  /* ---------------- S06 Footage analysis · 14.5–17.0 ---------------- */
+  /* ---------------- S06 Footage analysis · 15.5–19.0 ---------------- */
   (function () {
     const root = document.getElementById("s6");
     const PW = 1140, PH = 520;
@@ -445,7 +445,7 @@
     const play = document.createElement("div"); play.className = "playhead"; strip.appendChild(play);
     const depthOff = canvas(PW, PH);
     const ANG = ["low", "side", "rear", "wide"];
-    const T = { start: 14.5, scrub: 0.5, mark0: 0.08, markStep: 0.12, lock: 0.5, cam2d: 0.95, depth: 1.7, depthDur: 0.6, head: 14.8, end: 17.0 };
+    const T = { start: 15.5, scrub: 0.6, mark0: 0.1, markStep: 0.15, lock: 0.7, cam2d: 1.5, depth: 2.6, depthDur: 0.6, head: 15.8, end: 19.0 };
     scenes.push({ el: root, from: T.start, to: T.end, render(t) {
       const u = t - T.start;
       cam(world, 960, 540, drift(t, T.start, T.end - T.start, 1.0, 1.02));
@@ -526,7 +526,7 @@
     } });
   })();
 
-  /* ---------------- S07 Generation plan · 17.0–19.5 ---------------- */
+  /* ---------------- S07 Generation plan · 19.0–23.0 ---------------- */
   (function () {
     const root = document.getElementById("s7");
     const PROMPT = "Rain-soaked container harbor at night. A black sedan slides through the lane; the camera tracks low from the left and holds the car in frame. Faster: tighter lens, shorter cut, spray off the rear wheels. Keep screen direction left to right.";
@@ -554,7 +554,7 @@
     const cands = [1, 2, 3].map((i) => root.querySelector("#s7c" + i));
     const refs = [1, 2, 3].map((i) => root.querySelector("#s7r" + i));
     const CAND = [["side", 21], ["low", 11], ["wide", 5]];
-    const T = { start: 17.0, head: 17.3, click: 18.3, collapse: 18.35, cands: 18.45, push: 19.25, end: 19.5 };
+    const T = { start: 19.0, head: 19.3, click: 21.0, collapse: 21.05, cands: 21.15, push: 22.75, end: 23.0 };
     scenes.push({ el: root, from: T.start, to: T.end, render(t) {
       const push = P(t, T.push, 0.25, EASE_IN);
       const zoom = lerp(drift(t, T.start, T.push - T.start, 1.0, 1.02), 1.905, push);
@@ -585,7 +585,7 @@
     } });
   })();
 
-  /* ---------------- S08 Review and edit · 19.5–22.5 ---------------- */
+  /* ---------------- S08 Review and edit · 23.0–27.5 ---------------- */
   (function () {
     const root = document.getElementById("s8");
     const CHECKS = ["Direction", "Action", "Identity", "Continuity", "Unexpected cuts", "Deformation / branding"];
@@ -616,7 +616,7 @@
     const SHOTS = [["side", 7], ["low", 11], ["rear", 13], ["side", 31]];
     const NOTE = "cut at 2.1 s";
     const TL_X0 = 40, TL_X1 = 1408;
-    const T = { fade: 19.4, checks: 19.6, checkStep: 0.12, note: 20.25, status: 20.5, tl: 20.5, replace: 20.7, head: 20.8, audio: 21.4, sweep: 21.9, sweepDur: 0.55, export: 22.45, end: 22.5 };
+    const T = { fade: 22.9, checks: 23.1, checkStep: 0.15, note: 24.2, status: 24.6, tl: 25.0, replace: 25.3, head: 25.4, audio: 26.2, sweep: 26.7, sweepDur: 0.7, export: 27.45, end: 27.5 };
     scenes.push({ el: root, from: T.fade, to: T.end, render(t) {
       const fade = P(t, T.fade, 0.1, LINEAR);
       root.style.opacity = fade.toFixed(3);
@@ -652,7 +652,7 @@
     } });
   })();
 
-  /* ---------------- S09 End card · 22.5–25.0 ---------------- */
+  /* ---------------- S09 End card · 27.5–30.0 ---------------- */
   (function () {
     const root = document.getElementById("s9");
     root.appendChild(html(`
@@ -660,7 +660,7 @@
       <img id="s9logo" src="../../brand/logoLight.png" alt="OpenCinema">
       <div class="endMeta" id="s9meta"><div class="tag">Local workbench · MIT open source</div><div class="url">github.com/junjamrk/OpenCinema</div></div>`));
     const lines = [...root.querySelectorAll(".l")], block = root.querySelector("#s9lines"), logo = root.querySelector("#s9logo"), meta = root.querySelector("#s9meta");
-    const T = { start: 22.5, lineStep: 0.2, land: 23.2 };
+    const T = { start: 27.5, lineStep: 0.2, land: 28.2 };
     scenes.push({ el: root, from: T.start, to: 99, render(t) {
       lines.forEach((l, i) => {
         const p = P(t, T.start + i * T.lineStep, 0.34);
