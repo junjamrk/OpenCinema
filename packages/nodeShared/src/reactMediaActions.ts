@@ -238,7 +238,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
     const saved = readNodeData(document, id).mediaOperation as { status?: string } | undefined;
     if (args.acknowledge && !job && !operationStatus().executionSettled) {
       workbench.assertWritable(); unknown = undefined;
-      await workbench.updateRuntimeData({ mediaOperation: { ...saved, status: "cancelled", finishedAt: new Date().toISOString() } }); await document.save();
+      await workbench.updateRuntimeData({ mediaOperation: { ...saved, status: "abandoned", finishedAt: new Date().toISOString() } }); await document.save();
     } else if (saved?.status === "delegated") { await workbench.updateRuntimeData({ mediaOperation: { ...saved, status: "unknown", error: "宿主尚未确认转写终止，等待原任务实际产物" } }); await document.save(); }
     return operationStatus();
   } });

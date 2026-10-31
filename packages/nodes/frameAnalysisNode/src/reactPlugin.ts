@@ -108,7 +108,7 @@ const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
       const saved = readNodeData(document, id).analysisProgress as { status?: string; phase?: string } | undefined;
       if (args.acknowledge && ["running", "delegated", "unknown"].includes(task?.state ?? saved?.status ?? "")) {
         workbench.assertWritable(); task = undefined;
-        await workbench.updateRuntimeData({ analysisProgress: { ...saved, status: "cancelled", label: "已解除锁定，上次结果保留" } }); await document.save();
+        await workbench.updateRuntimeData({ analysisProgress: { ...saved, status: "abandoned", label: "已解除锁定，原任务可能仍在运行，上次结果保留" } }); await document.save();
       } else if (saved?.status === "delegated" || !task && saved?.status === "running") {
         if (task) { task.state = "unknown"; task.label = "宿主尚未确认终止，等待实际报告"; }
         await workbench.updateRuntimeData({ analysisProgress: { ...saved, status: "unknown", label: "任务尚未确认终止，保留本地结果与原任务" } }); await document.save();
