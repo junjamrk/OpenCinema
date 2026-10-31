@@ -25,10 +25,11 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const workbench = controller.getNodeService(node.id);
   const prompt = String(node.data?.prompt ?? "");
   const value = readMedia(node.data, mediaType);
-  const generation = node.data?.generation as { status?: string; taskId?: string; error?: string; startedAt?: string; finishedAt?: string } | undefined;
+  const generation = node.data?.generation as { status?: string; taskId?: string; error?: string; startedAt?: string; finishedAt?: string; abandoned?: boolean } | undefined;
   const generationState = runtimeState ?? generation?.status;
   const running = ["running", "delegated", "unknown", "cancelRequested"].includes(generationState ?? "");
   const blocked = running || generationState === "interrupted";
+  const abandonable = ["unknown", "interrupted", "resultReady", "delegated"].includes(generationState ?? "") && generation?.status !== "failed";
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -72,6 +73,9 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   }
   function callStatusTool(name: string) {
     void call(name).then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); });
+  }
+  function abandon() {
+    if (window.confirm("放弃后节点会解锁，但原任务可能仍在运行。可能已扣费，重新生成可能重复计费。确定放弃此任务吗？")) callStatusTool("abandonGeneration");
   }
   const field = (key: string, title: string, choices: readonly unknown[] | undefined) => choices?.length ? <label className="nodeField"><span>{title}</span><select disabled={readOnly || blocked || busy} value={String(node.data?.[key] ?? "")} onChange={event => void call("setConfig", { [key]: key === "duration" ? Number(event.target.value) : event.target.value })}>
     <option value="" disabled>跟随模型</option>{choices.map(value => <option key={String(value)} value={String(value)}>{String(value)}</option>)}
@@ -129,7 +133,8 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
     {generationState && generationState !== "idle" && <div className="nodeActions">
       {(generationState === "interrupted" || generationState === "failed" && generation?.taskId && !!node.data?.model) && <button type="button" disabled={busy || readOnly} onClick={() => callStatusTool("getGenerationStatus")}>重新核对</button>}
       {generationState === "resultReady" && <button type="button" disabled={busy || readOnly} onClick={() => callStatusTool("applyGenerationResult")}>采用已完成{mediaLabels[mediaType]}</button>}
-      <span className="nodeStatus" data-state={generationState} role="status">{({ running: "生成中", delegated: "已交给宿主，等待产物", completed: value ? "产物已保存" : "任务已结束，节点没有产物", resultReady: `${mediaLabels[mediaType]}已生成，待采用`, cancelled: "已取消", failed: "生成失败", interrupted: "上次生成已中断", unknown: "任务终态尚未确认", cancelRequested: "正在确认取消" } as Record<string, string>)[generationState] ?? generationState}{progress !== undefined && running ? ` · ${Math.round(progress)}%` : ""}</span>
+      {abandonable && <button type="button" disabled={busy || readOnly} onClick={abandon}>放弃此任务</button>}
+      <span className="nodeStatus" data-state={generationState} role="status">{({ running: "生成中", delegated: "已交给宿主，等待产物", completed: value ? "产物已保存" : "任务已结束，节点没有产物", resultReady: `${mediaLabels[mediaType]}已生成，待采用`, cancelled: "已取消", failed: generation?.abandoned ? "已放弃此任务" : "生成失败", interrupted: "上次生成已中断", unknown: "任务终态尚未确认", cancelRequested: "正在确认取消" } as Record<string, string>)[generationState] ?? generationState}{progress !== undefined && running ? ` · ${Math.round(progress)}%` : ""}</span>
       {cost && <span className="nodeStatus">预估 {cost.estimate?.price ?? "无报价"} · 实际 {cost.actual ? `${cost.actual.amount} ${cost.actual.unit}（${cost.actual.source === "vendor" ? "厂商返回" : "余额差"}）` : "未知"}</span>}
       {mediaType === "video" && generationState === "completed" && value && <span className="nodeStatus" data-state={shotReview?.status === "rejected" ? "failed" : "pending"} title="审片记录绑定源文件版本；打开审片或合成时会重新核对当前版本">{shotReview?.source === value.url ? shotReview.status === "approved" ? `通过记录 · ${shotReview.start}–${shotReview.end}s（合成前核版本）` : "候选已拒收" : "视频候选 · 待审"}</span>}
     </div>}

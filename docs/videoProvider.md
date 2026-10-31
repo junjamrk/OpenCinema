@@ -19,7 +19,7 @@
 
 也可先 `setConfig`，再从底部输入框生成。手工和 Agent 使用同一节点函数。MCP 外层仍提供目标、作品修订、目录版本与稳定 `operationId`；返回的专业 `taskId` 用于继续观察，工具完成不表示视频已生成。
 
-`getGenerationStatus` 返回状态及已知的远端任务 ID、阶段、进度、取消方式和成本（见下文「成本记录」）。状态查询可能恢复原任务观察及产物回收，明确声明为可能写入和访问外部服务，不会重发生成 POST。`resultReady` 表示断线期间产物已落盘，图片、音频和视频相同：手工“采用已完成视频”或 Agent `applyGenerationResult` 会校验原模型、参考和当前输出，再通过共享历史和保存入口采用。
+`getGenerationStatus` 返回状态及已知的远端任务 ID、阶段、进度、取消方式和成本（见下文「成本记录」）。状态查询可能恢复原任务观察及产物回收，明确声明为可能写入和访问外部服务，不会重发生成 POST。`resultReady` 表示断线期间产物已落盘，图片、音频和视频相同：手工“采用已完成视频”或 Agent `applyGenerationResult` 会校验原模型、参考和当前输出，再通过共享历史和保存入口采用。结果未确认、待采用或交给宿主后，用户可以“放弃此任务”，Agent 对应 `abandonGeneration`：节点解锁并记为失败，保留 taskId，不取消远端任务，仍可重新核对找回产物；原任务可能已扣费，重新生成可能重复计费。
 
 底层 HTTP 复用 `POST /api/ai/media/generate`，另带 `mediaType:"video"`、工程绝对 `directory`、工程相对 `outputDirectory` 和 UUID `operationId`（与 `taskId` 是同一凭据，两者同时提供时必须相同）。同 ID、同请求回读原任务，不同参数拒绝；模型参数也算在内，字段顺序不影响判定。未知状态保留原 ID，不换 ID 重派。
 

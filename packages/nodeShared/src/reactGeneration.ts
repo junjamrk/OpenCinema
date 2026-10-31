@@ -371,6 +371,15 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
       }
       return status();
     } });
+  context.registerTool({ name: "abandonGeneration", outputSchema: generationStatusSchema, annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }, description: "放弃等待此节点结果未确认或尚未采用的任务，解除节点锁定。不会取消远端任务，原任务可能仍在运行，费用不会退回，再次生成可能重复计费。只有用户明确决定不再等待时才能调用，不能为了继续生成而自行调用。状态变为 failed 并保留 taskId，之后仍可用 getGenerationStatus 核对，用 applyGenerationResult 采用原产物。", parameters: z.strictObject({}),
+    async execute(_args, { signal }) {
+      workbench.assertWritable();
+      if (!["unknown", "interrupted", "resultReady", "delegated"].includes(status().status)) throw new Error("只有结果未确认或待采用的任务可以放弃；运行中的任务请先取消");
+      await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), status: "failed", abandoned: true, error: "已放弃等待此任务。原任务可能仍在运行或已经扣费，任务 ID 已保留，可以重新核对。", finishedAt: new Date().toISOString() } }, signal);
+      task = undefined;
+      await document.save();
+      return status();
+    } });
   const name = `generate${type[0]!.toUpperCase()}${type.slice(1)}`;
   context.registerTool({ name, description: `统一启动${type}生成并立即返回任务标识。视频可在同次调用提供providerId、modelId及模型参数，也可沿用setConfig。用getConfig发现能力，getGenerationStatus查询、cancelGeneration请求取消；受理与实际产物分开报告。`, parameters: type === "video" ? videoConfigSchema.safeExtend({ prompt: z.string().max(100000).optional() }) : z.strictObject({ prompt: z.string().max(100000).optional() }), outputSchema: z.strictObject({ taskId: z.string(), status: z.string() }), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     async execute(args, { signal }) {
