@@ -172,7 +172,7 @@ func requireLocalMediaRevision(input, state object) error {
 }
 
 func localComfyClient(endpoint *url.URL) *http.Client {
-	// ACT: 单个已登记的 IP、端口和路径前缀，只访问 ComfyUI 固定接口，不提供通用私网代理。
+	// ACT: 只连已登记的单个 IP 和端口，不跟随重定向；不提供通用私网代理，路径由各协议自己限定。
 	return &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 		return fail(403, "本地执行连接不接受重定向")
 	}, Transport: &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {

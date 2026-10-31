@@ -121,7 +121,8 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 				return
 			}
 			state := remoteJobState(provider, kind, result)
-			if state == "cancelled" || state == "failed" {
+			// 取消输给完成时也要落下来：产物已经计费，下次状态查询按下载重试取回。
+			if state == "cancelled" || state == "failed" || state == "completed" {
 				job["status"] = state
 				_ = settleVideoRemote(ctx, job)
 				return
