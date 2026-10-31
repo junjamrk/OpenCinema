@@ -39,7 +39,7 @@ ComfyUI 工作流是 `comfyui` 供应商的模型。启用连接后，它和其�
 
 ## 统一视频 Provider
 
-视频节点 `generateVideo` 可同时接收 `providerId`、`modelId`、prompt 与模型支持的参数，也可沿用配置。先 `getConfig` 读取 execution、参考模式、时长／分辨率／音轨能力；目录存在不等于真实生成已验证。视频 `getGenerationStatus` 可能恢复原任务观察和产物回收，按实时 annotations 提供外层 operationId，不重发生成。`resultReady` 用 `applyGenerationResult` 核对原节点绑定后采用；失败与 unknown 保留 taskId。`abandonGeneration` 只在用户明确决定不再等待时调用：它解除节点锁定，不取消远端任务，再次生成可能重复计费；不能为了继续生成而自行调用。`cancelMode:none` 不代表能够停止远端 GPU。供应商配置沿既有授权和凭据保密边界。
+视频节点 `generateVideo` 可同时接收 `providerId`、`modelId`、prompt 与模型支持的参数，也可沿用配置。先 `getConfig` 读取 execution、参考模式、时长／分辨率／音轨能力；目录存在不等于真实生成已验证。图片、音频和视频的 `getGenerationStatus` 都可能恢复原任务观察和产物回收，按实时 annotations 提供外层 operationId，不重发生成。`resultReady` 用 `applyGenerationResult` 核对原节点绑定后采用；失败与 unknown 保留 taskId。`abandonGeneration` 只在用户明确决定不再等待时调用：它解除节点锁定，不取消远端任务，再次生成可能重复计费；不能为了继续生成而自行调用。`cancelMode:none` 不代表能够停止远端 GPU。供应商配置沿既有授权和凭据保密边界。
 
 ## 原视频转深度白模
 

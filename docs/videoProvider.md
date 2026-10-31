@@ -46,7 +46,7 @@
 
 部分账号的 Files API 不返回 `download_url`，此时参考准备会明确失败，不提交生成。File ID 不可代替 `asset://` 或视频 URL；需要配置可读的素材链接。TOS 使用 AK/SK 或 STS，不接受 Ark API Key。[官方凭据边界](https://console.volcengine.com/ark/region:cn-beijing/docs/iam-api-key-best-practices)
 
-API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应商原始错误正文不进入回执，仅保留有界错误码。生成结果下载不附带 Ark API Key。白模在该模型中属于运动、布局、镜头节奏的普通视频参考，不能宣称为逐像素深度约束或 ControlNet；生成后仍须核对主体运动、构图与连贯性。[官方查询任务](https://docs.volcengine.com/docs/ark/get-video-generation-task-api?lang=zh)
+API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应商原始错误正文不进入回执，仅保留有界错误码；任务状态声明的失败原因替换凭据后保留最多 300 字符。生成结果下载不附带 Ark API Key。白模在该模型中属于运动、布局、镜头节奏的普通视频参考，不能宣称为逐像素深度约束或 ControlNet；生成后仍须核对主体运动、构图与连贯性。[官方查询任务](https://docs.volcengine.com/docs/ark/get-video-generation-task-api?lang=zh)
 
 ## ComfyUI 工作流
 
