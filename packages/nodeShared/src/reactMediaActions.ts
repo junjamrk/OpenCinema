@@ -506,7 +506,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
       const { version: _version, ...composition } = stored.plan;
       return composeVideo(composition, signal, args.expectedPlanRevision);
     } });
-    context.registerTool({ name: "createFrameAnalysis", outputSchema: z.strictObject({ nodeId: z.string() }), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "为当前视频创建逐帧拉片节点并连接原视频，不自动运行分析。", parameters: z.strictObject({}),
+    context.registerTool({ name: "createFrameAnalysis", outputSchema: z.strictObject({ nodeId: z.string() }), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "为当前视频创建视频分析节点并连接原视频，不自动运行分析。", parameters: z.strictObject({}),
       execute(_args, { signal }) { return run("createFrameAnalysis", signal, async (current, path) => {
         const childId = crypto.randomUUID();
         const layout = workbench.getLayout();
@@ -515,7 +515,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
         const outputs = data.outputs as Record<string, { value?: { url?: string } }> | undefined;
         const output = handles?.find(handle => handle.type === "source" && handle.dataType === "VIDEO" && outputs?.[handle.id]?.value?.url === path);
         if (!output) throw new Error("原节点缺少视频输出端口");
-        await workbench.createNodes([{ id: childId, type: "frameAnalysisNode", position: { x: layout.position.x + 400, y: layout.position.y }, data: { label: `${String(data.label ?? "视频")} · 逐帧拉片`, handles: [{ id: "in", type: "target", dataType: "VIDEO", label: "视频素材" }], outputs: {} } }], [{ id: crypto.randomUUID(), source: id, sourceHandle: output.id, target: childId, targetHandle: "in" }], current);
+        await workbench.createNodes([{ id: childId, type: "frameAnalysisNode", position: { x: layout.position.x + 400, y: layout.position.y }, data: { label: `${String(data.label ?? "视频")} · 视频分析`, handles: [{ id: "in", type: "target", dataType: "VIDEO", label: "视频素材" }], outputs: {} } }], [{ id: crypto.randomUUID(), source: id, sourceHandle: output.id, target: childId, targetHandle: "in" }], current);
         await document.save(); return { nodeId: childId };
       }); } });
     context.registerTool({ name: "separateMedia", outputSchema: z.strictObject({ nodes: z.array(z.strictObject({ nodeId: z.string(), type: z.string(), url: z.string(), mimeType: z.string(), label: z.string() })) }), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "本地分离音视频，生成静音视频和原音轨两个节点，保留原视频。", parameters: z.strictObject({}),
