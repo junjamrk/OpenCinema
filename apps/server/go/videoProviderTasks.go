@@ -55,6 +55,7 @@ func updateVideoJob(ctx context.Context, job object) error {
 	}
 	value.server.tasksMu.Lock()
 	defer value.server.tasksMu.Unlock()
+	value.task.warning = ""
 	previous, _ := json.Marshal(value.task.job)
 	next, _ := json.Marshal(job)
 	if string(previous) == string(next) {
@@ -209,6 +210,15 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 			if len(urls) == 0 {
 				return failCompleted("媒体任务结束但未返回产物")
 			}
+			if protocol == "httpTask" && boolean(taskSpec(provider, kind)["outputAuth"]) {
+				for index, value := range urls {
+					output, err := httpTaskOutput(ctx, provider, config, value)
+					if err != nil {
+						return nil, err
+					}
+					urls[index] = output
+				}
+			}
 			return urls, nil
 		}
 		response = nil
@@ -291,6 +301,10 @@ func (s *server) resumeVideoTask(id string, task *mediaTask) error {
 	}
 	if retryDownload {
 		task.job["downloadRetries"] = number(task.job["downloadRetries"]) + 1
+	}
+	// 重新观察会清掉结果，把上次失败的原因留给界面，否则用户只看到一直在运行。
+	if task.unknown {
+		task.warning = str(task.result["message"])
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	task.done, task.cancel, task.settled, task.result, task.unknown = make(chan struct{}), cancel, time.Time{}, nil, false

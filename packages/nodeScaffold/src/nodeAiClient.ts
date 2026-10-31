@@ -72,7 +72,7 @@ const mediaPriceCache = mediaPriceCacheHost[mediaPriceCacheKey] ??= (() => {
 })();
 
 type MediaTaskResult = { code: number; data: (NodeImageResult | NodeVideoResult | NodeAudioResult)[] | null; message: string };
-export type NodeMediaTask = { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean; result?: MediaTaskResult; providerId?: string; modelId?: string; providerJobId?: string; phase?: string; progress?: number; cancelMode?: string; cost?: NodeMediaCost };
+export type NodeMediaTask = { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean; result?: MediaTaskResult; providerId?: string; modelId?: string; providerJobId?: string; phase?: string; progress?: number; cancelMode?: string; cost?: NodeMediaCost; warning?: string };
 type PendingMediaTask = { directory: string; failedAt?: number; finish: (result: MediaTaskResult) => void; fail: (error: unknown) => void };
 const mediaTasksKey = Symbol.for("toonflow.nodeMediaTasks");
 const mediaTasksHost = globalThis as typeof globalThis & { [mediaTasksKey]?: ReturnType<typeof createMediaTasks> };

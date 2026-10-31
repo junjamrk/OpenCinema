@@ -46,6 +46,7 @@ type mediaTask struct {
 	job              object
 	cost             object
 	remoteSettled    bool
+	warning          string
 }
 
 type mediaSubmissionKey struct{}
@@ -83,6 +84,9 @@ func mediaTaskState(id string, task *mediaTask) object {
 		if task.job["progress"] != nil {
 			item["progress"] = task.job["progress"]
 		}
+	}
+	if task.warning != "" && status == "running" {
+		item["warning"] = task.warning
 	}
 	if task.result != nil {
 		item["result"] = task.result

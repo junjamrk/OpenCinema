@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -13,7 +16,7 @@ import (
 
 // httpTask 把任务式 HTTP 服务声明在清单里，提交、轮询、取消、恢复全部沿用 generateVideoProvider。
 // ACT: 取值只支持点号路径，模板只支持 {字段} 替换，不是表达式语言；状态查询固定 GET，请求体固定 JSON。
-// 需要请求签名、multipart、按值换算或带凭据下载产物的服务走 adapter 协议。
+// 需要请求签名、multipart 或按值换算的服务走 adapter 协议。
 
 var httpTaskPlaceholder = regexp.MustCompile(`\{([a-zA-Z]+)\}`)
 var httpTaskValuePath = regexp.MustCompile(`^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$`)
@@ -99,8 +102,13 @@ func validateHttpTask(provider object) error {
 
 func validateTaskSpec(kind string, spec object) error {
 	name := "task." + kind
-	if err := onlyKeys(spec, name, "submit", "idPath", "status", "outputPath", "cancel"); err != nil {
+	if err := onlyKeys(spec, name, "submit", "idPath", "status", "outputPath", "outputAuth", "cancel"); err != nil {
 		return err
+	}
+	if raw := spec["outputAuth"]; raw != nil {
+		if _, valid := raw.(bool); !valid {
+			return fail(400, name+".outputAuth 须为布尔值")
+		}
 	}
 	submit, status := asObject(spec["submit"]), asObject(spec["status"])
 	if err := onlyKeys(submit, name+".submit", "method", "path", "body"); err != nil {
@@ -369,6 +377,35 @@ func taskJobID(response object, path string) (string, error) {
 		return "", fail(502, "供应商未返回有效媒体任务 ID；禁止自动重新提交")
 	}
 	return id, nil
+}
+
+// 产物要带凭据下载时只接受供应商同源地址，凭据不会发给响应里指定的其他主机。
+func httpTaskOutput(ctx context.Context, provider, config object, value string) (string, error) {
+	path, query, _ := strings.Cut(value, "?")
+	relative, err := videoResponsePath(providerBase(provider, config), path)
+	if err != nil {
+		return "", err
+	}
+	if query != "" {
+		relative += "?" + query
+	}
+	response, err := videoRequest(ctx, provider, config, http.MethodGet, "/"+relative, nil, "")
+	var rejected *videoRequestRejected
+	if errors.As(err, &rejected) {
+		return "", fail(502, fmt.Sprintf("下载任务产物失败（HTTP %d）", rejected.status))
+	}
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(response.Body, 100*1024*1024+1))
+	if err != nil {
+		return "", err
+	}
+	if len(data) == 0 || len(data) > 100*1024*1024 {
+		return "", fail(413, "任务产物为空或超过100MiB")
+	}
+	return "data:" + strings.Split(response.Header.Get("Content-Type"), ";")[0] + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 }
 
 func httpTaskState(spec, response object) string {
