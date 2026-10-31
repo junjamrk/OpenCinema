@@ -182,6 +182,13 @@ pre { font-family: var(--mono); font-size: 14px; line-height: 1.7; color: #E6E9E
 }
 .noJs .reveal, .noJs .heroTitle .line { opacity: 1; transform: none; filter: none; animation: none; }
 
+/* headings: no orphan words; CJK needs looser tracking and taller lines */
+.heroTitle, .h2, .feature h3, .card h3, .step h3 { text-wrap: balance; }
+:lang(zh-CN) .heroTitle { letter-spacing: -.01em; line-height: 1.12; }
+:lang(zh-CN) .h2 { letter-spacing: -.012em; line-height: 1.18; }
+:lang(zh-CN) .feature h3, :lang(zh-CN) .card h3, :lang(zh-CN) .step h3 { letter-spacing: -.01em; line-height: 1.3; }
+:lang(zh-CN) body { line-height: 1.75; }
+
 /* responsive */
 @media (max-width: 1000px) {
   .steps, .cards { grid-template-columns: 1fr; }

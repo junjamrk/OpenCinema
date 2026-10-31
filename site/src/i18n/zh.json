@@ -1,7 +1,11 @@
 {
   "lang": "zh-CN",
   "dir": "zh/",
-  "otherLang": { "code": "en", "label": "English", "href": "/" },
+  "otherLang": {
+    "code": "en",
+    "label": "English",
+    "href": "/"
+  },
   "meta": {
     "title": "OpenCinema — 你的 Agent。你的画布。你的影片。",
     "description": "本机运行的开源视频创作工作台，由你的 Agent 操作。Codex、Claude Code 或任何 MCP Agent 负责规划，OpenCinema 提供节点画布、图像与视频工具、3D 预演、审片与最终剪辑。"
@@ -16,65 +20,125 @@
   },
   "hero": {
     "eyebrow": "开源 · MIT · 0.4.0 开发中",
-    "title": ["你的 Agent。", "你的画布。", "你的影片。"],
+    "title": [
+      "你的 Agent。",
+      "你的画布。",
+      "你的影片。"
+    ],
     "lede": "本机运行的视频创作工作台，由你的 Agent 操作。Codex、Claude Code 或任何 MCP Agent 负责规划，OpenCinema 为它提供节点画布、图像与视频工具、3D 预演、审片和最终剪辑，而每一个镜头都由你拍板。",
     "primary": "在 GitHub 上 Star",
     "secondary": "观看 30 秒发布影片",
-    "trust": ["运行在你的电脑上", "你的模型，你的密钥", "未经审片，什么都不会被采用"],
+    "trust": [
+      "运行在你的电脑上",
+      "你的模型，你的密钥",
+      "未经审片，什么都不会被采用"
+    ],
     "shotAlt": "OpenCinema 画布：分镜文本、参考图、参考片段与音频床接入 Blockout 预演、图片生成与视频生成节点。"
   },
   "works": {
     "label": "和你已经在用的 Agent 一起工作",
-    "items": ["Codex", "Claude Code", "任何 MCP 客户端"],
+    "items": [
+      "Codex",
+      "Claude Code",
+      "任何 MCP 客户端"
+    ],
     "note": "标准 MCP。不绑定任何私有 Agent。"
   },
   "how": {
     "label": "工作方式",
     "title": "指挥。看见。完成。",
     "steps": [
-      { "n": "01", "title": "指挥", "text": "选中一个节点、一组镜头，或者什么都不选。在底部输入里描述要改什么。范围由你划定。", "img": "composerScope", "alt": "底部输入的作用范围是一个视频生成节点和五条参考。" },
-      { "n": "02", "title": "看见", "text": "Agent 操作的就是你眼前这张画布。打开编辑台、画一块选区、换一条参考、保留一个满意的版本。", "img": "imageEditor", "alt": "图片编辑台：局部重绘、裁剪、宫格、打光、机位、全景。" },
-      { "n": "03", "title": "完成", "text": "按六项检查审阅每个候选。只替换出问题的那一镜。连同音轨渲染完整成片。", "img": "mediaEditing", "alt": "视频节点的媒体编辑工具：截取、取帧、音频、逐帧拉片、审阅、变速、转写。" }
+      {
+        "n": "01",
+        "title": "指挥",
+        "text": "选中一个节点、一组镜头，或者什么都不选。在底部输入里描述要改什么。范围由你划定。",
+        "img": "composerScope",
+        "alt": "底部输入的作用范围是一个视频生成节点和五条参考。"
+      },
+      {
+        "n": "02",
+        "title": "看见",
+        "text": "Agent 操作的就是你眼前这张画布。打开编辑台、画一块选区、换一条参考、保留一个满意的版本。",
+        "img": "imageEditor",
+        "alt": "图片编辑台：局部重绘、裁剪、宫格、打光、机位、全景。"
+      },
+      {
+        "n": "03",
+        "title": "完成",
+        "text": "按六项检查审阅每个候选。只替换出问题的那一镜。连同音轨渲染完整成片。",
+        "img": "mediaEditing",
+        "alt": "视频节点的媒体编辑工具：截取、取帧、音频、逐帧拉片、审阅、变速、转写。"
+      }
     ]
   },
   "features": {
     "label": "功能",
-    "title": "一张画布，把影片从想法带到成片。",
+    "title": "一张画布，从想法到成片。",
     "rows": [
       {
         "kicker": "画布",
         "title": "每一份素材、每一个步骤，都是节点。",
         "text": "分镜、图片、片段、音频、预演、生成、审片和剪辑计划都在一张画布上，连线就是参考关系。内置 13 个节点插件，从文本与媒体到分析与生成，外加一个协作扩展。",
-        "points": ["拖入文件即生成节点", "分组、整理、批量连线、撤销", "Agent 的每一步都是看得见的状态变化"],
-        "img": "canvas", "alt": "连成一张图的文本、媒体、预演与生成节点。", "side": "right"
+        "points": [
+          "拖入文件即生成节点",
+          "分组、整理、批量连线、撤销",
+          "Agent 的每一步都是看得见的状态变化"
+        ],
+        "img": "canvas",
+        "alt": "连成一张图的文本、媒体、预演与生成节点。",
+        "side": "right"
       },
       {
         "kicker": "范围",
         "title": "Agent 能动什么，由你决定。",
         "text": "底部输入只作用于你的选择：一个节点、框选的一组节点，或整张画布。生成节点可以在「生成」和「让 Agent 调整节点本身」之间切换。参考带序号，你知道模型会收到什么。",
-        "points": ["一个节点、N 个节点，或整张画布", "参考显示为带序号的标签", "手工与 Agent 共用同一条撤销历史"],
-        "img": "composerScope", "alt": "底部输入显示范围：Shot 02 候选，五条参考。", "side": "left"
+        "points": [
+          "一个节点、N 个节点，或整张画布",
+          "参考显示为带序号的标签",
+          "手工与 Agent 共用同一条撤销历史"
+        ],
+        "img": "composerScope",
+        "alt": "底部输入显示范围：Shot 02 候选，五条参考。",
+        "side": "left"
       },
       {
         "kicker": "编辑台",
         "title": "只改需要改的地方。",
         "text": "画一块选区，就只有这块区域会变。裁剪变换、宫格切分、重新打光、换机位、拍全景。截取片段、提取音轨、分离音视频、变速、转写，全部通过本机 FFmpeg 完成。",
-        "points": ["图片：局部重绘、裁剪、宫格、打光、机位、全景", "视频：截取、取帧、音频、变速、逐帧拉片", "结果成为新节点，原素材不动"],
-        "img": "imageEditor", "alt": "打开在雨夜码头剧照上的图片编辑台。", "side": "right"
+        "points": [
+          "图片：局部重绘、裁剪、宫格、打光、机位、全景",
+          "视频：截取、取帧、音频、变速、逐帧拉片",
+          "结果成为新节点，原素材不动"
+        ],
+        "img": "imageEditor",
+        "alt": "打开在雨夜码头剧照上的图片编辑台。",
+        "side": "right"
       },
       {
         "kicker": "预演",
         "title": "先看清镜头，再去生成。",
         "text": "在白模舞台上编排走位与相机。按镜头导出 RGB、深度与法线层，固定为生成用的参考节点。预演与深度是构图和节奏的参考，不是运动锁定。",
-        "points": ["人物、布景、相机走位、Take", "每镜导出 RGB、深度、法线", "对真实素材做逐帧拉片、姿态追踪与相对深度"],
-        "img": "blockout", "alt": "Blockout 预演编辑器：白模舞台上的人偶。", "side": "left"
+        "points": [
+          "人物、布景、相机走位、Take",
+          "每镜导出 RGB、深度、法线",
+          "对真实素材做逐帧拉片、姿态追踪与相对深度"
+        ],
+        "img": "blockout",
+        "alt": "Blockout 预演编辑器：白模舞台上的人偶。",
+        "side": "left"
       },
       {
         "kicker": "你的模型",
         "title": "你的供应商，你的密钥，你的电脑。",
         "text": "接入火山方舟 Seedance、fal、Replicate 或任何 OpenAI 兼容的视频服务，也可以用 JSON manifest 导入自定义供应商。凭据只保存在本机设置里，Agent 只能看到是否已配置。",
-        "points": ["供应商 manifest，无需改代码", "FFmpeg 与深度模型显式准备，按哈希固定", "Go 服务只监听回环地址"],
-        "img": "providers", "alt": "媒体服务设置面板。", "side": "right"
+        "points": [
+          "供应商 manifest，无需改代码",
+          "FFmpeg 与深度模型显式准备，按哈希固定",
+          "Go 服务只监听回环地址"
+        ],
+        "img": "providers",
+        "alt": "媒体服务设置面板。",
+        "side": "right"
       }
     ]
   },
@@ -82,9 +146,18 @@
     "label": "计划、审片、剪辑",
     "title": "模型提议，你来决定。",
     "cards": [
-      { "title": "先看计划", "text": "在付费之前，生成计划会显示最终提示词、真实模型参数和每条参考的职责：instruction、identity、composition、motion 或 exclude。" },
-      { "title": "六项检查，你说了算", "text": "方向、动作、身份、空间连续、意外切镜、形变与品牌。只有你逐项标记并写下观察，候选才会被批准。被拒绝的候选留在工程里。" },
-      { "title": "只换一镜，其余不动", "text": "剪辑计划保存 2 到 16 镜、入出点、输出规格和一条音轨。换掉一镜，其他镜头原样保留。渲染生成新成片，旧成片仍在。" }
+      {
+        "title": "先看计划",
+        "text": "在付费之前，生成计划会显示最终提示词、真实模型参数和每条参考的职责：instruction、identity、composition、motion 或 exclude。"
+      },
+      {
+        "title": "六项检查，你说了算",
+        "text": "方向、动作、身份、空间连续、意外切镜、形变与品牌。只有你逐项标记并写下观察，候选才会被批准。被拒绝的候选留在工程里。"
+      },
+      {
+        "title": "只换一镜，其余不动",
+        "text": "剪辑计划保存 2 到 16 镜、入出点、输出规格和一条音轨。换掉一镜，其他镜头原样保留。渲染生成新成片，旧成片仍在。"
+      }
     ]
   },
   "film": {
@@ -104,12 +177,30 @@
     "agent": "claude --plugin-dir ./build/openCinema\n# 然后\n/opencinema:opencinema",
     "agentNote": "Codex：codex plugin add opencinema@openCinemaStandalone。任何 MCP 客户端都可以从设置面板复制连接配置。",
     "links": [
-      { "label": "Readme", "href": "https://github.com/junjamrk/OpenCinema#readme" },
-      { "label": "架构", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" },
-      { "label": "写一个节点", "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" },
-      { "label": "视频供应商", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/videoProvider.md" },
-      { "label": "镜头工作流", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/videoShotWorkflow.md" },
-      { "label": "参与贡献", "href": "https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" }
+      {
+        "label": "Readme",
+        "href": "https://github.com/junjamrk/OpenCinema#readme"
+      },
+      {
+        "label": "架构",
+        "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md"
+      },
+      {
+        "label": "写一个节点",
+        "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md"
+      },
+      {
+        "label": "视频供应商",
+        "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/videoProvider.md"
+      },
+      {
+        "label": "镜头工作流",
+        "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/videoShotWorkflow.md"
+      },
+      {
+        "label": "参与贡献",
+        "href": "https://github.com/junjamrk/OpenCinema/blob/main/contributing.md"
+      }
     ]
   },
   "community": {
@@ -117,9 +208,18 @@
     "title": "在公开中构建。",
     "text": "MIT 许可。Go 服务、React 画布、框架无关的编辑会话和节点 SDK，都在同一个仓库里。欢迎 Issue、Pull Request 和节点插件。",
     "cards": [
-      { "title": "写一个节点", "text": "节点是一个导出插件定义、用 Zod 注册工具的包。你的界面和 Agent 调用的是同一个实现。" },
-      { "title": "接入一个供应商", "text": "说同一种协议的服务只需要一个 JSON manifest。没有映射的参考会被明确拒绝，而不是悄悄丢掉。" },
-      { "title": "打磨工具面", "text": "每个工具都有实时 Schema、输出校验与标注。错误自带机器码和恢复动作。" }
+      {
+        "title": "写一个节点",
+        "text": "节点是一个导出插件定义、用 Zod 注册工具的包。你的界面和 Agent 调用的是同一个实现。"
+      },
+      {
+        "title": "接入一个供应商",
+        "text": "说同一种协议的服务只需要一个 JSON manifest。没有映射的参考会被明确拒绝，而不是悄悄丢掉。"
+      },
+      {
+        "title": "打磨工具面",
+        "text": "每个工具都有实时 Schema、输出校验与标注。错误自带机器码和恢复动作。"
+      }
     ],
     "cta": "提一个 Issue",
     "ctaHref": "https://github.com/junjamrk/OpenCinema/issues"
@@ -133,27 +233,75 @@
   "footer": {
     "tagline": "本机运行、由你的 Agent 操作的视频创作工作台。",
     "columns": [
-      { "title": "项目", "links": [
-        { "label": "GitHub", "href": "https://github.com/junjamrk/OpenCinema" },
-        { "label": "问题反馈", "href": "https://github.com/junjamrk/OpenCinema/issues" },
-        { "label": "变更记录", "href": "https://github.com/junjamrk/OpenCinema/blob/main/changelog.md" },
-        { "label": "安全", "href": "https://github.com/junjamrk/OpenCinema/blob/main/security.md" }
-      ]},
-      { "title": "文档", "links": [
-        { "label": "Readme", "href": "https://github.com/junjamrk/OpenCinema#readme" },
-        { "label": "架构", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" },
-        { "label": "Claude 接入", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/claudeSetup.md" },
-        { "label": "发行指南", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/releaseGuide.md" }
-      ]},
-      { "title": "扩展", "links": [
-        { "label": "节点 SDK", "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" },
-        { "label": "MCP SDK", "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/mcp/README.md" },
-        { "label": "插件说明", "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/openCinema/readme.md" },
-        { "label": "参与贡献", "href": "https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" }
-      ]}
+      {
+        "title": "项目",
+        "links": [
+          {
+            "label": "GitHub",
+            "href": "https://github.com/junjamrk/OpenCinema"
+          },
+          {
+            "label": "问题反馈",
+            "href": "https://github.com/junjamrk/OpenCinema/issues"
+          },
+          {
+            "label": "变更记录",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/changelog.md"
+          },
+          {
+            "label": "安全",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/security.md"
+          }
+        ]
+      },
+      {
+        "title": "文档",
+        "links": [
+          {
+            "label": "Readme",
+            "href": "https://github.com/junjamrk/OpenCinema#readme"
+          },
+          {
+            "label": "架构",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md"
+          },
+          {
+            "label": "Claude 接入",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/claudeSetup.md"
+          },
+          {
+            "label": "发行指南",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/releaseGuide.md"
+          }
+        ]
+      },
+      {
+        "title": "扩展",
+        "links": [
+          {
+            "label": "节点 SDK",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md"
+          },
+          {
+            "label": "MCP SDK",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/mcp/README.md"
+          },
+          {
+            "label": "插件说明",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/openCinema/readme.md"
+          },
+          {
+            "label": "参与贡献",
+            "href": "https://github.com/junjamrk/OpenCinema/blob/main/contributing.md"
+          }
+        ]
+      }
     ],
     "license": "MIT 许可。Blockout 与 Motion 改编自 Sam Wasserman 的同名工具（Apache-2.0）。字体：Inter 与 JetBrains Mono（OFL）。",
     "copyright": "OpenCinema 贡献者"
   },
-  "dialog": { "close": "关闭", "title": "OpenCinema 发布影片" }
+  "dialog": {
+    "close": "关闭",
+    "title": "OpenCinema 发布影片"
+  }
 }
