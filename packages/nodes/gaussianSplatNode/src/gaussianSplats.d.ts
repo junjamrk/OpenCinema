@@ -43,6 +43,7 @@ declare module "@mkkellogg/gaussian-splats-3d" {
     splatMesh: SplatMesh | null;
     sortRunning: boolean;
     splatRenderReady: boolean;
+    splatRenderCount: number;
     getSplatMesh(): SplatMesh | null;
     dispose(): Promise<void>;
   }

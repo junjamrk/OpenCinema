@@ -135,15 +135,21 @@ export function createSplatStage(options: { canvas?: HTMLCanvasElement; interact
     const previous = viewer; viewer = undefined; bounds = undefined; splatCount = 0;
     if (previous) { scene.remove(previous); await previous.dispose(); }
   }
-  /** 排序在 Worker 中异步完成；连续渲染直到排序空闲两帧，保证截帧时的前后遮挡正确。 */
+  /**
+   * 排序在 Worker 中异步完成，首次排序完成前一个 Gaussian 都不会绘制（splatRenderCount 为 0）。
+   * 连续渲染：等到至少一次排序开始并结束、且已有可绘制数量后再截帧；相机未变时不会触发排序，20 帧后视为已就绪。
+   */
   async function settle(signal?: AbortSignal) {
-    const current = requireViewer();
-    let idle = 0;
-    for (let step = 0; step < 240 && idle < 2; step++) {
+    const core = requireViewer().viewer;
+    let sortSeen = false, idle = 0;
+    for (let step = 0; step < 900; step++) {
       signal?.throwIfAborted();
       render();
       await nextFrame();
-      idle = current.viewer.sortRunning ? 0 : idle + 1;
+      if (core.sortRunning) { sortSeen = true; idle = 0; continue; }
+      if (!(core.splatRenderCount > 0)) { idle = 0; continue; }
+      idle++;
+      if ((sortSeen && idle >= 2) || (!sortSeen && idle >= 20)) break;
     }
     render();
   }
