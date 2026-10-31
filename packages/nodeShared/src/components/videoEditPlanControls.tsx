@@ -117,7 +117,7 @@ function VideoEditPlanDialog({ node, controller, readOnly, disabled, percent, on
       {dirty && <p className="nodeStatus">保存后重新核对版本、时长和审片；原区间若超出候选长度会明确阻塞，不自动裁切。新成片须另行渲染，旧片保留。</p>}
       {resultId && <div className="nodeActions"><span className="nodeStatus">已生成新成片，旧片保留。</span><button type="button" onClick={() => { controller.getNodeService(node.id).selectNodes([resultId]); onClose(); }}>选择新成片</button></div>}
     </> : snapshot && <p className="nodeStatus">此视频没有保存的剪辑计划。可让 Agent 用实际镜头、源版本和入出点建立计划，原视频保持不变。</p>}
-    {unknown && <p className="nodeStatus">操作结果尚未确认。请先在节点的媒体编辑区查看任务状态，再决定是否重试，避免重复渲染。</p>}
+    {unknown && <div className="nodeActions"><span className="nodeStatus">操作结果尚未确认。请先在节点的媒体编辑区查看任务状态，再决定是否重试，避免重复渲染。</span><button type="button" onClick={() => { setUnknown(false); setError(""); }}>已确认，继续编辑</button></div>}
     {error && <p className="nodeError" role="alert">{error}</p>}
   </div></MediaDialog>;
 }
