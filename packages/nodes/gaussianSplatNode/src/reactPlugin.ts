@@ -86,7 +86,8 @@ const plugin: NodePluginDefinition<typeof GaussianSplatNodeView> = {
       if (content.byteLength !== source.bytes) throw new Error("扫描文件读取不完整");
       return content;
     }
-    function touchIdle() { clearTimeout(idleTimer); idleTimer = setTimeout(() => void releaseStage(), 90000); }
+    // 空闲 90 秒后释放无界面舞台；任务进行中不释放，任务结束时重新计时。
+    function touchIdle() { clearTimeout(idleTimer); idleTimer = setTimeout(() => { if (task) touchIdle(); else void releaseStage(); }, 90000); }
     async function releaseStage() { clearTimeout(idleTimer); const current = headless; headless = undefined; await current?.stage.dispose(); }
     // 无界面舞台按来源 SHA 缓存，空闲 90 秒后释放；视图有自己的交互舞台，两者互不影响。
     async function stageFor(source: SplatSource, signal: AbortSignal) {
@@ -215,7 +216,7 @@ const plugin: NodePluginDefinition<typeof GaussianSplatNodeView> = {
             throw error;
           }
         })();
-        try { return await current; } finally { if (task === current) { task = undefined; operation = undefined; } }
+        try { return await current; } finally { if (task === current) { task = undefined; operation = undefined; } touchIdle(); }
       },
     });
 
@@ -271,7 +272,7 @@ const plugin: NodePluginDefinition<typeof GaussianSplatNodeView> = {
             if (created && cleanupSafe) await files.remove(framesDirectory, true).catch(() => {});
           }
         })();
-        current.catch(() => {}).finally(() => { if (task === current) { task = undefined; operation = undefined; } });
+        current.catch(() => {}).finally(() => { if (task === current) { task = undefined; operation = undefined; } touchIdle(); });
         return { status: "queued" as const, taskId, frames, executionSettled: false as const };
       },
     });
