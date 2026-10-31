@@ -59,7 +59,7 @@
   }
   audio.nodeMedia { min-height: 44px; }
   .nodeUploadArea { min-height: 120px; width: 100%; border-style: dashed; color: var(--textSecondary, #9da4ae); &:hover:not(:disabled) { border-color: var(--selectionAccent); background: var(--surfaceSelected); color: var(--textPrimary); } }
-  .nodeComposerEmpty { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 120px; color: var(--textMuted); font-size: var(--fontSizeSmall); }
+  .nodeComposerEmpty { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 120px; color: var(--textMuted); font-size: var(--fontSizeSmall); }
   .nodeComposerAction { display: inline-flex; align-items: center; justify-self: start; gap: 6px; padding: 4px 6px; border-color: transparent; background: transparent; color: var(--textSecondary); &:hover:not(:disabled) { color: var(--selectionAccent); } }
   .nodeMediaHistory { display: grid; gap: 4px; max-height: 180px; overflow: auto; }
   .nodeMediaHistory button { text-align: left; text-overflow: ellipsis; overflow: hidden; }

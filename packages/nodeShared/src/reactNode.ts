@@ -123,6 +123,7 @@ export function registerMediaTools(context: PluginActivationContext, type: Media
 export function useMediaUrl(controller: ReactNodeViewProps["controller"], value?: NodeMediaValue) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
     let release: (() => void) | undefined;
@@ -132,8 +133,8 @@ export function useMediaUrl(controller: ReactNodeViewProps["controller"], value?
       release = media.release; setUrl(media.url);
     }).catch(reason => { if (active) setError(errorText(reason)); });
     return () => { active = false; release?.(); };
-  }, [controller, value?.url, value?.mimeType]);
-  return { url, error };
+  }, [controller, value?.url, value?.mimeType, attempt]);
+  return { url, error, retry: () => setAttempt(current => current + 1) };
 }
 
 export function errorText(error: unknown) {
