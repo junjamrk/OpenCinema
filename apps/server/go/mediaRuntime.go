@@ -916,13 +916,63 @@ func providerClientJSON(ctx context.Context, client *http.Client, base, path str
 func providerRejected(status int) bool { return status >= 400 && status < 500 && status != 408 }
 
 func providerResponseError(submitting bool, status int, detail string) error {
-	if len(detail) > 2000 {
-		detail = strings.ToValidUTF8(detail[:2000], "")
-	}
 	if submitting && providerRejected(status) {
 		return &videoRequestRejected{status: status, detail: detail}
 	}
-	return fail(502, fmt.Sprintf("供应商 HTTP %d: %s", status, detail))
+	return fail(502, providerFailureText(status, detail))
+}
+
+const remoteFailureText = "供应商确认生成失败，可调整提示词或参数后重新生成"
+
+// 第一行给用户看，说明原因和下一步；供应商原文放后面几行，节点折叠显示。
+func withFailureDetail(summary, detail string) string {
+	runes := []rune(strings.TrimSpace(detail))
+	if len(runes) == 0 {
+		return summary
+	}
+	if len(runes) > 300 {
+		runes = append(runes[:300], '…')
+	}
+	return summary + "\n" + string(runes)
+}
+
+func providerFailureText(status int, detail string) string {
+	summary := "供应商拒绝了这次请求，请检查提示词、参考素材和参数"
+	switch {
+	case status == 401 || status == 403:
+		summary = "供应商拒绝了 API Key，请在模型设置里检查 Key 和权限"
+	case status == 402:
+		summary = "供应商账户余额不足，请充值后重试"
+	case status == 404 || status == 405:
+		summary = "供应商地址或模型不可用，请在模型设置里检查"
+	case status == 408:
+		summary = "供应商响应超时，任务可能仍在执行"
+	case status == 429:
+		summary = "请求过于频繁或额度已用完，请稍后重试"
+	case status >= 500:
+		summary = "供应商服务异常，任务可能仍在执行"
+	}
+	return withFailureDetail(fmt.Sprintf("%s（HTTP %d）", summary, status), detail)
+}
+
+// 接口层错误已经是给用户看的话，其余是网络或系统原文，换成一句话，原文放详情。
+func mediaFailureText(err error, unknown bool) string {
+	var api *apiError
+	var rejected *videoRequestRejected
+	if errors.As(err, &api) || errors.As(err, &rejected) {
+		return err.Error()
+	}
+	if unknown {
+		return withFailureDetail("没有收到供应商的明确结果，任务可能仍在执行，可以稍后重新核对", err.Error())
+	}
+	if errors.Is(err, context.Canceled) {
+		return "生成已取消"
+	}
+	var network net.Error
+	if errors.Is(err, errProviderUnreachable) || errors.As(err, &network) {
+		return withFailureDetail("连不上媒体供应商，请检查网络和供应商地址后重试", err.Error())
+	}
+	return withFailureDetail("生成失败，请重试", err.Error())
 }
 func waitContext(ctx context.Context) error {
 	timer := time.NewTimer(3 * time.Second)
@@ -1330,7 +1380,7 @@ func generateTfRouter(ctx context.Context, base string, config, v, refs object) 
 			return []string{url}, nil
 		}
 		if status == "failed" || status == "error" || status == "rejected" {
-			return nil, failMediaRemote(ctx, "TF-router 生成失败: "+str(data["failReason"]))
+			return nil, failMediaRemote(ctx, withFailureDetail(remoteFailureText, str(data["failReason"])))
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1481,7 +1531,7 @@ func generateApiMart(ctx context.Context, base string, config, v, refs object) (
 			return urls, nil
 		}
 		if status == "failed" || status == "failure" {
-			return nil, failMediaRemote(ctx, "APIMart 生成失败")
+			return nil, failMediaRemote(ctx, remoteFailureText)
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1517,7 +1567,7 @@ func generateMetaso(ctx context.Context, base string, config, v, refs object) ([
 			return []string{output}, nil
 		}
 		if status == "fail" || status == "failed" || status == "failure" || status == "blocked" || status == "cancelled" {
-			return nil, failMediaRemote(ctx, "视频生成失败")
+			return nil, failMediaRemote(ctx, remoteFailureText)
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1566,7 +1616,7 @@ func generateCompshare(ctx context.Context, base string, config, v, refs object)
 			return urls, nil
 		}
 		if status == "FAILED" || status == "CANCELED" || status == "Failure" || status == "Expired" || status == "Cancelled" || status == "Canceled" {
-			return nil, failMediaRemote(ctx, "ModelVerse 生成失败")
+			return nil, failMediaRemote(ctx, remoteFailureText)
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err

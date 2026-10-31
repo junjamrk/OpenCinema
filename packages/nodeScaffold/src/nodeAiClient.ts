@@ -99,7 +99,7 @@ function createMediaTasks() {
       if (!task || !task.executionSettled || task.sideEffectMayContinue || !["cancelled", "completed", "failed"].includes(task.status)) throw new Error("服务端尚未确认生成任务及其外部副作用终止");
       return task;
     } catch (cause) {
-      throw Object.assign(new Error(`生成任务终态尚未确认；任务 ID：${taskId}；${cause instanceof Error ? cause.message : String(cause)}`), { code: "mediaTaskUnknown", taskId, cause });
+      throw Object.assign(new Error(`暂时无法确认任务已经停止，可以稍后重新核对\n任务 ID：${taskId}；${cause instanceof Error ? cause.message : String(cause)}`), { code: "mediaTaskUnknown", taskId, cause });
     }
   }
 
@@ -125,7 +125,7 @@ function createMediaTasks() {
               const item = byId.get(id);
               if (!item) throw new Error("生成任务响应不完整，请重试");
               task.failedAt = undefined;
-              if (item.status === "unknown" || item.sideEffectMayContinue) task.fail(Object.assign(new Error(item.result?.message || "生成任务状态未知，请保留原 taskId 查询"), { code: "mediaTaskUnknown", taskId: id }));
+              if (item.status === "unknown" || item.sideEffectMayContinue) task.fail(Object.assign(new Error(item.result?.message || "任务结果未确认，可以稍后重新核对"), { code: "mediaTaskUnknown", taskId: id }));
               else if (item.result) task.finish(item.result);
             }
           } catch (error) {

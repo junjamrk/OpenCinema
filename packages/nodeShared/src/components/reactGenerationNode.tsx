@@ -30,6 +30,8 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const generationState = runtimeState ?? generation?.status;
   const running = ["running", "delegated", "unknown", "cancelRequested"].includes(generationState ?? "");
   const blocked = running || generationState === "interrupted";
+  // ACT: 错误文本第一行是给用户的结论，其余行是供应商原文。两段沿用一个字符串，Agent 读到的状态也带着原文。
+  const failure = error || (generationState === "running" || generationState === "resultReady" ? undefined : generation?.error);
   const abandonable = ["unknown", "interrupted", "resultReady", "delegated"].includes(generationState ?? "") && generation?.status !== "failed";
   useEffect(() => {
     let active = true;
@@ -151,6 +153,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
     </div>}
     {warning && running && <p className="nodeStatus" role="status">正在重试：{warning}</p>}
     {observeError && <p className="nodeStatus" role="status">暂时读不到任务状态，正在重试：{observeError}</p>}
-    {(error || generation?.error) && <p className="nodeError" role="alert">{error || generation?.error}</p>}
+    {failure && <p className="nodeError" role="alert">{failure.split("\n")[0]}</p>}
+    {failure?.includes("\n") && <details className="nodeDetails"><summary>错误详情</summary><p className="nodeSavedInstruction">{failure.split("\n").slice(1).join("\n")}</p></details>}
   </MediaNode>;
 }

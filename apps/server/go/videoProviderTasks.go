@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -175,7 +176,11 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 			if state == "cancelled" {
 				return nil, fail(499, "媒体供应商已确认任务取消")
 			}
-			return nil, fail(502, "媒体供应商已确认生成失败；保留远端任务 ID")
+			detail := str(response["error"])
+			if detail == "" {
+				detail = str(asObject(response["error"])["message"])
+			}
+			return nil, fail(502, withFailureDetail(remoteFailureText, adapterMessage(provider, config, detail)))
 		case "completed":
 			if err := settleVideoRemote(ctx, job); err != nil {
 				return nil, err
@@ -256,7 +261,7 @@ func (s *server) runMediaTask(ctx context.Context, id string, task *mediaTask) {
 		if task.unknown {
 			code = 409
 		}
-		task.result = object{"code": code, "data": nil, "message": err.Error()}
+		task.result = object{"code": code, "data": nil, "message": mediaFailureText(err, task.unknown)}
 	} else {
 		task.unknown = false
 		task.result = object{"code": 200, "data": files, "message": "成功"}
@@ -304,7 +309,7 @@ func (s *server) resumeVideoTask(id string, task *mediaTask) error {
 	}
 	// 重新观察会清掉结果，把上次失败的原因留给界面，否则用户只看到一直在运行。
 	if task.unknown {
-		task.warning = str(task.result["message"])
+		task.warning, _, _ = strings.Cut(str(task.result["message"]), "\n")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	task.done, task.cancel, task.settled, task.result, task.unknown = make(chan struct{}), cancel, time.Time{}, nil, false
