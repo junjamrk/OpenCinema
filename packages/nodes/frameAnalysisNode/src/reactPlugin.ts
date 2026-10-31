@@ -171,9 +171,9 @@ const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
             await document.save();
           } catch (error) {
             const unknown = !!isExecutionUnknown(error);
-            operation.state = unknown ? "unknown" : published ? "completed" : combined.aborted ? "cancelled" : "failed"; operation.error = published ? `本地拉片已完成，宿主补充分析未完成：${errorText(error)}` : errorText(error);
+            operation.state = unknown ? "unknown" : published ? "completed" : combined.aborted ? "cancelled" : "failed"; operation.error = operation.state === "cancelled" ? undefined : published ? `本地拉片已完成，宿主补充分析未完成：${errorText(error)}` : errorText(error);
             if (!published && !unknown) await workbench.files.remove(`assets/${outputId}`, true).catch(() => {});
-            if (!context.signal.aborted) await workbench.updateRuntimeData({ analysisProgress: { percent: operation.percent, label: operation.error, status: operation.state, phase: operation.hostPending ? "host" : "local" } }).then(() => document.save()).catch(() => {});
+            if (!context.signal.aborted) await workbench.updateRuntimeData({ analysisProgress: { percent: operation.percent, label: operation.error ?? "已取消", status: operation.state, phase: operation.hostPending ? "host" : "local" } }).then(() => document.save()).catch(() => {});
           }
         })();
         return { status: "running" };

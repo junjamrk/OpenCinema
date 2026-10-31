@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { errorText, isExecutionUnknown, readMedia, type NodeViewProps } from "../reactNode";
 import type { VideoEditPlan, VideoEditPlanSnapshot } from "../videoEditPlan";
 import MediaDialog from "./reactMediaDialog";
 import NodeIcon from "./reactIcon";
 
-type Props = NodeViewProps & { disabled?: boolean };
+type Props = NodeViewProps & { disabled?: boolean; percent?: number };
 function seconds(value: number) { return `${Number(value.toFixed(3))}s`; }
 
-function VideoEditPlanDialog({ node, controller, readOnly, disabled, onClose }: Props & { onClose(): void }) {
+function VideoEditPlanDialog({ node, controller, readOnly, disabled, percent, onClose }: Props & { onClose(): void }) {
   const [snapshot, setSnapshot] = useState<VideoEditPlanSnapshot>();
   const [plan, setPlan] = useState<VideoEditPlan | null>(null);
   const [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [unknown, setUnknown] = useState(false);
   const [error, setError] = useState(""), [resultId, setResultId] = useState("");
+  const [renderState, setRenderState] = useState<"idle" | "rendering" | "cancelled">("idle");
+  const cancelling = useRef(false);
   const locked = disabled || readOnly || busy || unknown;
   useEffect(() => {
     const lifetime = new AbortController();
@@ -75,11 +77,18 @@ function VideoEditPlanDialog({ node, controller, readOnly, disabled, onClose }: 
   }
   async function render() {
     if (!snapshot?.canRender || !plan || dirty) return;
-    setBusy(true); setError(""); setResultId("");
+    setBusy(true); setError(""); setResultId(""); setRenderState("rendering"); cancelling.current = false;
     try {
       const result = await controller.callNodeTool(node.id, "renderVideoEditPlan", { expectedPlanRevision: snapshot.planRevision }) as { nodeId: string };
-      setResultId(result.nodeId);
-    } catch (reason) { if (isExecutionUnknown(reason)) setUnknown(true); setError(errorText(reason)); } finally { setBusy(false); }
+      setResultId(result.nodeId); setRenderState("idle");
+    } catch (reason) {
+      setRenderState(cancelling.current ? "cancelled" : "idle");
+      if (!cancelling.current) { if (isExecutionUnknown(reason)) setUnknown(true); setError(errorText(reason)); }
+    } finally { setBusy(false); }
+  }
+  function cancelRender() {
+    cancelling.current = true;
+    void controller.callNodeTool(node.id, "cancelMediaOperation", {}).catch(reason => setError(errorText(reason)));
   }
   return <MediaDialog title="剪辑计划" onClose={onClose}><div className="nodeShotDialog nodeVideoEditPlan">
     {busy && !snapshot && <p className="nodeStatus" role="status">正在读取镜头版本、采用范围和审片状态…</p>}
@@ -103,6 +112,8 @@ function VideoEditPlanDialog({ node, controller, readOnly, disabled, onClose }: 
       {plan.audio && <p className="nodeStatus">外部音轨：{plan.audio.path.split("/").at(-1)} · {plan.audio.mode === "mix" ? "混合" : "替换"}</p>}
       {!dirty && snapshot?.blockers.map(blocker => <p className="nodeError" key={blocker.code}>{blocker.message}</p>)}
       <div className="nodeActions"><button type="button" disabled={locked || !dirty} onClick={() => void save()}>保存计划并预检</button><button type="button" className="nodePrimary" disabled={locked || dirty || !snapshot?.canRender} onClick={() => void render()}>{busy ? "处理中…" : "渲染为新成片"}</button></div>
+      {renderState === "rendering" && <><progress className="nodeProgress" aria-label="渲染进度" value={percent} max={100} /><div className="nodeActions"><span className="nodeStatus" role="status">正在渲染{percent === undefined ? "…" : ` · ${percent}%`}</span><button type="button" onClick={cancelRender}>取消渲染</button></div></>}
+      {renderState === "cancelled" && <p className="nodeStatus" role="status">已取消渲染，原视频保留。</p>}
       {dirty && <p className="nodeStatus">保存后重新核对版本、时长和审片；原区间若超出候选长度会明确阻塞，不自动裁切。新成片须另行渲染，旧片保留。</p>}
       {resultId && <div className="nodeActions"><span className="nodeStatus">已生成新成片，旧片保留。</span><button type="button" onClick={() => { controller.getNodeService(node.id).selectNodes([resultId]); onClose(); }}>选择新成片</button></div>}
     </> : snapshot && <p className="nodeStatus">此视频没有保存的剪辑计划。可让 Agent 用实际镜头、源版本和入出点建立计划，原视频保持不变。</p>}

@@ -10,13 +10,19 @@ import { mediaClipPosition, mediaDraftSchema, mediaEditor, mediaHistorySchema, m
 import { compareVideoReviews, isGeneratedVideo, readVideoReviews, readVideoSources, videoReviewAllows, videoReviewSchema, type VideoSource } from "./videoShot";
 import { compositionAudioStream, compositionSourceSchema, readVideoEditPlan, resolveCompositionClip, videoCompositionSchema, videoEditPlanOutputSchema, videoEditPlanSchema, type StoredVideoEditPlan, type VideoComposition, type VideoEditPlanSnapshot } from "./videoEditPlan";
 
-export function runMediaCommand(command: BrowserFfmpegCommand, signal: AbortSignal) {
+function timemarkSeconds(timemark: unknown) {
+  const [hours, minutes, seconds] = String(timemark).split(":").map(Number);
+  return (hours ?? NaN) * 3600 + (minutes ?? NaN) * 60 + (seconds ?? NaN);
+}
+
+export function runMediaCommand(command: BrowserFfmpegCommand, signal: AbortSignal, onProgress?: (seconds: number) => void) {
   signal.throwIfAborted();
   const cancel = () => command.kill();
   signal.addEventListener("abort", cancel, { once: true });
   return new Promise<void>((resolve, reject) => {
     command.on("error", error => reject(error && typeof error === "object" && "code" in error && error.code === "ffmpegTaskUnknown" ? error : signal.aborted ? signal.reason : error));
     command.on("end", () => signal.aborted ? reject(signal.reason) : resolve());
+    command.on("progress", progress => { const seconds = timemarkSeconds(progress.timemark); if (Number.isFinite(seconds)) onProgress?.(seconds); });
     command.run();
   }).finally(() => signal.removeEventListener("abort", cancel));
 }
@@ -78,6 +84,8 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
   let operation: AbortController | undefined;
   let job: Promise<unknown> | undefined;
   let unknown: Error | undefined;
+  let progress: { elapsed: number; total: number } | undefined;
+  const trackProgress = (total: number) => (elapsed: number) => { progress = { elapsed, total }; };
   context.onDispose(async () => { operation?.abort(new Error("节点已卸载")); await job?.catch(() => {}); });
   // ACT: 无活动 job 时不阻断画布：任务产物都写入独立目录，迟到结果不改动节点；未确认的任务只锁本节点，由解除锁定收尾。
   context.onBeforeChange(async () => { operation?.abort(new Error("节点即将变更")); await job?.catch(() => {}); });
@@ -215,14 +223,15 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
       }
       throw error;
     }
-    finally { operation = undefined; job = undefined; }
+    finally { operation = undefined; job = undefined; progress = undefined; }
   }
   type MediaOperation = { operation?: string; status?: string; taskId?: string; requestId?: string; source?: string; sourceRevision?: string; resultNodeId?: string; resultNodeIds?: string[]; error?: string; startedAt?: string; finishedAt?: string };
-  const operationStatusSchema = z.strictObject({ operation: z.string().optional(), status: z.string(), executionSettled: z.boolean(), taskId: z.string().optional(), requestId: z.string().optional(), source: z.string().optional(), sourceRevision: z.string().optional(), resultNodeIds: z.array(z.string()), error: z.string().optional(), startedAt: z.string().optional(), finishedAt: z.string().optional() });
+  const operationStatusSchema = z.strictObject({ operation: z.string().optional(), status: z.string(), executionSettled: z.boolean(), percent: z.number().optional(), taskId: z.string().optional(), requestId: z.string().optional(), source: z.string().optional(), sourceRevision: z.string().optional(), resultNodeIds: z.array(z.string()), error: z.string().optional(), startedAt: z.string().optional(), finishedAt: z.string().optional() });
   function operationStatus() {
     const saved = readNodeData(document, id).mediaOperation as MediaOperation | undefined;
     const status = job ? "running" : unknown ? "unknown" : saved?.status === "running" ? "interrupted" : saved?.status ?? "idle";
-    return { operation: saved?.operation, status, executionSettled: ["idle", "completed", "failed", "cancelled"].includes(status), taskId: saved?.taskId, requestId: saved?.requestId, source: saved?.source, sourceRevision: saved?.sourceRevision, resultNodeIds: [...new Set([...(saved?.resultNodeIds ?? []), ...(saved?.resultNodeId ? [saved.resultNodeId] : [])])], error: saved?.error, startedAt: saved?.startedAt, finishedAt: saved?.finishedAt };
+    const percent = progress && progress.total > 0 ? Math.min(99, Math.round(progress.elapsed / progress.total * 100)) : undefined;
+    return { operation: saved?.operation, status, executionSettled: ["idle", "completed", "failed", "cancelled"].includes(status), ...(percent === undefined ? {} : { percent }), taskId: saved?.taskId, requestId: saved?.requestId, source: saved?.source, sourceRevision: saved?.sourceRevision, resultNodeIds: [...new Set([...(saved?.resultNodeIds ?? []), ...(saved?.resultNodeId ? [saved.resultNodeId] : [])])], error: saved?.error, startedAt: saved?.startedAt, finishedAt: saved?.finishedAt };
   }
   context.registerTool({ name: "cancelMediaOperation", outputSchema: operationStatusSchema, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "取消此节点正在进行的本地媒体处理或转写；宿主未确认远端终止时保留unknown。acknowledge=true放弃已无活动进程的unknown/interrupted/delegated任务并写为cancelled以解除节点锁定；原任务迟到的文件只留在其独立目录，宿主迟到的转写仍生成新节点。返回原taskId、终态及产物引用，不自动重发任务。", parameters: z.strictObject({ acknowledge: z.boolean().optional() }), async execute(args) {
     operation?.abort(new Error("用户取消操作")); await job?.catch(() => {});
@@ -259,7 +268,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
         filters.push(`${segments.map((_segment, index) => `[part${index}]`).join("")}concat=n=${segments.length}:v=0:a=1[result]`);
         command.noVideo().audioCodec("aac").audioBitrate(192).complexFilter(filters).outputOptions("-map", "[result]", "-movflags", "+faststart");
       }
-      await runMediaCommand(command.output(target), current);
+      await runMediaCommand(command.output(target), current, trackProgress(segments.reduce((sum, segment) => sum + segment.end - segment.start, 0)));
       current.throwIfAborted();
       if (source().url !== path) throw new Error("原媒体已变化，截取文件保留，未创建结果节点");
       await readMediaSourceRevision(workbench.files, path, sourceRevision, current, "failed");
@@ -284,7 +293,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
       else command.noVideo();
       if (probe.streams.some(stream => stream.codec_type === "audio")) command.audioFilters(atempo(args.speed)).audioCodec("aac");
       else command.noAudio();
-      await runMediaCommand(command.output(target), current);
+      await runMediaCommand(command.output(target), current, trackProgress(Number(probe.format.duration) / args.speed));
       current.throwIfAborted();
       if (source().url !== path) throw new Error("原媒体已变化，变速文件保留，未创建结果节点");
       return createResultNode(workbench, document, id, type, { url: target, mimeType: type === "video" ? "video/mp4" : "audio/mp4" }, `${String(readNodeData(document, id).label ?? "素材")} · ${args.speed}×`, childId, current);
@@ -402,7 +411,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
           if (args.audio.mode === "mix") filters.push("[original][background]amix=inputs=2:duration=first:dropout_transition=0:normalize=1[audio]");
         }
         command.complexFilter(filters).videoCodec("libx264").audioCodec("aac").audioFrequency(48000).audioChannels(2).audioBitrate(192).duration(duration).outputOptions("-map", "[video]", "-map", "[audio]", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-preset", "veryfast", "-crf", "20", "-map_metadata", "-1", "-map_chapters", "-1", "-threads", "2", "-filter_complex_threads", "1");
-        await runMediaCommand(command.output(target), current);
+        await runMediaCommand(command.output(target), current, trackProgress(duration));
         const output = await readMediaSourceRevision(workbench.files, target, undefined, current, "failed");
         if (output.size > 512 * 1024 ** 2) throw rejectComposition(`成片超过512MiB上限，${target}保留但未创建结果节点`, "compositionOutputTooLarge", "result");
         const probe = await probeMedia(ffmpeg, target, current), video = probe.streams.find(stream => stream.codec_type === "video"), audio = probe.streams.find(stream => stream.codec_type === "audio");
@@ -529,7 +538,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
         const command = ffmpeg(path);
         command.output(audioPath).noVideo().audioCodec("aac").audioBitrate(192).outputOptions("-map", "0:a:0", "-movflags", "+faststart");
         command.output(videoPath).noAudio().videoCodec("libx264").videoFilters("pad=ceil(iw/2)*2:ceil(ih/2)*2").outputOptions("-map", `0:${video.index}`, "-pix_fmt", "yuv420p", "-movflags", "+faststart");
-        await runMediaCommand(command, current); current.throwIfAborted();
+        await runMediaCommand(command, current, trackProgress(Number(probe.format.duration))); current.throwIfAborted();
         if (source().url !== path) throw new Error("原视频已变化，分离文件保留，未创建结果节点");
         const layout = workbench.getLayout();
         const label = String(readNodeData(document, id).label ?? "视频");
@@ -565,7 +574,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
         const probe = await probeMedia(ffmpeg, path, current);
         if (!probe.streams.some(stream => stream.codec_type === "audio")) throw new Error("该视频没有音轨");
         const childId = crypto.randomUUID(); const directory = await createMediaDirectory(workbench, childId); const target = `${directory}/audio.m4a`;
-        await runMediaCommand(ffmpeg(path).noVideo().audioCodec("aac").output(target), current);
+        await runMediaCommand(ffmpeg(path).noVideo().audioCodec("aac").output(target), current, trackProgress(Number(probe.format.duration)));
         current.throwIfAborted();
         return createResultNode(workbench, document, id, "audio", { url: target, mimeType: "audio/mp4" }, `${String(readNodeData(document, id).label ?? "视频")} · 音轨`, childId, current);
       }); } });
