@@ -7,7 +7,7 @@ const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, "dist");
 await rm(output, { recursive: true, force: true });
 const result = await Bun.build({
-  entrypoints: [resolve(root, "src/reactBuildConfig.ts"), resolve(root, "scripts/createPlugin.ts")],
+  entrypoints: [resolve(root, "src/reactBuildConfig.ts"), resolve(root, "scripts/createPlugin.ts"), resolve(root, "scripts/devInstall.ts")],
   outdir: output, target: "node", format: "esm", naming: "[name].[ext]",
   // ACT: 与 packages/openCinema 发行构建一致，Node 发行物使用标准文件原语，不打包移动端 Bun FFI。
   define: { "process.env.TOONFLOW_PLATFORM": '""' },
@@ -15,3 +15,4 @@ const result = await Bun.build({
 });
 if (!result.success) throw new AggregateError(result.logs, "脚手架发行构建失败");
 await chmod(resolve(output, "createPlugin.js"), 0o755);
+await chmod(resolve(output, "devInstall.js"), 0o755);

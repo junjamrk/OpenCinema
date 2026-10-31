@@ -116,6 +116,10 @@ export type WorkbenchController = ReactNodeServices & {
   manageCanvas(action: CanvasManagementAction): Promise<void>;
   renameProject(name: string): Promise<void>;
   refreshPlugins(): Promise<void>;
+  /** 立即加载插件模块，返回加载失败的原因；成功时返回 undefined。 */
+  probePlugin(id: string): Promise<string | undefined>;
+  getPluginError(id: string): string | undefined;
+  getCapabilities(): Readonly<Record<string, number>>;
   setPluginEnabled(id: string, enabled: boolean): Promise<void>;
   getHistory(): { mode: "local" | "collaboration"; revision: number; savedRevision: number; entries: { direction: "undo" | "redo"; steps: number; nodes: number; edges: number }[] };
   asOneHistoryStep<T>(operation: () => Promise<T>): Promise<T>;

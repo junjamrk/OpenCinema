@@ -35,10 +35,10 @@ export function createOpenCinemaTool(execute: McpTool["execute"], resourceUri: s
 
 function resourceMeta() {
   return {
-    ui: { prefersBorder: false, permissions: { clipboardWrite: {} }, csp: { connectDomains: ["https://api.toonflow.net"], resourceDomains: ["blob:", "data:"], frameDomains: ["https://api.toonflow.net"] } },
+    ui: { prefersBorder: false, permissions: { clipboardWrite: {} }, csp: { connectDomains: ["https://api.toonflow.net", "https://opencinema.site"], resourceDomains: ["blob:", "data:"], frameDomains: ["https://api.toonflow.net"] } },
     "openai/widgetDescription": "OpenCinema 视频工作台，保留现有画布、节点、工程文件和扩展插件。",
     "openai/widgetPrefersBorder": false,
-    "openai/widgetCSP": { connect_domains: ["https://api.toonflow.net"], resource_domains: ["blob:", "data:"], frame_domains: ["https://api.toonflow.net"] },
+    "openai/widgetCSP": { connect_domains: ["https://api.toonflow.net", "https://opencinema.site"], resource_domains: ["blob:", "data:"], frame_domains: ["https://api.toonflow.net"] },
     "openai/ui": { availableDisplayModes: ["inline", "fullscreen"], preferredDisplayMode: "fullscreen" },
   };
 }

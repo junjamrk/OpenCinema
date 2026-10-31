@@ -20,7 +20,7 @@ import NodeView, { nodeIcons } from "./nodeView";
 import HeaderIcon from "./headerIcon";
 import { menuKeyDown, trapOverlayFocus } from "./overlayFocus";
 import { MotionLayer, WorkbenchMotion } from "./uiMotion";
-import SettingsPanel, { type SettingsTab } from "./settingsPanel";
+import SettingsPanel, { type SettingsRequest, type SettingsTab } from "./settingsPanel";
 import CanvasManager from "./canvasManager";
 import ProjectPicker from "./projectPicker";
 import { createWorkspaceFiles } from "@/lib/workspaceFileClient";
@@ -90,7 +90,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
   const [projectPicker, setProjectPicker] = useState({ creating: false, directory: "" });
   const [recentProjects, setRecentProjects] = useState(readRecentProjects);
   const [missingProjects, setMissingProjects] = useState<ReadonlySet<string>>(new Set());
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("host");
+  const [settingsRequest, setSettingsRequest] = useState<SettingsRequest>({ tab: "host" });
   const [palette, setPalette] = useState<"add" | "search" | null>(null);
   const [pickingTargets, setPickingTargets] = useState(false);
   const [query, setQuery] = useState("");
@@ -720,16 +720,16 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
     setOpenPanel("project");
   }
 
-  function openSettings(tab: SettingsTab) {
-    setSettingsTab(tab);
+  function openSettings(tab: SettingsTab, pluginId?: string) {
+    setSettingsRequest({ tab, pluginId });
     setOpenPanel("settings");
   }
 
   // 节点插件通过这个事件跳到设置页，不需要依赖工作台内部组件。
   useEffect(() => {
     function open(event: Event) {
-      const tab = (event as CustomEvent<{ tab?: SettingsTab }>).detail?.tab;
-      openSettings(tab ?? "host");
+      const detail = (event as CustomEvent<Partial<SettingsRequest>>).detail;
+      openSettings(detail?.tab ?? "host", detail?.pluginId);
     }
     window.addEventListener("openCinema:open-settings", open);
     return () => window.removeEventListener("openCinema:open-settings", open);
@@ -1139,7 +1139,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
             {paletteItems.map((item, index) => <button key={item.id} id={`paletteOption${index}`} type="button" role="option" aria-selected={pickingTargets ? snapshot.selectedIds.includes(item.id) : index === paletteIndex} className={`paletteItem${index === paletteIndex ? " paletteItemActive" : ""}`} disabled={!item.supported || pending || snapshot.transitioning || (palette === "add" && editingLocked) || (pickingTargets && !snapshot.selectedIds.includes(item.id) && snapshot.selectedIds.length >= 20)} onPointerMove={() => setPaletteIndex(index)} onClick={() => void run(() => choosePaletteItem(index))} draggable={palette === "add" && item.supported && !editingLocked} onDragStart={event => { event.dataTransfer.setData("application/opencinema-node", item.id); event.dataTransfer.effectAllowed = "copy"; }}><span className="paletteItemIcon">{createElement(nodeIcons[item.icon ?? ""] ?? IconPuzzle, { size: 16 })}</span><span className="paletteItemText"><strong>{item.label}</strong>{item.description && <span>{item.description}</span>}</span><span className="paletteItemCategory">{pickingTargets ? snapshot.selectedIds.includes(item.id) ? <IconCheck aria-label="已选中" size={18} /> : "选择" : item.supported ? item.category : "插件未就绪"}</span></button>)}
             {!paletteItems.length && <p className="paletteEmpty" role="status">没有匹配的节点</p>}
           </div>
-          <footer className="paletteFooter"><span>↑ ↓ 选择 · Enter {palette === "add" ? connectionSelection ? `创建并连接 ${connectionSelection.length} 个来源` : connectionEndpoint ? "创建并连接" : palettePosition ? "放置到指定位置" : "放置中心" : pickingTargets ? "勾选 / 取消" : "定位节点"}</span>{pickingTargets ? <button type="button" onClick={closePalette}>完成选择{snapshot.selectedIds.length ? ` · ${snapshot.selectedIds.length} 个节点` : " · 整个画布"}</button> : palette === "add" && !connectionSelection && !connectionEndpoint && <span>可拖至画布</span>}</footer>
+          <footer className="paletteFooter"><span>↑ ↓ 选择 · Enter {palette === "add" ? connectionSelection ? `创建并连接 ${connectionSelection.length} 个来源` : connectionEndpoint ? "创建并连接" : palettePosition ? "放置到指定位置" : "放置中心" : pickingTargets ? "勾选 / 取消" : "定位节点"}</span>{pickingTargets ? <button type="button" onClick={closePalette}>完成选择{snapshot.selectedIds.length ? ` · ${snapshot.selectedIds.length} 个节点` : " · 整个画布"}</button> : palette === "add" && <><button type="button" onClick={() => { closePalette(); openSettings("plugins"); }}>在插件市场查找更多节点</button>{!connectionSelection && !connectionEndpoint && <span>可拖至画布</span>}</>}</footer>
         </MotionLayer>
       </MotionLayer>}</AnimatePresence>
 
@@ -1155,7 +1155,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
           <header><span>{({ project: projectPicker.creating ? "新建工程" : "打开工程", canvas: canvasAction === "add" ? "新建画布" : "重命名画布", settings: "工作台设置", history: "历史记录", collaboration: "多人协作" })[openPanel]}</span><button type="button" disabled={pending} onClick={() => setOpenPanel(null)} aria-label="关闭面板"><IconX aria-hidden="true" focusable="false" size={19} /></button></header>
           {openPanel === "project" && <ProjectPicker creating={projectPicker.creating} initialDirectory={projectPicker.directory} pending={pending} onOpen={openDirectory} onToggleCreating={() => setProjectPicker(current => ({ ...current, creating: !current.creating }))}>{!projectPicker.creating && recentProjectList}</ProjectPicker>}
           {openPanel === "canvas" && <form className="projectForm" onSubmit={event => { event.preventDefault(); void run(async () => { if (canvasAction === "add") await controller.addCanvas(canvasName.trim() || undefined); else { const current = controller.getSnapshot(); if (!canvasRenameTarget || current.directory !== canvasRenameTarget.directory || current.canvasId !== canvasRenameTarget.canvasId) throw new Error("画布已切换，请重新打开改名对话框"); await controller.renameCanvas(canvasName.trim(), canvasRenameTarget.fileRevision); } setOpenPanel(null); }); }}><label htmlFor="canvasName">画布名称</label><input id="canvasName" autoFocus value={canvasName} onChange={event => setCanvasName(event.target.value)} autoComplete="off" disabled={pending} /><button type="submit" disabled={pending || (canvasAction === "rename" && !canvasName.trim())}>{canvasAction === "add" ? "创建画布" : "保存名称"}</button></form>}
-          {openPanel === "settings" && <SettingsPanel controller={controller} initialTab={settingsTab} />}
+          {openPanel === "settings" && <SettingsPanel controller={controller} request={settingsRequest} />}
           {openPanel === "collaboration" && CollaborationPanel && <CollaborationPanel service={collaboration.service} />}
           {openPanel === "history" && history && <div className="historyPanelBody"><div className="historySummary"><span>{history.mode === "collaboration" ? "协作会话历史" : "当前编辑会话"}</span><span>修订 {history.revision} · 已保存 {history.savedRevision}</span></div><div className="historyActions"><button type="button" disabled={!snapshot.canUndo || pending || editingLocked} onClick={() => void run(() => controller.undo())}><IconArrowBackUp aria-hidden="true" focusable="false" size={16} />撤销</button><button type="button" disabled={!snapshot.canRedo || pending || editingLocked} onClick={() => void run(() => controller.redo())}><IconArrowForwardUp aria-hidden="true" focusable="false" size={16} />重做</button></div>{history.entries.map(entry => <button type="button" className="historyEntry" key={`${entry.direction}:${entry.steps}`} disabled={pending || editingLocked} title={`${entry.direction === "undo" ? "回到" : "重做到"}这一步`} onClick={() => void run(async () => { for (let step = 0; step < entry.steps; step++) await (entry.direction === "undo" ? controller.undo() : controller.redo()); })}><IconHistory aria-hidden="true" focusable="false" size={16} /><span>{entry.direction === "undo" ? "回退" : "重做"}第 {entry.steps} 步</span><small>{entry.nodes} 节点 · {entry.edges} 连线</small></button>)}</div>}
         </MotionLayer>

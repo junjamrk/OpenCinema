@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { nodeMetadataSchema, nodeRequirementsSchema } from "./nodeCapabilities";
+import { missingCapabilityText, nodeMetadataSchema, nodeRequirementsSchema } from "./nodeCapabilities";
 import { createNodeResources, nodeResourceManifestSchema } from "./nodeResources";
 import { ToolExecutionError, serializeToolError, toolAnnotationsSchema } from "./toolErrors";
 import type {
@@ -75,7 +75,8 @@ export function createPluginRuntime<View = unknown>(options: PluginRuntimeOption
     nodeMetadataSchema.pick({ category: true, description: true }).parse({ category: definition.category, description: definition.description });
     z.strictObject({ label: z.string().trim().min(1).max(80), placeholder: z.string().trim().min(1).max(256), tool: toolNameSchema, maxLength: z.number().int().min(1).max(100000).optional(), defaultAction: z.boolean().optional(), getState: z.custom<NonNullable<NodePluginDefinition["composer"]>["getState"]>(value => typeof value === "function").optional() }).optional().parse(definition.composer);
     for (const [name, version] of Object.entries(requires)) {
-      if ((capabilities[name] ?? 0) < version) throw new Error(`插件 ${definition.id} 需要能力 ${name}@${version}`);
+      const provided = capabilities[name] ?? 0;
+      if (provided < version) throw new Error(`插件 ${definition.id} ${missingCapabilityText(name, version, provided)}`);
     }
     if (definition.view !== undefined && (!definition.renderer || !options.renderer || definition.renderer !== options.renderer)) {
       throw new Error(`插件 ${definition.id} 的 ${definition.renderer ?? "未声明"} 视图不能由 ${options.renderer ?? "无视图"} 运行时加载`);

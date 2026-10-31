@@ -1,4 +1,16 @@
 import { z } from "zod";
+import hostCapabilities from "./hostCapabilities.json" with { type: "json" };
+
+// 宿主能力的唯一清单：运行时注册、构建校验、市场发布和界面文案都读这里，hostCapabilities.json 也供 site/buildMarket.mjs 直接读取。
+export type HostCapability = keyof typeof hostCapabilities;
+export const hostCapabilityVersions = Object.fromEntries(Object.entries(hostCapabilities).map(([name, capability]) => [name, capability.version])) as Record<HostCapability, number>;
+export function capabilityLabel(name: string) {
+  return (hostCapabilities as Record<string, { label: string } | undefined>)[name]?.label ?? name;
+}
+export function missingCapabilityText(name: string, requiredVersion: number, providedVersion: number) {
+  const label = capabilityLabel(name), wanted = label === name ? `能力 ${name}（版本 ${requiredVersion}）` : `「${label}」（${name} 版本 ${requiredVersion}）`;
+  return `需要${wanted}，当前工作台${providedVersion ? `只提供版本 ${providedVersion}` : "没有提供"}`;
+}
 
 export const nodeRequirementsSchema = z.record(
   z.string().regex(/^[a-z][a-zA-Z0-9]{0,63}$/), z.number().int().min(1).max(1024),
@@ -14,5 +26,11 @@ export const nodeMetadataSchema = z.strictObject({
   icon: z.string().trim().min(1).max(64).optional(),
   category: z.string().trim().min(1).max(64).optional(),
   description: z.string().trim().min(1).max(512).optional(),
-  requires: nodeRequirementsSchema.optional(),
+  requires: nodeRequirementsSchema.superRefine((requires, context) => {
+    for (const [name, version] of Object.entries(requires)) {
+      const provided = (hostCapabilityVersions as Record<string, number | undefined>)[name];
+      if (provided === undefined) context.addIssue({ code: "custom", path: [name], message: `未知能力 ${name}，可用能力：${Object.keys(hostCapabilities).join("、")}` });
+      else if (version > provided) context.addIssue({ code: "custom", path: [name], message: `能力 ${name} 最高版本为 ${provided}` });
+    }
+  }).optional(),
 });

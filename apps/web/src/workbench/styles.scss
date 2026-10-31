@@ -385,6 +385,22 @@
             gap: 5px;
             align-items: center;
           }
+          button {
+            min-height: 28px;
+            padding: 3px 10px;
+            border: 1px solid var(--borderStrong);
+            border-radius: var(--radiusControl);
+            background: var(--surfaceRaised);
+            color: var(--textPrimary);
+            cursor: pointer;
+            &:hover:not(:disabled) {
+              border-color: var(--borderSelected);
+            }
+            &:disabled {
+              color: var(--textMuted);
+              cursor: not-allowed;
+            }
+          }
         }
       }
     }

@@ -97,7 +97,7 @@ func (s *server) nodePackage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *server) installNodeModule(name, source string, manifest, input object) (object, error) {
+func (s *server) installNodeModule(name, source string, manifest, input object, staleProviders []string) (object, error) {
 	directory := filepath.Join(s.dataDirectory, "nodes")
 	pointer := filepath.Join(directory, name+".json")
 	release, err := s.lockFiles(pointer, filepath.Join(directory, name))
@@ -179,6 +179,7 @@ func (s *server) installNodeModule(name, source string, manifest, input object) 
 	manifest = asObject(clone(manifest))
 	delete(manifest, "revision")
 	delete(manifest, "url")
+	delete(manifest, "loadError")
 	manifest["assets"] = metadata
 	seed, _ := json.Marshal(object{"source": source, "manifest": manifest})
 	revision := hash(seed)
@@ -230,6 +231,10 @@ func (s *server) installNodeModule(name, source string, manifest, input object) 
 		}
 	} else {
 		return nil, e
+	}
+	// 走到这里包已全部校验通过。凭据紧贴发布清理：此前失败不动旧凭据，清理失败则不发布，新地址拿不到旧 Key。
+	if err = s.forgetProviderConfigs(staleProviders); err != nil {
+		return nil, err
 	}
 	// 最后发布入口；此前失败保留旧版本，已发布版本目录不再覆盖。
 	if err = atomicWrite(pointer, data, !force, 0600); err != nil {

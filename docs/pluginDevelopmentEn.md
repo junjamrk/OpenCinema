@@ -45,7 +45,17 @@ packages/nodes/depthSliceNode/
     └── reactView.tsx   the React view rendered inside the node
 ```
 
-This scaffold is for development inside the repository. To work outside it, use `createOpenCinemaPlugin`, as described in the [README](../readme.md).
+This scaffold is for development inside the repository. To work outside it, use `createOpenCinemaPlugin`, as described in the [README](../readme.md). `@toonflow/nodes-scaffold` is not on npm yet, so `--scaffold` is required and must point at the tgz that `npm pack` produces. The generated project includes `readme.md` and `agent.md`.
+
+### Install while you edit
+
+Open two terminals. Run `npm run dev` in one to watch the build. In the other, post each new `install.json` to the local workbench:
+
+```bash
+npm run devInstall -- --server http://127.0.0.1:47920
+```
+
+Plugins inside the repository do not have that script. Run `bun packages/nodeScaffold/scripts/devInstall.ts <path to install.json> --server <workbench address>` instead. After a post, click **Refresh catalog** under **Settings → Plugins** to load the new version.
 
 ## The plugin definition
 
@@ -112,7 +122,7 @@ Plugin identity lives in the `openCinema` block of `package.json`:
 | `name` | Display name |
 | `description` | One sentence; shown in the node menu, the market and the agent's `availableNodeTypes` |
 | `category`, `icon` | Node menu category and icon |
-| `requires` | Host services and capability versions, for example `{ document: 1, workbench: 1, workspaceFiles: 1, ffmpeg: 1, worker: 1 }`. `getService` only returns services declared here |
+| `requires` | Host services and capability versions, for example `{ document: 1, workbench: 1, workspaceFiles: 1, ffmpeg: 1, worker: 1 }`. `getService` only returns services declared here. See [host capabilities](#host-capabilities) for the full list |
 | `scope` | `node` (default) or `workspace` |
 | `order` | Built-in nodes only; a plugin without `order` stays out of the built-in list |
 
@@ -135,14 +145,45 @@ The build writes `index.js`, `manifest.json` and `install.json`. `install.json` 
 
 Installed plugins are served by the local Go server from a versioned directory; the web app loads them through an import map and shares its React and zod instances.
 
+At install time the Go server checks the types of `version`, `requires`, `displayName`, `author`, `license`, `homepage`, `tags`, and `configRules`, and rejects a package that fails. The workbench loads the module right after install and probes enabled installed plugins each time the plugin page opens. A load failure appears on the plugin card with a **Retry** button. If an installed manifest is damaged, projects still open and the settings page marks that plugin as damaged so the user can uninstall or download it again.
+
+## Host capabilities
+
+The names and highest versions allowed in `requires` come from [hostCapabilities.json](../packages/nodeScaffold/src/hostCapabilities.json). A wrong name or a version that is too high fails `vite build`, `generate:nodes`, and `site/build.mjs`.
+
+| Capability | Version | Use |
+| --- | --- | --- |
+| `document` | 1 | Read and write the current node's data |
+| `workbench` | 1 | Use workbench services: files, FFmpeg, and host agent requests |
+| `files` | 1 | Read and write project files |
+| `inputs` | 1 | Read upstream node inputs |
+| `state` | 1 | Use shared runtime state inside the project |
+| `documentEditing` | 1 | Edit node documents |
+| `workspaceFiles` | 1 | Read and write project files |
+| `workspaceReadRange` | 1 | Read ranges of large project files |
+| `nodeHistory` | 1 | Write to the canvas history |
+| `workspaceDocuments` | 1 | Read and write canvases in the project |
+| `workspaceExtensions` | 1 | Extend project features |
+| `collaboration` | 1 | Take part in collaboration |
+| `pluginResources` | 1 | Load models and resources shipped with the package |
+| `ffmpeg` | 1 | Run FFmpeg on audio and video |
+| `webAssembly` | 1 | Run WebAssembly |
+| `worker` | 1 | Run work on a background thread |
+
+The host provides `webAssembly` and `worker` only when the runtime supports them.
+
+`requires` declares compatibility. It is not a sandbox. A plugin runs in the same page as the workbench and can send same-origin requests and touch the DOM, so it can read and write project files, read saved API keys, and send data to outside addresses. The review card tells the user this before install.
+
 ## Publishing to the plugin market
 
 The market is a static catalog under [opencinema.site/market](https://opencinema.site/market/). It is install-only for now; there is no upload. To publish a version:
 
 1. Build the plugin and confirm `install.json` is in the `outDir` you declared.
-2. Add an entry to `site/src/marketCatalog.json`: `id`, `source` (path of the install.json relative to the repository root), English and Chinese `description`, `homepage`, `repository`, `publishedAt`.
-3. Run `node site/build.mjs`. It copies the package to `site/market/plugins/<id>/<version>/install.json`, computes SHA-256 and size, and rewrites `site/market/index.json` and the market pages. A version is never overwritten with different bytes: bump the version instead.
+2. Add an entry to `site/src/marketCatalog.json`: `id`, `source` (path of the install.json relative to the repository root), English and Chinese `description`, `homepage`, `repository`, `publishedAt`. The optional `minHost` is the lowest workbench version that runs this package, written like `0.4.0`. The UI disables install when `minHost` is above the current version.
+3. Run `node site/build.mjs`. It copies the package to `site/market/plugins/<id>/<version>/install.json`, computes SHA-256 and size, and rewrites `site/market/index.json` and the market pages. A version is never overwritten with different bytes: bump the version instead. The script fails if `requires` names a capability the host does not provide.
 4. Open a pull request. The index format is [marketIndex.schema.json](../packages/nodeScaffold/schema/marketIndex.schema.json).
+
+The workbench parses the catalog entry by entry. An invalid record skips only itself, and the settings page shows how many records it skipped. Versions compare by numeric segments without prerelease handling, so the order of `1.0.0-beta` and `1.0.0` is not guaranteed.
 
 ## Checklist
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ import (
 )
 
 var pluginName = regexp.MustCompile(`^[a-z][a-zA-Z0-9]{0,95}$`)
+var capabilityName = regexp.MustCompile(`^[a-z][a-zA-Z0-9]{0,63}$`)
 
 // builtinNodes.json 由 packages/nodeScaffold/scripts/generateBuiltinNodes.ts 生成，不在此手写名单。
 //
@@ -110,6 +112,62 @@ func (s *server) nodeList() ([]any, error) {
 	}
 	return nodes, nil
 }
+
+// 与前端 pluginSchema、nodeRequirementsSchema 同一规则。这里放过的字段如果前端解析不了，插件就只能以损坏状态出现。
+func validatePluginManifest(manifest object) error {
+	if version, valid := manifest["version"].(string); !valid || strings.TrimSpace(version) == "" || utf8.RuneCountInString(version) > 128 {
+		return fail(400, "插件 version 须为不超过 128 字符的非空字符串")
+	}
+	for field, limit := range map[string]int{"category": 64, "description": 512, "icon": 64} {
+		if value, declared := manifest[field]; declared {
+			if text, valid := value.(string); !valid || strings.TrimSpace(text) == "" || utf8.RuneCountInString(text) > limit {
+				return fail(400, fmt.Sprintf("插件 %s 须为不超过 %d 字符的非空字符串", field, limit))
+			}
+		}
+	}
+	for _, field := range []string{"name", "displayName", "author", "license", "homepage", "readme", "agentGuide"} {
+		if value, declared := manifest[field]; declared {
+			if _, valid := value.(string); !valid {
+				return fail(400, "插件 "+field+" 须为字符串")
+			}
+		}
+	}
+	if value, declared := manifest["requires"]; declared {
+		requires, valid := value.(map[string]any)
+		if !valid || len(requires) > 32 {
+			return fail(400, "插件 requires 须为最多 32 项的对象")
+		}
+		for name, raw := range requires {
+			version, valid := raw.(float64)
+			if !capabilityName.MatchString(name) || !valid || version != math.Trunc(version) || version < 1 || version > 1024 {
+				return fail(400, "插件 requires 的能力名须为小驼峰，版本须为 1 到 1024 的整数："+name)
+			}
+		}
+	}
+	if value, declared := manifest["tags"]; declared {
+		tags, valid := value.([]any)
+		for _, tag := range tags {
+			if _, isText := tag.(string); !isText {
+				valid = false
+			}
+		}
+		if !valid {
+			return fail(400, "插件 tags 须为字符串数组")
+		}
+	}
+	if value, declared := manifest["configRules"]; declared {
+		rules, valid := value.([]any)
+		for _, rule := range rules {
+			if _, isObject := rule.(map[string]any); !isObject {
+				valid = false
+			}
+		}
+		if !valid {
+			return fail(400, "插件 configRules 须为对象数组")
+		}
+	}
+	return nil
+}
 func nodeConfigRevision(config any) string {
 	data, _ := json.Marshal(asObject(config))
 	return hash(data)
@@ -123,7 +181,7 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		return s.nodePackage(w, r)
 	}
 	if operation == "capabilities" {
-		success(w, object{"workspaceReadRange": 1, "collaboration": 1, "pluginApiVersion": 1, "renderer": "react", "runtime": "go"})
+		success(w, object{"workspaceReadRange": 1, "collaboration": 1, "pluginApiVersion": 1, "renderer": "react", "runtime": "go", "hostVersion": hostVersion})
 		return nil
 	}
 	if operation == "get" {
@@ -238,12 +296,8 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 				return fail(400, "内置插件更新不能改变原有 scope")
 			}
 		}
-		for field, limit := range map[string]int{"category": 64, "description": 512, "icon": 64} {
-			if value, declared := manifest[field]; declared {
-				if text, valid := value.(string); !valid || strings.TrimSpace(text) == "" || utf8.RuneCountInString(text) > limit {
-					return fail(400, fmt.Sprintf("插件 %s 须为不超过 %d 字符的非空字符串", field, limit))
-				}
-			}
+		if err = validatePluginManifest(manifest); err != nil {
+			return err
 		}
 		if !strings.Contains(source, "export") {
 			return fail(400, "插件必须是 ESM 模块")
@@ -257,12 +311,7 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		if err = s.checkPluginProviders(name, providers); err != nil {
 			return err
 		}
-		if boolean(v["force"]) {
-			if err = s.forgetProviderConfigs(staleProviderIDs(s.pluginOwnProviders(name), providers)); err != nil {
-				return err
-			}
-		}
-		installed, err := s.installNodeModule(name, source, manifest, v)
+		installed, err := s.installNodeModule(name, source, manifest, v, staleProviderIDs(s.pluginOwnProviders(name), providers))
 		if err != nil {
 			return err
 		}
