@@ -405,6 +405,7 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
       const controller = new AbortController();
       const combined = AbortSignal.any([context.signal, controller.signal]);
       const operation = { id: crypto.randomUUID(), controller, promise: Promise.resolve(), state: "running", error: undefined as string | undefined };
+      const previousGeneration = readNodeData(document, id).generation ?? null;
       task = operation;
       try {
         if (args.prompt !== undefined || type === "video") await workbench.updateData({ ...(args.prompt === undefined ? {} : { prompt: args.prompt, promptModel: args.prompt.split("\n").map(text => [{ type: "Write", text }]) }), ...(type === "video" ? { videoSourceHistory: readVideoSources(initial) } : {}) }, undefined, signal);
@@ -412,7 +413,12 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
         await workbench.updateRuntimeData({ generation: { taskId: operation.id, status: "running", startedAt: new Date().toISOString(), inputFingerprint, ...(creativeFingerprint ? { creativeFingerprint, referenceVersions } : {}), originalOutput, model: String(initial.model ?? "") } }, signal);
         await document.save();
       }
-      catch (error) { task = undefined; throw error; }
+      catch (error) {
+        // 受理记录没存下来，生成也没有发出；退回原状态，否则节点会停在“上次生成已中断”。
+        task = undefined;
+        await workbench.updateRuntimeData({ generation: previousGeneration }).catch(() => {});
+        throw error;
+      }
       operation.promise = (async () => {
         try {
           let result: { path: string; mimeType: string } | undefined;

@@ -356,8 +356,8 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 					s.tasksMu.Unlock()
 					return fail(429, "生成取消记录过多")
 				}
-				task := &mediaTask{directory: directory, inputHash: "cancelledBeforeRegistration", done: make(chan struct{}), cancel: func() {}, unknown: true, touched: now, settled: now, cancelRequested: true, result: object{"code": 409, "data": nil, "message": "取消时任务尚未登记或不可确认，已阻止此ID后续提交；请保留原ID"}}
-				task.submitted.Store(true)
+				// 生成请求在同一把锁下登记，这里查不到就说明它还没到，这条记录会挡住之后才到的提交，所以结果是确定的。
+				task := &mediaTask{directory: directory, inputHash: "cancelledBeforeRegistration", done: make(chan struct{}), cancel: func() {}, touched: now, settled: now, cancelRequested: true, result: object{"code": 499, "data": nil, "message": "取消时任务尚未登记，未派发生成；已阻止此ID后续提交"}}
 				if err := s.saveMediaTask(str(raw), task, true); err != nil {
 					s.tasksMu.Unlock()
 					return err

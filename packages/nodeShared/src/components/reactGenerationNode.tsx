@@ -15,6 +15,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const { node, controller, mediaType, readOnly } = props;
   const [models, setModels] = useState<NodeMediaModel[]>([]);
   const [error, setError] = useState("");
+  const [observeError, setObserveError] = useState("");
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState("");
   const [runtimeState, setRuntimeState] = useState<string>();
@@ -33,18 +34,21 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    setRuntimeState(undefined); setProgress(undefined); setWarning(undefined); setCost(undefined);
+    setRuntimeState(undefined); setProgress(undefined); setWarning(undefined); setCost(undefined); setObserveError("");
     async function observe() {
       try {
         const value = await controller.callNodeTool(node.id, "getGenerationStatus", {});
         if (!active || !value || typeof value !== "object" || !("status" in value)) return;
         const state = String(value.status);
-        setRuntimeState(state);
+        setRuntimeState(state); setObserveError("");
         setProgress("progress" in value && typeof value.progress === "number" ? value.progress : undefined);
         setWarning("warning" in value && typeof value.warning === "string" ? value.warning : undefined);
         setCost("cost" in value ? value.cost as NodeMediaCost | undefined : undefined);
         if (["running", "unknown", "cancelRequested"].includes(state)) timer = setTimeout(observe, 3000);
-      } catch (reason) { if (active) setError(errorText(reason)); }
+      } catch (reason) {
+        // 服务断开时继续查，恢复后节点自己回到真实状态。
+        if (active) { setObserveError(errorText(reason)); timer = setTimeout(observe, 3000); }
+      }
     }
     void observe();
     return () => { active = false; clearTimeout(timer); };
@@ -139,6 +143,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
       {mediaType === "video" && generationState === "completed" && value && <span className="nodeStatus" data-state={shotReview?.status === "rejected" ? "failed" : "pending"} title="审片记录绑定源文件版本；打开审片或合成时会重新核对当前版本">{shotReview?.source === value.url ? shotReview.status === "approved" ? `通过记录 · ${shotReview.start}–${shotReview.end}s（合成前核版本）` : "候选已拒收" : "视频候选 · 待审"}</span>}
     </div>}
     {warning && running && <p className="nodeStatus" role="status">正在重试：{warning}</p>}
+    {observeError && <p className="nodeStatus" role="status">暂时读不到任务状态，正在重试：{observeError}</p>}
     {(error || generation?.error) && <p className="nodeError" role="alert">{error || generation?.error}</p>}
   </MediaNode>;
 }
