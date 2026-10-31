@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import axios from "axios";
 import { z } from "zod";
@@ -18,6 +18,8 @@ export default function ProjectPicker({ creating, initialDirectory, pending, onO
   const [listing, setListing] = useState<z.infer<typeof listingSchema>>();
   const [restricted, setRestricted] = useState(false);
   const [error, setError] = useState("");
+  const [restoring, setRestoring] = useState(false);
+  const archiveInput = useRef<HTMLInputElement>(null);
 
   async function browse(target: string, signal?: AbortSignal) {
     setError("");
@@ -55,6 +57,16 @@ export default function ProjectPicker({ creating, initialDirectory, pending, onO
     } catch (value) { setError(value instanceof Error ? value.message : String(value)); }
   }
 
+  async function restore(archive: File) {
+    if (!listing) return;
+    setError(""); setRestoring(true);
+    try {
+      const { data } = await workspaceFileClient.post("/restoreProject", archive, { ...api, params: { directory: listing.path, name: name.trim() || archive.name.replace(/\.zip$/i, "") }, headers: { "Content-Type": "application/zip" } });
+      await onOpen(z.object({ directory: z.string() }).parse(data.data).directory);
+    } catch (value) { setError(value instanceof Error ? value.message : String(value)); }
+    finally { setRestoring(false); }
+  }
+
   const ready = !!path.trim() && (!creating || restricted || !!name.trim());
   return <form className="projectForm projectPicker" onSubmit={event => void submit(event)}>
     {creating && !restricted && <><label htmlFor="projectName">工程名称</label><input id="projectName" autoFocus value={name} maxLength={200} onChange={event => setName(event.target.value)} placeholder="例如 第一部短片" autoComplete="off" disabled={pending} /></>}
@@ -78,8 +90,9 @@ export default function ProjectPicker({ creating, initialDirectory, pending, onO
     </>}
     <small>{restricted ? "填写已存在文件夹的绝对路径。" : creating ? "会在这里新建同名文件夹，并创建第一张画布。" : "画布和素材都保存在这个文件夹里；空文件夹会自动创建第一张画布。"}</small>
     {error && <p className="projectPickerError" role="alert">{error}</p>}
-    {!restricted && <button type="button" className="projectPickerSwitch" disabled={pending} onClick={onToggleCreating}>{creating ? "打开已有工程" : "新建工程"}</button>}
-    <button type="submit" disabled={!ready || pending}>{pending ? <IconLoader2 aria-hidden="true" focusable="false" className="spin" size={17} /> : creating && !restricted ? <IconFolderPlus aria-hidden="true" focusable="false" size={17} /> : <IconFolderOpen aria-hidden="true" focusable="false" size={17} />}{creating && !restricted ? "创建并打开" : "打开此文件夹"}</button>
+    {!restricted && <button type="button" className="projectPickerSwitch" disabled={pending || restoring} onClick={onToggleCreating}>{creating ? "打开已有工程" : "新建工程"}</button>}
+    {creating && !restricted && <><button type="button" className="projectPickerSwitch" title="恢复“导出工程”生成的 ZIP，放到上方位置" disabled={pending || restoring || !listing} onClick={() => archiveInput.current?.click()}>{restoring ? "正在导入…" : "导入工程包"}</button><input ref={archiveInput} type="file" accept=".zip,application/zip" hidden aria-label="工程包" onChange={event => { const archive = event.target.files?.[0]; event.target.value = ""; if (archive) void restore(archive); }} /></>}
+    <button type="submit" disabled={!ready || pending || restoring}>{pending ? <IconLoader2 aria-hidden="true" focusable="false" className="spin" size={17} /> : creating && !restricted ? <IconFolderPlus aria-hidden="true" focusable="false" size={17} /> : <IconFolderOpen aria-hidden="true" focusable="false" size={17} />}{creating && !restricted ? "创建并打开" : "打开此文件夹"}</button>
     {children}
   </form>;
 }
