@@ -48,8 +48,10 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   }, [controller, node.id, mediaType, generation?.taskId, generation?.status, generation?.finishedAt]);
   useEffect(() => {
     const lifetime = new AbortController();
-    void createMediaAiClient(lifetime.signal).getMediaModels().then(values => setModels(values.filter(value => value.type === mediaType))).catch(reason => { if (!lifetime.signal.aborted) setError(errorText(reason)); });
-    return () => lifetime.abort();
+    const refresh = () => void createMediaAiClient(lifetime.signal).getMediaModels().then(values => setModels(values.filter(value => value.type === mediaType))).catch(reason => { if (!lifetime.signal.aborted) setError(errorText(reason)); });
+    refresh();
+    window.addEventListener("toonflow:provider-config-changed", refresh);
+    return () => { lifetime.abort(); window.removeEventListener("toonflow:provider-config-changed", refresh); };
   }, [mediaType]);
   const model = models.find(value => JSON.stringify([value.providerId, value.modelId]) === node.data?.model);
   const inputs = readReferences(workbench, node.data ?? {});
@@ -102,7 +104,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
       if (choice) void call("setConfig", { providerId: choice.providerId, modelId: choice.modelId });
     }}><option value="">宿主 Agent</option>{groupNodeModels(models).map(group => <optgroup key={group.id} label={group.label}>{group.models.map(model => <option key={model.modelId} value={JSON.stringify([model.providerId, model.modelId])}>{model.label}</option>)}</optgroup>)}</select></label>
     {model && <div className="nodeFields">
-      {field("ratio", "画幅", mediaType === "video" ? model.imageRatios?.length ? model.imageRatios : ["16:9", "9:16", "1:1", "4:3", "3:4"] : model.imageRatios)}{field("size", "分辨率", model.imageSizes)}{field("resolution", "分辨率", [...new Set(model.durationResolutionMap?.filter(item => item.duration.includes(Number(node.data?.duration))).flatMap(item => item.resolution))])}{field("duration", "时长（秒）", [...new Set(model.durationResolutionMap?.flatMap(item => item.duration))])}
+      {field("ratio", "画幅", mediaType === "video" ? model.imageRatios?.length ? model.imageRatios : model.execution?.protocol === "comfyui" ? undefined : ["16:9", "9:16", "1:1", "4:3", "3:4"] : model.imageRatios)}{field("size", "分辨率", model.imageSizes)}{field("resolution", "分辨率", [...new Set(model.durationResolutionMap?.filter(item => item.duration.includes(Number(node.data?.duration))).flatMap(item => item.resolution))])}{field("duration", "时长（秒）", [...new Set(model.durationResolutionMap?.flatMap(item => item.duration))])}
       {mediaType === "video" && model.mode?.length ? <label className="nodeField"><span>参考模式</span><select value={String(node.data?.mode ?? "")} disabled={readOnly || blocked || busy} onChange={event => void call("setConfig", { mode: JSON.parse(event.target.value) })}><option value="" disabled>选择模式</option>{matchingVideoModes(model, videoInputs).map(mode => <option key={JSON.stringify(mode)} value={JSON.stringify(mode)}>{Array.isArray(mode) ? mode.join(" · ") : ({ text: "文生视频", singleImage: "单图参考", startEndRequired: "首尾帧", startFrameOptional: "尾帧 / 首尾帧", endFrameOptional: "首帧 / 首尾帧" } as Record<string, string>)[mode] ?? mode}</option>)}</select></label> : null}
       {mediaType === "video" && model.audio === "optional" && <label className="nodeField"><span>音轨</span><select value={node.data?.generateAudio ? "1" : "0"} disabled={readOnly || blocked || busy} onChange={event => void call("setConfig", { generateAudio: event.target.value === "1" })}><option value="0">无声</option><option value="1">生成声音</option></select></label>}
       {Object.entries(model.parameters?.properties ?? {}).map(([key, schema]) => parameterField(key, schema))}
