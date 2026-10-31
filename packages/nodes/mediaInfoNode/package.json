@@ -3,6 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "openCinema": {
+    "id": "mediaInfoNode",
+    "name": "媒体信息",
+    "order": 10,
+    "icon": "info",
+    "description": "本地读取编码、时长、帧率和轨道信息",
+    "requires": {
+      "workspaceFiles": 1,
+      "workspaceReadRange": 1,
+      "nodeHistory": 1,
+      "webAssembly": 1
+    }
+  },
   "scripts": {
     "build": "vite build --config viteConfig.ts",
     "dev": "vite build --watch --config viteConfig.ts",

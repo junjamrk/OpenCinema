@@ -1,12 +1,12 @@
+import { openCinema, version } from "../package.json";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import BlockoutNodeView from "./reactView";
 import { createBlockoutService } from "./reactService";
 
 export default {
+  ...openCinema,
+  version,
   apiVersion: 1,
-  id: "blockoutNode",
-  name: "3D Blockout",
-  version: "2.0.0",
   renderer: "react",
   view: BlockoutNodeView,
   cloneData(data) {
@@ -14,7 +14,7 @@ export default {
     return structuredClone(copy);
   },
   createData: () => ({
-    label: "3D Blockout",
+    label: openCinema.name,
     handles: [
       {
         id: "in",

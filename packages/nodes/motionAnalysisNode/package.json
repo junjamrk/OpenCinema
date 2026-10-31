@@ -3,6 +3,20 @@
   "version": "4.0.0",
   "private": true,
   "type": "module",
+  "openCinema": {
+    "id": "motionAnalysisNode",
+    "name": "Motion",
+    "order": 11,
+    "icon": "motion",
+    "description": "分析二维运动、姿态和相对深度，导出制作参考包",
+    "requires": {
+      "pluginResources": 1,
+      "worker": 1,
+      "webAssembly": 1,
+      "workspaceFiles": 1,
+      "nodeHistory": 1
+    }
+  },
   "scripts": {
     "build": "vite build --config viteConfig.ts",
     "dev": "vite build --watch --config viteConfig.ts",

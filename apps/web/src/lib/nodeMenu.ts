@@ -60,8 +60,7 @@ export function resolveNodeMenu(saved: NodeMenuItem[], nodes: { type: string; la
     }
   }
   updateLabels(items);
-  const order: Record<string, number> = { "remote-textNode": 0, "remote-imageNode": 1, "remote-videoNode": 2, "remote-audioNode": 3, "remote-imageGenerationNode": 4, "remote-videoGenerationNode": 5, "remote-audioGenerationNode": 6 };
-  for (const node of [...nodes].sort((left, right) => (order[left.type] ?? 7) - (order[right.type] ?? 7) || left.type.localeCompare(right.type))) {
+  for (const node of nodes) {
     if (existing.has(node.type)) continue;
     existing.add(node.type);
     items.push({ id: `node:${node.type}`, type: node.type, label: node.label, hidden: false });

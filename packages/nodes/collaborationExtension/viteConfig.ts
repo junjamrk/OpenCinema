@@ -1,7 +1,5 @@
-import { createNodeConfig } from "@toonflow/nodes-scaffold";
+import { createNodeConfig } from "@toonflow/nodes-scaffold/reactBuild";
 
 export default createNodeConfig({
-  name: "collaborationExtension", displayName: "多人协作", author: "Toonflow", github: "https://github.com/HBAI-Ltd/Toonflow-app",
-  scope: "workspace",
-  requires: { workspaceExtensions: 1, workspaceDocuments: 1, collaboration: 1 },
+  author: "Toonflow", github: "https://github.com/HBAI-Ltd/Toonflow-app",
 }, import.meta.url);

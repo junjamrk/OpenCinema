@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"io"
 	"mime"
@@ -13,14 +14,19 @@ import (
 
 var pluginName = regexp.MustCompile(`^[a-z][a-zA-Z0-9]{0,95}$`)
 
+// builtinNodes.json 由 packages/nodeScaffold/scripts/generateBuiltinNodes.ts 生成，不在此手写名单。
+//
+//go:embed builtinNodes.json
+var builtinNodeCatalog []byte
+
 func builtinNodes() []any {
-	nodes := []any{}
-	for _, item := range [][2]string{{"textNode", "文本"}, {"imageNode", "图片"}, {"videoNode", "视频"}, {"audioNode", "音频"}, {"imageGenerationNode", "图片生成"}, {"videoGenerationNode", "视频生成"}, {"audioGenerationNode", "音频生成"}, {"frameAnalysisNode", "视频分析"}, {"mediaInfoNode", "媒体信息"}, {"blockoutNode", "Blockout"}, {"director3dNode", "3D 导演"}, {"motionAnalysisNode", "Motion"}, {"videoDepthNode", "视频深度白模"}, {"collaborationExtension", "协作"}} {
-		scope := "node"
-		if item[0] == "collaborationExtension" {
-			scope = "workspace"
+	var nodes []any
+	_ = json.Unmarshal(builtinNodeCatalog, &nodes)
+	for _, raw := range nodes {
+		node := asObject(raw)
+		for key, value := range (object{"name": node["id"], "apiVersion": 1, "renderer": "react", "builtin": true, "enabled": true, "config": object{}, "configRules": []any{}, "canConfigure": true, "loadError": ""}) {
+			node[key] = value
 		}
-		nodes = append(nodes, object{"name": item[0], "displayName": item[1], "id": item[0], "scope": scope, "version": "2.0.0", "apiVersion": 1, "renderer": "react", "builtin": true, "enabled": true, "config": object{}, "configRules": []any{}, "canConfigure": true, "loadError": ""})
 	}
 	return nodes
 }

@@ -1,11 +1,11 @@
+import { openCinema, version } from "../package.json";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import MotionNodeView from "./reactView";
 import { createMotionService } from "./reactService";
 export default {
+  ...openCinema,
+  version,
   apiVersion: 1,
-  id: "motionAnalysisNode",
-  name: "Motion 运动分析",
-  version: "5.0.0",
   renderer: "react",
   view: MotionNodeView,
   cloneData(data) {
@@ -13,7 +13,7 @@ export default {
     return structuredClone(copy);
   },
   createData: () => ({
-    label: "Motion 运动分析",
+    label: openCinema.name,
     analysisSettings: { start: 0, end: 1, sampleFps: 6 },
     handles: [
       { id: "input", type: "target", dataType: "VIDEO", label: "RGB参考视频" },

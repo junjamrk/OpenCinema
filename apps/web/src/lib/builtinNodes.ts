@@ -1,0 +1,17 @@
+// 由 packages/nodeScaffold/scripts/generateBuiltinNodes.ts 从 packages/nodes/*/package.json 生成，不要手工修改。
+export const builtinNodes = {
+  textNode: {"id":"textNode","icon":"text","description":"Markdown 写剧本、分镜和说明，文本可接入下游节点","displayName":"文本","scope":"node","version":"2.0.0","load":() => import("@toonflow/node-text/reactPlugin")},
+  imageNode: {"id":"imageNode","icon":"image","description":"导入图片，做局部重绘、裁剪、宫格、打光、机位与全景","displayName":"图片","scope":"node","version":"2.0.0","load":() => import("@toonflow/node-image/reactPlugin")},
+  videoNode: {"id":"videoNode","icon":"video","description":"导入视频，截帧、剪辑、变速、提取音轨和审片","displayName":"视频","scope":"node","version":"2.0.0","load":() => import("@toonflow/node-video/reactPlugin")},
+  audioNode: {"id":"audioNode","icon":"audio","description":"导入音频，试听、波形剪辑、拼接、变速和转写","displayName":"音频","scope":"node","version":"2.0.0","load":() => import("@toonflow/node-audio/reactPlugin")},
+  imageGenerationNode: {"id":"imageGenerationNode","icon":"image","description":"用提示词和参考图生成图片，可选 Agent 或专项模型","displayName":"图片生成","scope":"node","version":"2.0.0","load":() => import("@toonflow/node-image-generation/reactPlugin")},
+  videoGenerationNode: {"id":"videoGenerationNode","icon":"video","description":"文生视频、首尾帧与多模态参考，含镜头管理和审片","displayName":"视频生成","scope":"node","version":"2.0.0","load":() => import("@toonflow/node-video-generation/reactPlugin")},
+  audioGenerationNode: {"id":"audioGenerationNode","icon":"audio","description":"用文本或参考素材生成配音与音效","displayName":"音频生成","scope":"node","version":"2.0.0","load":() => import("@toonflow/node-audio-generation/reactPlugin")},
+  blockoutNode: {"id":"blockoutNode","icon":"spatial","description":"3D 编排走位与摄影机，导出 RGB／Depth 参考","displayName":"Blockout","scope":"node","version":"1.0.0","load":() => import("@toonflow/node-blockout/reactPlugin")},
+  director3dNode: {"id":"director3dNode","icon":"spatial","description":"用文字生成 3D 动画和运镜，再手动取景导出","displayName":"3D 导演","scope":"node","version":"2.0.0","load":() => import("@toonflow/node-director3d/reactPlugin")},
+  frameAnalysisNode: {"id":"frameAnalysisNode","icon":"frames","description":"本地检测切点，输出关键帧、镜头片段和音轨","displayName":"视频分析","scope":"node","version":"1.3.0","load":() => import("@toonflow/node-frame-analysis/reactPlugin")},
+  mediaInfoNode: {"id":"mediaInfoNode","icon":"info","description":"本地读取编码、时长、帧率和轨道信息","requires":{"workspaceFiles":1,"workspaceReadRange":1,"nodeHistory":1,"webAssembly":1},"displayName":"媒体信息","scope":"node","version":"1.0.0","load":() => import("@toonflow/node-media-info/reactPlugin")},
+  motionAnalysisNode: {"id":"motionAnalysisNode","icon":"motion","description":"分析二维运动、姿态和相对深度，导出制作参考包","requires":{"pluginResources":1,"worker":1,"webAssembly":1,"workspaceFiles":1,"nodeHistory":1},"displayName":"Motion","scope":"node","version":"4.0.0","load":() => import("@toonflow/node-motion-analysis/reactPlugin")},
+  videoDepthNode: {"id":"videoDepthNode","icon":"motion","description":"用本地模型把视频转成深度白模参考","displayName":"视频深度白模","scope":"node","version":"1.0.0","load":() => import("@toonflow/node-video-depth/reactPlugin")},
+  collaborationExtension: {"id":"collaborationExtension","scope":"workspace","requires":{"workspaceExtensions":1,"workspaceDocuments":1,"collaboration":1},"displayName":"多人协作","version":"1.0.0","load":() => import("@toonflow/node-collaboration/reactPlugin")},
+};

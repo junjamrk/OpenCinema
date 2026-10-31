@@ -1,6 +1,5 @@
-import { createNodeConfig } from "@toonflow/nodes-scaffold";
+import { createNodeConfig } from "@toonflow/nodes-scaffold/reactBuild";
 
 export default createNodeConfig({
-  name: "mediaInfoNode", displayName: "媒体信息检查", author: "Toonflow", github: "https://github.com/HBAI-Ltd/Toonflow-app",
-  requires: { workspaceFiles: 1, workspaceReadRange: 1, nodeHistory: 1, webAssembly: 1 },
+  author: "Toonflow", github: "https://github.com/HBAI-Ltd/Toonflow-app",
 }, import.meta.url);

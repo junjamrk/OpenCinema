@@ -3,6 +3,13 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
+  "openCinema": {
+    "id": "imageNode",
+    "name": "图片",
+    "order": 1,
+    "icon": "image",
+    "description": "导入图片，做局部重绘、裁剪、宫格、打光、机位与全景"
+  },
   "exports": {
     "./react": "./src/reactView.tsx",
     "./reactPlugin": "./src/reactPlugin.ts",

@@ -1,3 +1,4 @@
+import { openCinema, version } from "../package.json";
 import { cloneMediaNodeData } from "@toonflow/node-shared/reactNode";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import { getGenerationComposerState, registerGenerationTools } from "@toonflow/node-shared/reactGeneration";
@@ -6,9 +7,9 @@ import { buildImageEditPrompt, composeInpaintResult, registerImageEditingTools }
 
 const plugin: NodePluginDefinition<typeof ImageGenerationNodeView> = {
   cloneData: cloneMediaNodeData,
-  apiVersion: 1, id: "imageGenerationNode", name: "图片生成", version: "2.0.0", renderer: "react", view: ImageGenerationNodeView,
+  ...openCinema, version, apiVersion: 1, renderer: "react", view: ImageGenerationNodeView,
   composer: { label: "生成图片", placeholder: "描述画面、主体、光线或想要修改的细节…", tool: "generateImage", defaultAction: true, getState: getGenerationComposerState },
-  createData: () => ({ label: "图片生成", prompt: "", model: "", handles: [
+  createData: () => ({ label: openCinema.name, prompt: "", model: "", handles: [
     { id: "in", type: "target", dataType: ["STRING", "IMAGE", "VIDEO", "AUDIO"], label: "参考输入" },
     { id: "image", type: "source", dataType: "IMAGE", label: "输出" },
   ], outputs: {} }),
