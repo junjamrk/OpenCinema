@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createMediaAiClient, type NodeMediaCost, type NodeMediaModel, type NodeModelParameter } from "@toonflow/nodes-scaffold/nodeAiClient";
 import MediaNode from "./reactMediaNode";
-import { errorText, readMedia, type MediaType, type NodeViewProps } from "../reactNode";
+import { errorText, mediaLabels, readMedia, type MediaType, type NodeViewProps } from "../reactNode";
 import { matchingVideoModes, normalizeParameters, parameterIssue } from "../reactGeneration";
 import { readReferences } from "../reactReferences";
 import ReferenceList from "./reactReferences";
@@ -42,7 +42,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
         setProgress("progress" in value && typeof value.progress === "number" ? value.progress : undefined);
         setWarning("warning" in value && typeof value.warning === "string" ? value.warning : undefined);
         setCost("cost" in value ? value.cost as NodeMediaCost | undefined : undefined);
-        if (mediaType === "video" && ["running", "unknown", "cancelRequested"].includes(state)) timer = setTimeout(observe, 3000);
+        if (["running", "unknown", "cancelRequested"].includes(state)) timer = setTimeout(observe, 3000);
       } catch (reason) { if (active) setError(errorText(reason)); }
     }
     void observe();
@@ -69,6 +69,9 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   async function call(name: string, args: Record<string, unknown> = {}) {
     setBusy(true); setError("");
     try { return await controller.callNodeTool(node.id, name, args); } catch (failure) { setError(errorText(failure)); return false; } finally { setBusy(false); }
+  }
+  function callStatusTool(name: string) {
+    void call(name).then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); });
   }
   const field = (key: string, title: string, choices: readonly unknown[] | undefined) => choices?.length ? <label className="nodeField"><span>{title}</span><select disabled={readOnly || blocked || busy} value={String(node.data?.[key] ?? "")} onChange={event => void call("setConfig", { [key]: key === "duration" ? Number(event.target.value) : event.target.value })}>
     <option value="" disabled>跟随模型</option>{choices.map(value => <option key={String(value)} value={String(value)}>{String(value)}</option>)}
@@ -124,10 +127,9 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
     {props.children}
     </div>
     {generationState && generationState !== "idle" && <div className="nodeActions">
-      {mediaType === "video" && generationState === "failed" && generation?.taskId && !!node.data?.model && <button type="button" disabled={busy || readOnly} onClick={() => void call("getGenerationStatus").then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); })}>检查原视频任务</button>}
-      {generationState === "resultReady" && <button type="button" disabled={busy || readOnly} onClick={() => void call("applyGenerationResult").then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); })}>采用已完成视频</button>}
-      {generationState === "interrupted" && <button type="button" disabled={busy || readOnly} onClick={() => void call("cancelGeneration").then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); })}>确认上次任务终态</button>}
-      <span className="nodeStatus" data-state={generationState} role="status">{({ running: "生成中", delegated: "已交给宿主，等待产物", completed: "产物已保存", resultReady: "视频已生成，待采用", cancelled: "已取消", failed: "生成失败", interrupted: "上次生成已中断", unknown: "任务终态尚未确认", cancelRequested: "正在确认取消" } as Record<string, string>)[generationState] ?? generationState}{progress !== undefined && running ? ` · ${Math.round(progress)}%` : ""}</span>
+      {(generationState === "interrupted" || generationState === "failed" && generation?.taskId && !!node.data?.model) && <button type="button" disabled={busy || readOnly} onClick={() => callStatusTool("getGenerationStatus")}>重新核对</button>}
+      {generationState === "resultReady" && <button type="button" disabled={busy || readOnly} onClick={() => callStatusTool("applyGenerationResult")}>采用已完成{mediaLabels[mediaType]}</button>}
+      <span className="nodeStatus" data-state={generationState} role="status">{({ running: "生成中", delegated: "已交给宿主，等待产物", completed: value ? "产物已保存" : "任务已结束，节点没有产物", resultReady: `${mediaLabels[mediaType]}已生成，待采用`, cancelled: "已取消", failed: "生成失败", interrupted: "上次生成已中断", unknown: "任务终态尚未确认", cancelRequested: "正在确认取消" } as Record<string, string>)[generationState] ?? generationState}{progress !== undefined && running ? ` · ${Math.round(progress)}%` : ""}</span>
       {cost && <span className="nodeStatus">预估 {cost.estimate?.price ?? "无报价"} · 实际 {cost.actual ? `${cost.actual.amount} ${cost.actual.unit}（${cost.actual.source === "vendor" ? "厂商返回" : "余额差"}）` : "未知"}</span>}
       {mediaType === "video" && generationState === "completed" && value && <span className="nodeStatus" data-state={shotReview?.status === "rejected" ? "failed" : "pending"} title="审片记录绑定源文件版本；打开审片或合成时会重新核对当前版本">{shotReview?.source === value.url ? shotReview.status === "approved" ? `通过记录 · ${shotReview.start}–${shotReview.end}s（合成前核版本）` : "候选已拒收" : "视频候选 · 待审"}</span>}
     </div>}

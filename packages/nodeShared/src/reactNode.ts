@@ -8,6 +8,7 @@ import { ToolExecutionError, type ToolErrorDetails } from "@toonflow/nodes-scaff
 import { readVideoSources } from "./videoShot";
 
 export type MediaType = "image" | "video" | "audio";
+export const mediaLabels: Record<MediaType, string> = { image: "图片", video: "视频", audio: "音频" };
 export type NodeViewProps = ReactNodeViewProps & { controller: ReactNodeViewProps["controller"] & ReactNodeServices };
 export const relativePathSchema = z.string().min(1).max(4096).refine(path => !/^[\\/]|^[a-z][a-z0-9+.-]*:|[\x00-\x1f]/i.test(path) && !path.replaceAll("\\", "/").split("/").includes(".."), "仅支持工作区相对路径");
 export const mediaValueSchema = z.strictObject({ url: relativePathSchema, mimeType: z.string().min(1).max(200) });

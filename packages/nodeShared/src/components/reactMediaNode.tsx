@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { uploadNodeFile } from "@toonflow/nodes-scaffold/nodeFiles";
-import { errorText, listMediaHistory, readMedia, useMediaUrl, type MediaType, type NodeViewProps } from "../reactNode";
+import { errorText, listMediaHistory, mediaLabels, readMedia, useMediaUrl, type MediaType, type NodeViewProps } from "../reactNode";
 import type { NodeMediaValue } from "@toonflow/nodes-scaffold/values";
 import MediaDialog from "./reactMediaDialog";
 import AudioPlayer from "./reactAudioPlayer";
@@ -39,7 +39,7 @@ export default function MediaNode(props: NodeViewProps & { mediaType: MediaType;
   const detachPlayer = useRef<(() => void) | undefined>(undefined);
   useEffect(() => () => { detachPlayer.current?.(); }, [controller, node.id, value?.url]);
   function readyPlayer(element: HTMLMediaElement) { detachPlayer.current?.(); detachPlayer.current = attachMediaPlayer(controller.getNodeService(node.id), element); }
-  const title = mediaType === "image" ? "图片" : mediaType === "video" ? "视频" : "音频";
+  const title = mediaLabels[mediaType];
   async function perform(action: () => Promise<unknown>) {
     if (busy) return;
     setBusy(true); setError("");

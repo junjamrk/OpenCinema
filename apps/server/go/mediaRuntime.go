@@ -343,9 +343,6 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 		for id, task := range s.tasks {
 			if !task.settled.IsZero() && now.Sub(task.settled) > 5*time.Minute {
 				delete(s.tasks, id)
-			} else if task.settled.IsZero() && now.Sub(task.touched) > 2*time.Minute && str(task.request["mediaType"]) != "video" {
-				task.cancelRequested = true
-				task.cancel()
 			}
 		}
 		waiting := []chan struct{}{}
