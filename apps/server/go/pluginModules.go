@@ -248,14 +248,10 @@ func (s *server) publishNodeModule(pointer, versions, revision string, data []by
 	if err := atomicWrite(pointer, data, exclusive, 0600); err != nil {
 		return err
 	}
-	// 目录时间即发布时间，重新发布旧修订也要排到最前；保留当前和上一修订，其余删除。两步都不影响已发布的入口。
+	// 目录时间即发布时间，重新发布旧修订也要排到最前。
+	// ACT: 不回收旧修订：已打开的页面还可能按需加载它的分块和资产，确认没有客户端引用的办法之前宁可占磁盘。
 	now := time.Now()
 	_ = os.Chtimes(filepath.Join(versions, revision), now, now)
-	for index, stale := range previousRevisions(versions, revision) {
-		if index > 0 {
-			_ = os.RemoveAll(filepath.Join(versions, stale))
-		}
-	}
 	return nil
 }
 
