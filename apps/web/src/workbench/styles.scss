@@ -1694,6 +1694,14 @@
         box-shadow: var(--shadowFloat);
         overscroll-behavior: contain;
 
+        &.settingsPanel {
+          display: flex;
+          flex-direction: column;
+          width: min(920px, 100%);
+          height: min(720px, 100%);
+          overflow: hidden;
+        }
+
         > header {
           display: flex;
           justify-content: space-between;
