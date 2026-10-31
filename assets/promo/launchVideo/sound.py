@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Original sound design for the launch film, synthesised with NumPy.
 
-A tight 150 BPM pulse, whooshes, UI clicks and one clean final hit. No
+A tight 120 BPM pulse, whooshes, UI clicks and one clean final hit. No
 samples, no music. Every cue is placed on the storyboard's timing grid.
 
   python3 sound.py --out sound.wav [--target-lufs -16]
@@ -18,7 +18,7 @@ import wave
 import numpy as np
 
 SR = 48000
-DUR = 15.0
+DUR = 25.0
 N = int(SR * DUR)
 L = np.zeros(N)
 R = np.zeros(N)
@@ -129,94 +129,99 @@ def reverb(sig: np.ndarray, tail=1.6, tau=0.38, mix=0.35) -> np.ndarray:
 
 
 # ---------------------------------------------------------------- cue sheet
-CUTS = [1.6, 3.6, 5.2, 6.8, 8.4, 9.6, 10.8, 12.4]
+CUTS = [2.5, 5.5, 8.5, 12.0, 14.5, 17.0, 19.5, 22.5]
 
-# pulse: 150 BPM, beat 1 at 0.40, stops at the cut to white
-b = 0.4
-while b <= 12.0 + 1e-6:
+# pulse: 120 BPM, beat 1 at 0.50, stops before the cut to white
+b = 0.5
+while b <= 22.0 + 1e-6:
     accent = any(abs(b - c) < 1e-6 for c in CUTS)
     add(kick(amp=0.78 if accent else 0.42, tau=0.06 if accent else 0.045, click=0.7 if accent else 0.4), b)
     if accent:
         add(impact(0.32), b)
         add(whoosh(0.32, 2600, 500, 0.16, attack=0.1), b + 0.005)
-    b = round(b + 0.4, 6)
+    b = round(b + 0.5, 6)
+add(impact(0.32), 22.5)
+add(whoosh(0.32, 2600, 500, 0.16, attack=0.1), 22.505)
+add(kick(amp=0.78, tau=0.06, click=0.7), 22.5)
 
 # S01 keystrokes, send click, push-in whoosh
 for i in range(27):
-    add(click(0.11, rng.uniform(1800, 3200), 0.003), 0.15 + i * 0.033, pan=rng.uniform(-0.2, 0.2))
-add(click(0.3), 1.2)
-add(whoosh(0.34, 300, 3800, 0.42, attack=0.85), 1.27)
+    add(click(0.11, rng.uniform(1800, 3200), 0.003), 0.2 + i * 0.04, pan=rng.uniform(-0.2, 0.2))
+add(click(0.3), 2.0)
+add(whoosh(0.42, 300, 3800, 0.42, attack=0.85), 2.08)
 
 # S02 zoom-out whoosh, node pops, edge shimmer
-add(whoosh(0.55, 3200, 260, 0.3, attack=0.12), 1.6)
+add(whoosh(0.6, 3200, 260, 0.3, attack=0.12), 2.5)
 PENTA = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.7, 1318.5]
-for i, t0 in enumerate([1.6, 1.85, 1.95, 2.05, 2.15, 2.25, 2.35, 2.45]):
+for i, t0 in enumerate([2.5, 2.8, 2.92, 3.04, 3.16, 3.28, 3.40, 3.52]):
     add(ping(PENTA[i], 0.2, 0.05, 0.16, 0.004), t0, pan=rng.uniform(-0.5, 0.5))
-shimmer = svf_bandpass(noise(int(0.8 * SR)), np.linspace(5000, 8500, int(0.8 * SR)), 0.5)
+n_sh = int(1.2 * SR)
+shimmer = svf_bandpass(noise(n_sh), np.linspace(5000, 8500, n_sh), 0.5)
 shimmer /= np.max(np.abs(shimmer)) + 1e-9
-add(shimmer * np.sin(np.pi * np.linspace(0, 1, len(shimmer))) ** 1.5 * 0.055, 2.25)
+add(shimmer * np.sin(np.pi * np.linspace(0, 1, n_sh)) ** 1.5 * 0.055, 3.3)
 
 # S03 select click, marquee hiss, count tick
-add(click(0.3), 3.8)
-hiss = svf_bandpass(noise(int(0.42 * SR)), np.linspace(1100, 2600, int(0.42 * SR)), 0.5)
+add(click(0.3), 5.8)
+n_h = int(0.62 * SR)
+hiss = svf_bandpass(noise(n_h), np.linspace(1100, 2600, n_h), 0.5)
 hiss /= np.max(np.abs(hiss)) + 1e-9
-add(hiss * env_ad(len(hiss), 0.08, 0.25) * 0.09, 4.2)
-add(click(0.22, 2200), 4.6)
+add(hiss * env_ad(n_h, 0.1, 0.35) * 0.09, 6.7)
+add(click(0.22, 2200), 7.25)
 
-# S04 whip pan (left → right), brush swishes, bloom, shutter clicks
-add(whoosh(0.3, 500, 4200, 0.5, attack=0.4), 5.19, pan=np.linspace(-0.9, 0.9, int(0.3 * SR)))
-for t0 in (5.40, 5.53, 5.66):
-    add(whoosh(0.17, 900, 2300, 0.1, attack=0.3), t0, pan=np.linspace(-0.3, 0.5, int(0.17 * SR)))
+# S04 whip pan (left → right), brush swishes, bloom, shutter clicks on the beat
+add(whoosh(0.32, 500, 4200, 0.5, attack=0.4), 8.49, pan=np.linspace(-0.9, 0.9, int(0.32 * SR)))
+for t0 in (8.80, 8.98, 9.16):
+    add(whoosh(0.2, 900, 2300, 0.1, attack=0.3), t0, pan=np.linspace(-0.3, 0.5, int(0.2 * SR)))
 bloom = ping(783.99, 0.5, 0.14, 0.09, 0.02) + ping(1174.7, 0.5, 0.12, 0.06, 0.02)
-add(bloom, 5.85)
-for t0 in (6.0, 6.2, 6.4, 6.6):
+add(bloom, 9.45)
+for t0 in (10.0, 10.5, 11.0, 11.5):
     add(click(0.34, 2900, 0.005), t0)
     add(click(0.18, 1900, 0.003), t0 + 0.04)
 
 # S05 car pass-by (right → left), two wipe swishes
-n_car = int(1.2 * SR)
+n_car = int(1.9 * SR)
 tc = np.linspace(0, 1, n_car)
 car = svf_bandpass(noise(n_car), 190 * np.exp(-0.9 * tc) + 60, 0.55)
 car /= np.max(np.abs(car)) + 1e-9
 hum_f = 95 * np.exp(-0.7 * tc) + 20
 hum = np.sin(2 * np.pi * np.cumsum(hum_f) / SR)
 car_env = np.sin(np.pi * tc) ** 1.3
-add((car * 0.7 + hum * 0.5) * car_env * 0.24, 6.9, pan=np.linspace(0.85, -0.85, n_car))
-for t0 in (7.6, 8.0):
-    add(whoosh(0.3, 1800, 6500, 0.17, attack=0.3), t0, pan=np.linspace(-0.8, 0.8, int(0.3 * SR)))
+add((car * 0.7 + hum * 0.5) * car_env * 0.24, 12.15, pan=np.linspace(0.85, -0.85, n_car))
+for t0 in (13.5, 14.0):
+    add(whoosh(0.36, 1800, 6500, 0.17, attack=0.3), t0, pan=np.linspace(-0.8, 0.8, int(0.36 * SR)))
 
 # S06 boundary ticks, lock click, depth swoosh
-for t0 in (8.50, 8.56, 8.62):
+for t0 in (14.58, 14.70, 14.82):
     add(click(0.2, 2400), t0)
-add(click(0.26, 1700), 8.75)
-add(whoosh(0.36, 2600, 900, 0.16, attack=0.3), 9.1)
+add(click(0.26, 1700), 15.0)
+add(whoosh(0.45, 2600, 900, 0.16, attack=0.3), 16.2)
 
 # S07 confirm click, candidate pops
-add(click(0.3), 10.0)
-for i, t0 in enumerate((10.1, 10.2, 10.3)):
+add(click(0.3), 18.3)
+for i, t0 in enumerate((18.45, 18.6, 18.75)):
     add(ping(PENTA[3 + i], 0.22, 0.06, 0.17, 0.004), t0, pan=-0.4 + 0.4 * i)
 
 # S08 push whoosh, check ticks (one thud), flip click, replace, audio slide, playhead sweep, export click
-add(whoosh(0.26, 400, 3200, 0.3, attack=0.75), 10.78)
+add(whoosh(0.28, 400, 3200, 0.3, attack=0.75), 19.23)
 for i in range(6):
-    t0 = 10.95 + i * 0.08
+    t0 = 19.6 + i * 0.12
     if i == 4:
         add(kick(180, 90, 0.015, 0.04, 0.25, 0.4, click=0.3), t0)
     else:
         add(ping(2200 + 60 * i, 0.1, 0.02, 0.16, 0.001), t0)
-add(click(0.3, 2000), 11.4)
-add(whoosh(0.3, 2400, 700, 0.2, attack=0.2), 11.5)
-add(whoosh(0.22, 700, 2600, 0.16, attack=0.6), 11.58)
-add(whoosh(0.2, 600, 2200, 0.14, attack=0.6), 11.9, pan=np.linspace(-0.8, 0.0, int(0.2 * SR)))
-add(whoosh(0.32, 350, 4500, 0.45, attack=0.9), 12.1, pan=np.linspace(-0.9, 0.9, int(0.32 * SR)))
-add(click(0.34), 12.4)
+add(click(0.3, 2000), 20.5)
+add(whoosh(0.3, 2400, 700, 0.2, attack=0.2), 20.7)
+add(whoosh(0.24, 700, 2600, 0.16, attack=0.6), 20.8)
+add(whoosh(0.22, 600, 2200, 0.14, attack=0.6), 21.4, pan=np.linspace(-0.8, 0.0, int(0.22 * SR)))
+add(whoosh(0.56, 350, 4500, 0.45, attack=0.9), 21.9, pan=np.linspace(-0.9, 0.9, int(0.56 * SR)))
+add(click(0.34), 22.45)
 
-# S09 three soft taps for the three lines, one clean final hit
-for t0 in (12.6, 12.8):
+# S09 two soft taps for lines two and three, one clean final hit
+for t0 in (22.7, 22.9):
     add(kick(90, 45, 0.02, 0.05, 0.3, 0.34, click=0.15), t0)
 hit = kick(72, 44, 0.08, 0.42, 1.8, 0.95, click=0.9)
-add(hit, 13.2)
-add(reverb(impact(0.55), tail=1.5, tau=0.36, mix=0.4), 13.2)
+add(hit, 23.2)
+add(reverb(impact(0.55), tail=1.5, tau=0.36, mix=0.4), 23.2)
 
 
 # ---------------------------------------------------------------- master

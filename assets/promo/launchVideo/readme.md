@@ -1,6 +1,6 @@
 # Launch film · source
 
-Source and build pipeline for `assets/promo/openCinemaLaunch.mp4`, the 15-second launch film. The storyboard it was built from is [`docs/launchVideoStoryboard.md`](../../../docs/launchVideoStoryboard.md).
+Source and build pipeline for `assets/promo/openCinemaLaunch.mp4`, the 25-second launch film. The storyboard it was built from is [`docs/launchVideoStoryboard.md`](../../../docs/launchVideoStoryboard.md).
 
 ## How it is made
 
@@ -14,7 +14,7 @@ Everything on screen is a real DOM or canvas element whose state is a pure funct
 | `previs.js` | Tiny software 3D renderer for the Blockout shot: white-model set, mannequin, car, virtual camera; RGB / DEPTH / NORMAL layers. |
 | `scenes.js` | The nine shots and `window.seek(t)`. |
 | `render.mjs` | Playwright driver. Captures `samples` sub-frames per frame across a 180° shutter and lets ffmpeg's `tmix` average them into real motion blur, then encodes H.264. |
-| `sound.py` | NumPy sound design: 150 BPM pulse, whooshes, UI clicks, final hit; loudness-normalised to −16 LUFS with a look-ahead limiter. |
+| `sound.py` | NumPy sound design: 120 BPM pulse, whooshes, UI clicks, final hit; loudness-normalised to −16 LUFS with a look-ahead limiter. |
 | `build.sh` | Runs the whole pipeline and prints the stream facts. |
 
 ## Build
@@ -39,7 +39,7 @@ Requirements: Node 22 with Playwright and its Chromium, ffmpeg with `libx264` an
 
 ## Output
 
-MP4 · 1920 × 1080 · 60 fps · H.264 High · `yuv420p` · BT.709 · AAC 48 kHz stereo 192 kb/s · 15.000 s · `+faststart`.
+MP4 · 1920 × 1080 · 60 fps · H.264 High · `yuv420p` · BT.709 · AAC 48 kHz stereo 192 kb/s · 25.000 s · `+faststart`.
 
 ## Verification record
 
