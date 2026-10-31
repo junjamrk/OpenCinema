@@ -44,7 +44,15 @@ function measureBounds(mesh: { getSplatCount(): number; getSplatCenter(index: nu
 }
 
 export function createSplatStage(options: { canvas?: HTMLCanvasElement; interactive?: boolean; onCameraChange?(camera: SplatCamera): void } = {}) {
+  // GaussianSplats3D 从画布的 offsetWidth/offsetHeight 取渲染尺寸；脱离文档的画布尺寸为 0，一个 Gaussian 都不会画。
+  // 无界面舞台因此把画布挂到文档里（屏幕外、不可见），并让 CSS 尺寸始终等于渲染尺寸。
+  const detached = !options.canvas;
   const canvas = options.canvas ?? document.createElement("canvas");
+  if (detached) {
+    Object.assign(canvas.style, { position: "fixed", left: "-200vw", top: "0", opacity: "0", pointerEvents: "none" });
+    canvas.setAttribute("aria-hidden", "true");
+    document.body.append(canvas);
+  }
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(options.interactive ? Math.min(devicePixelRatio, 2) : 1);
   const scene = new THREE.Scene();
@@ -93,7 +101,7 @@ export function createSplatStage(options: { canvas?: HTMLCanvasElement; interact
     requestAnimationFrame(tick);
   }
   function setSize(width: number, height: number) {
-    renderer.setSize(width, height, false);
+    renderer.setSize(width, height, detached);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     wake();
@@ -157,7 +165,7 @@ export function createSplatStage(options: { canvas?: HTMLCanvasElement; interact
     requireViewer();
     const previousBackground = scene.background, previousSize = renderer.getSize(new THREE.Vector2()), previousRatio = renderer.getPixelRatio(), previousCamera = getCamera();
     try {
-      renderer.setPixelRatio(1); renderer.setSize(width, height, false);
+      renderer.setPixelRatio(1); renderer.setSize(width, height, detached);
       camera.aspect = width / height; camera.updateProjectionMatrix();
       scene.background = value.background === null ? null : new THREE.Color(value.background ?? defaultBackground);
       if (value.camera) setCamera(value.camera);
@@ -166,7 +174,7 @@ export function createSplatStage(options: { canvas?: HTMLCanvasElement; interact
       if (!blob) throw new Error("PNG 编码失败");
       return blob;
     } finally {
-      scene.background = previousBackground; renderer.setPixelRatio(previousRatio); renderer.setSize(previousSize.x, previousSize.y, false);
+      scene.background = previousBackground; renderer.setPixelRatio(previousRatio); renderer.setSize(previousSize.x, previousSize.y, detached);
       camera.aspect = previousSize.x / Math.max(1, previousSize.y); camera.updateProjectionMatrix();
       if (value.camera) setCamera(previousCamera);
     }
@@ -183,6 +191,7 @@ export function createSplatStage(options: { canvas?: HTMLCanvasElement; interact
     await unload();
     renderer.dispose();
     renderer.forceContextLoss();
+    if (detached) canvas.remove();
   }
   return { canvas, load, unload, render, settle, capturePng, frame, setCamera, getCamera, setSize, dispose, getBounds: () => bounds, getSplatCount: () => splatCount, frames: () => frames };
 }
