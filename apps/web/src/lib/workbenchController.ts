@@ -534,6 +534,7 @@ export function createWorkbenchController() {
       }
     }
     publishPlugins();
+    window.dispatchEvent(new Event("toonflow:provider-config-changed"));
     if (session) {
       await syncPlugins(); failures.push(...await syncWorkspacePlugins());
       for (const [id, error] of nodeErrors) failures.push(`节点 ${id}：${error.message}`);
