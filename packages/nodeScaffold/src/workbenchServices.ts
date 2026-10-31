@@ -1,3 +1,4 @@
+// @ts-ignore ACT: tarball 不含工作区包，仓库外此类型退化为 any；要精确类型须把它移进脚手架。
 import type { BrowserFfmpegFactory } from "@toonflow/ffmpeg/browser";
 import type { WorkspaceFiles } from "./nodeFiles";
 import type { NodeInputValue } from "./values";

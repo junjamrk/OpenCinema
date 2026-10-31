@@ -1,3 +1,4 @@
+// @ts-ignore ACT: tarball 不含工作区包，仓库外这些类型退化为 any；要精确类型须把它们移进脚手架。
 import type { MediaGenerationRequest, MediaModel, ModelParameter } from "@toonflow/tools-scaffold/runtime";
 
 export type NodeAiModel = {
