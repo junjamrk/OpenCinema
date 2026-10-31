@@ -183,8 +183,8 @@ codex plugin add opencinema@openCinemaStandalone --json
 | 优云智算 | ✓ | ✓ | | |
 | 秘塔 MiniMax H3 | | ✓ | | |
 | 火山方舟 Seedance | | ✓ | | 图片与视频全模态参考 |
-| fal | ✓ | ✓ | ✓ | 内置视频模型，图片和音频模型在设置中添加 |
-| Replicate | ✓ | ✓ | ✓ | 内置视频模型，图片和音频模型在设置中添加 |
+| fal | ✓ | ✓ | ✓ | 预置 Kling、FLUX 和 ElevenLabs，其他模型在设置中添加 |
+| Replicate | ✓ | ✓ | ✓ | 预置 Veo、FLUX 和 MiniMax Speech，其他模型在设置中添加 |
 | 本地／局域网视频服务 | | ✓ | | 连接本机或内网的 OpenAI 风格服务 |
 | ComfyUI 工作流 | ✓ | ✓ | ✓ | 本机或内网的 ComfyUI，导入工作流就能当模型用，见[接入 ComfyUI 工作流](#接入-comfyui-工作流) |
 | 自定义 | ✓ | ✓ | ✓ | 用 JSON 清单接入，见[接入生成服务](#接入生成服务) |
