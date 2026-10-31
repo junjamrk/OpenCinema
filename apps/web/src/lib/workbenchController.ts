@@ -1574,7 +1574,7 @@ export function createWorkbenchController() {
         const { kind: type, mimeType } = inferMediaFileType(file);
         if (!type) throw new Error(`暂不支持此文件类型：${file.name}`);
         const text = type === "text" ? await file.text() : undefined; requireWritable(target);
-        const { node } = await addNode(target, { type: `${type}Node`, position: { x: position.x + index * 32, y: position.y + index * 32 }, label: file.name });
+        const { node } = await addNode(target, { type: `${type}Node`, position: { x: position.x + index % 4 * 400, y: position.y + Math.floor(index / 4) * 300 }, label: file.name });
         requireWritable(target);
         const service = controller.getNodeService(node.id);
         if (type === "text") {

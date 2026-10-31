@@ -305,6 +305,99 @@ func encodeText(content []byte, encoding string) ([]byte, error) {
 	}
 	return out, nil
 }
+func folderShortcuts(home string) []any {
+	shortcuts := []any{object{"label": "主目录", "path": home}}
+	for _, item := range [][2]string{{"Movies", "影片"}, {"Videos", "视频"}, {"Desktop", "桌面"}, {"Documents", "文稿"}, {"Downloads", "下载"}} {
+		path := filepath.Join(home, item[0])
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			shortcuts = append(shortcuts, object{"label": item[1], "path": path})
+		}
+	}
+	return shortcuts
+}
+
+// ACT: 单层最多返回 1000 个文件夹，超出时标记 truncated，用户可在路径框直接输入。
+func (s *server) browseFolders(w http.ResponseWriter, r *http.Request) error {
+	if !s.localRequest(r) {
+		return fail(403, "只有本机工作台可以浏览文件夹")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	path := strings.TrimSpace(r.URL.Query().Get("path"))
+	shortcuts := folderShortcuts(home)
+	if path == "" {
+		path = str(shortcuts[min(1, len(shortcuts)-1)].(object)["path"])
+	} else if path == "~" || strings.HasPrefix(path, "~/") {
+		path = filepath.Join(home, strings.TrimPrefix(path, "~"))
+	}
+	if !filepath.IsAbs(path) || len(path) > 4096 {
+		return fail(400, "请输入完整路径，例如 "+filepath.Join(home, "Movies"))
+	}
+	path = filepath.Clean(path)
+	if info, err := os.Stat(path); err != nil {
+		return err
+	} else if !info.IsDir() {
+		return fail(400, "这是一个文件，请选择文件夹："+path)
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+	folders := []any{}
+	truncated := false
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		target := filepath.Join(path, entry.Name())
+		if info, err := os.Stat(target); err != nil || !info.IsDir() {
+			continue
+		}
+		if len(folders) == 1000 {
+			truncated = true
+			break
+		}
+		folders = append(folders, object{"name": entry.Name(), "path": target})
+	}
+	var parent any
+	if up := filepath.Dir(path); up != path {
+		parent = up
+	}
+	success(w, object{"path": path, "parent": parent, "shortcuts": shortcuts, "folders": folders, "truncated": truncated})
+	return nil
+}
+
+func (s *server) createFolder(w http.ResponseWriter, r *http.Request) error {
+	if !s.localRequest(r) {
+		return fail(403, "只有本机工作台可以新建文件夹")
+	}
+	if r.Method != "POST" {
+		return fail(405, "HTTP 方法不支持")
+	}
+	input, err := decode(r)
+	if err != nil {
+		return err
+	}
+	parent, name := str(input["parent"]), strings.TrimSpace(str(input["name"]))
+	if !filepath.IsAbs(parent) {
+		return fail(400, "请先选择要放置工程的位置")
+	}
+	if name == "" || name == "." || name == ".." || len(name) > 255 || strings.ContainsAny(name, `/\`) || invalidPath.MatchString(name) {
+		return fail(400, `名称不能为空，也不能包含 / \ < > : " | ? * 等字符`)
+	}
+	target := filepath.Join(filepath.Clean(parent), name)
+	if err := os.Mkdir(target, 0755); err != nil {
+		if os.IsExist(err) {
+			return fail(409, "同名文件夹已存在，请换一个名称或直接打开它："+target)
+		}
+		return err
+	}
+	success(w, object{"path": target})
+	return nil
+}
+
 func (s *server) workspaceRoute(w http.ResponseWriter, r *http.Request) error {
 	p := strings.TrimPrefix(r.URL.Path, "/api/workspaces/")
 	if p == "list" {
@@ -345,6 +438,12 @@ func (s *server) workspaceRoute(w http.ResponseWriter, r *http.Request) error {
 		}
 		success(w, object{"directory": root})
 		return nil
+	}
+	if p == "browse" {
+		return s.browseFolders(w, r)
+	}
+	if p == "createFolder" {
+		return s.createFolder(w, r)
 	}
 	if p == "exportProject" {
 		return s.exportProject(w, r)
