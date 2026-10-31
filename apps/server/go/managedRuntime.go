@@ -3,25 +3,31 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 )
 
 type runtimeOwner struct {
-	PID         int    `json:"pid"`
-	InstanceID  string `json:"instanceId"`
-	Revision    string `json:"revision"`
-	RuntimeInfo string `json:"runtimeInfo"`
+	PID          int    `json:"pid"`
+	InstanceID   string `json:"instanceId"`
+	Revision     string `json:"revision"`
+	RuntimeInfo  string `json:"runtimeInfo"`
+	ProcessGuard bool   `json:"processGuard,omitempty"`
+	Preserved    bool   `json:"preserved,omitempty"`
 }
 type managedRuntime struct {
 	mu            sync.Mutex
 	owner         runtimeOwner
 	lockDirectory string
+	guard         *os.File // 持有到进程退出；引用丢失后 GC 关闭文件会提前释放锁
 	leases        map[string]time.Time
 	idleSince     time.Time
 	stopping      bool
@@ -47,10 +53,14 @@ func acquireRuntime(data, info, revision string) (*managedRuntime, error) {
 		}
 	}
 	lock := filepath.Join(root, ".runtimeLock")
-	if err = os.Mkdir(lock, 0700); err != nil {
+	guard, err := lockRuntimeGuard(filepath.Join(root, ".runtimeGuard"))
+	if err == nil {
+		err = claimRuntimeLock(lock)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("运行目录已被占用或无法独占；不会抢占未知锁 %s: %w", lock, err)
 	}
-	runtime := &managedRuntime{owner: runtimeOwner{os.Getpid(), sessionToken(), revision, info}, lockDirectory: lock, leases: map[string]time.Time{}, idleSince: time.Now()}
+	runtime := &managedRuntime{owner: runtimeOwner{PID: os.Getpid(), InstanceID: sessionToken(), Revision: revision, RuntimeInfo: info, ProcessGuard: true}, lockDirectory: lock, guard: guard, leases: map[string]time.Time{}, idleSince: time.Now()}
 	bytes, err := json.Marshal(runtime.owner)
 	if err == nil {
 		err = atomicWrite(filepath.Join(lock, "owner.json"), bytes, true, 0600)
@@ -61,11 +71,78 @@ func acquireRuntime(data, info, revision string) (*managedRuntime, error) {
 	}
 	return runtime, nil
 }
+
+// claimRuntimeLock 创建锁目录；目录已存在时只回收确认已退出的持有者留下的残锁。
+// 调用方须已持有 runtimeGuard，否则并发启动的实例会互相删除刚建好的锁。
+//
+// ACT: 持有者是否存活由进程存活期间一直持有的 OS 锁判定，内核在任何退出方式下都会释放，
+// 判定不看 PID，所以 PID 被复用不影响结果，也不需要比较受时钟、时区影响的进程启动时间。
+// 上限：只证明 Go 主进程已退出，不证明它遗留的 ffmpeg、Python 子进程已结束；网络文件系统
+// 不保证跨主机互斥，数据目录只支持单机使用；锁刚建好、owner.json 落盘前被杀会留下无法判定的空锁，
+// 仍需人工处理。未声明 processGuard 的旧版锁只凭 PID 判定，PID 被复用时按存活拒绝。
+func claimRuntimeLock(lock string) error {
+	err := os.Mkdir(lock, 0700)
+	if !os.IsExist(err) {
+		return err
+	}
+	bytes, err := os.ReadFile(filepath.Join(lock, "owner.json"))
+	if err != nil {
+		return err
+	}
+	var owner runtimeOwner
+	if err = json.Unmarshal(bytes, &owner); err != nil {
+		return err
+	}
+	switch {
+	case owner.Preserved:
+		return errors.New("上次退出时后台任务未确认收尾，需人工确认后处理")
+	case owner.PID <= 0:
+		return errors.New("owner.json 无效")
+	case !owner.ProcessGuard && !processGone(owner.PID):
+		return fmt.Errorf("旧版实例进程 %d 仍存在或无法确认已退出", owner.PID)
+	}
+	removeRuntimeInfo(owner)
+	if err = os.RemoveAll(lock); err != nil {
+		return err
+	}
+	log.Printf("已回收崩溃实例遗留的运行锁: pid=%d", owner.PID)
+	return os.Mkdir(lock, 0700)
+}
+
+// processGone 只在系统明确报告 PID 不存在时返回 true，权限不足等情况一律按存活处理。
+func processGone(pid int) bool {
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return errors.Is(err, syscall.Errno(87)) // Windows ERROR_INVALID_PARAMETER：PID 不存在
+	}
+	defer process.Release()
+	return errors.Is(process.Signal(syscall.Signal(0)), os.ErrProcessDone)
+}
+func removeRuntimeInfo(owner runtimeOwner) {
+	if owner.RuntimeInfo == "" {
+		return
+	}
+	bytes, err := os.ReadFile(owner.RuntimeInfo)
+	var info object
+	if err == nil && json.Unmarshal(bytes, &info) == nil && str(info["instanceId"]) == owner.InstanceID && int(number(info["pid"])) == owner.PID {
+		_ = os.Remove(owner.RuntimeInfo)
+	}
+}
 func (runtime *managedRuntime) release() {
 	runtime.mu.Lock()
 	preserve := runtime.preserveLock
 	runtime.mu.Unlock()
 	if preserve {
+		// 进程退出后 guard 随之释放，须落盘标记，否则下次启动会按崩溃残锁回收。
+		owner := runtime.owner
+		owner.Preserved = true
+		bytes, err := json.Marshal(owner)
+		if err == nil {
+			err = atomicWrite(filepath.Join(runtime.lockDirectory, "owner.json"), bytes, false, 0600)
+		}
+		if err != nil {
+			log.Printf("无法标记保留的运行锁，下次启动可能按崩溃残锁回收: %v", err)
+		}
 		return
 	}
 	bytes, err := os.ReadFile(filepath.Join(runtime.lockDirectory, "owner.json"))
@@ -73,13 +150,7 @@ func (runtime *managedRuntime) release() {
 	if err != nil || json.Unmarshal(bytes, &owner) != nil || owner.PID != runtime.owner.PID || owner.InstanceID != runtime.owner.InstanceID {
 		return
 	}
-	if runtime.owner.RuntimeInfo != "" {
-		bytes, err = os.ReadFile(runtime.owner.RuntimeInfo)
-		var info object
-		if err == nil && json.Unmarshal(bytes, &info) == nil && str(info["instanceId"]) == runtime.owner.InstanceID && int(number(info["pid"])) == runtime.owner.PID {
-			_ = os.Remove(runtime.owner.RuntimeInfo)
-		}
-	}
+	removeRuntimeInfo(runtime.owner)
 	_ = os.Remove(filepath.Join(runtime.lockDirectory, "owner.json"))
 	_ = os.Remove(runtime.lockDirectory)
 }
