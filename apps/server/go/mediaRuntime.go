@@ -182,8 +182,12 @@ func (s *server) mediaModels() []any {
 	models := []any{}
 	for _, raw := range s.providers() {
 		p := asObject(raw)
+		if videoProtocol(p) == "comfyui" && !s.comfyEnabled() {
+			continue
+		}
 		for _, rawModel := range array(p["models"]) {
 			model := asObject(clone(rawModel))
+			delete(model, "comfy")
 			model["providerId"] = p["id"]
 			model["providerLabel"] = p["label"]
 			model["modelId"] = model["id"]
@@ -220,6 +224,9 @@ func (s *server) provider(id string) (object, object, error) {
 			}
 			for k, v := range asObject(asObject(s.settings()["mediaProviderConfigs"])[id]) {
 				config[k] = v
+			}
+			if videoProtocol(p) == "comfyui" {
+				config["apiUrl"] = asObject(localMediaConnectionState(s.settings())["config"])["endpoint"]
 			}
 			return p, config, nil
 		}
@@ -345,17 +352,25 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 			}
 			if task := s.tasks[str(raw)]; task != nil && task.directory == directory {
 				task.touched = now
+				cancelling := strings.HasSuffix(p, "cancel")
+				resumingComfy := task.unknown && str(task.job["protocol"]) == "comfyui"
+				if cancelling && resumingComfy {
+					task.cancelRequested = true
+				}
 				if err := s.resumeVideoTask(str(raw), task); err != nil {
 					s.tasksMu.Unlock()
 					return err
 				}
-				if strings.HasSuffix(p, "cancel") && task.settled.IsZero() {
+				if cancelling && task.settled.IsZero() {
 					task.cancelRequested = true
 					if err := s.saveMediaTask(str(raw), task, false); err != nil {
 						s.tasksMu.Unlock()
 						return err
 					}
-					task.cancel()
+					// 恢复的 ComfyUI 任务由查询循环发出取消；这里取消上下文，它连不上 ComfyUI 就退出了。
+					if !resumingComfy {
+						task.cancel()
+					}
 					waiting = append(waiting, task.done)
 				}
 			}
@@ -739,24 +754,27 @@ func (s *server) validateMedia(v object, allowEmptyPrompt bool) error {
 				if err := validateVideoInputs(m, v); err != nil {
 					return err
 				}
-				if videoProtocol(p) != "" {
-					if !allowEmptyPrompt && !uuidValue.MatchString(str(v["taskId"])) {
-						return fail(400, "视频生成须提供 UUID operationId 或 taskId，以防重复提交")
-					}
-					_, config, err := s.provider(str(v["providerId"]))
-					if err != nil {
-						return err
-					}
-					if _, err := videoClient(p, config); err != nil {
-						return err
-					}
-					if str(p["transport"]) != "local" && strings.TrimSpace(str(config["apiKey"])) == "" {
-						return fail(400, "请先配置视频供应商 API Key")
-					}
-					if !allowEmptyPrompt {
-						if _, err := s.toolPath("ffprobe"); err != nil {
-							return fail(400, "视频生成需要先准备 FFmpeg，以核验实际产物")
-						}
+			}
+			if videoProtocol(p) == "comfyui" && !s.comfyEnabled() {
+				return fail(400, "请先在 设置 → 媒体服务 → ComfyUI 工作流 中启用连接")
+			}
+			if videoProtocol(p) != "" {
+				if !allowEmptyPrompt && !uuidValue.MatchString(str(v["taskId"])) {
+					return fail(400, "此生成须提供 UUID operationId 或 taskId，以防重复提交")
+				}
+				_, config, err := s.provider(str(v["providerId"]))
+				if err != nil {
+					return err
+				}
+				if _, err := videoClient(p, config); err != nil {
+					return err
+				}
+				if str(p["transport"]) != "local" && strings.TrimSpace(str(config["apiKey"])) == "" {
+					return fail(400, "请先配置视频供应商 API Key")
+				}
+				if !allowEmptyPrompt && kind == "video" {
+					if _, err := s.toolPath("ffprobe"); err != nil {
+						return fail(400, "视频生成需要先准备 FFmpeg，以核验实际产物")
 					}
 				}
 			}
@@ -922,7 +940,7 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 		return nil, err
 	}
 	var referenceBytes int64
-	resumingVideo := str(v["mediaType"]) == "video" && str(currentVideoJob(ctx)["id"]) != ""
+	resumingVideo := str(currentVideoJob(ctx)["id"]) != ""
 	for _, key := range []string{"images", "videos", "audios", "firstFrame", "lastFrame"} {
 		if resumingVideo {
 			continue
@@ -984,7 +1002,9 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 		}
 	}
 	var results []string
-	if kind == "video" && videoProtocol(provider) != "" {
+	if videoProtocol(provider) == "comfyui" {
+		results, err = s.generateComfy(ctx, provider, config, v, refs)
+	} else if kind == "video" && videoProtocol(provider) != "" {
 		results, err = s.generateVideoProvider(ctx, provider, config, v, refs)
 	} else {
 		switch str(provider["id"]) {
@@ -1066,7 +1086,7 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 		if !strings.HasPrefix(mimeType, kind+"/") {
 			return nil, fail(415, "生成结果媒体类型不正确")
 		}
-		ext := map[string]string{"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "audio/wav": "wav", "audio/x-wav": "wav", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/flac": "flac", "audio/mp4": "m4a"}[mimeType]
+		ext := map[string]string{"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "audio/wav": "wav", "audio/wave": "wav", "audio/x-wav": "wav", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/flac": "flac", "audio/mp4": "m4a"}[mimeType]
 		if ext == "" {
 			return nil, fail(415, "生成媒体格式不受支持")
 		}

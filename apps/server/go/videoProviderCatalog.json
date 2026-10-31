@@ -54,6 +54,16 @@
     ]
   },
   {
+    "id": "comfyui",
+    "label": "ComfyUI 工作流",
+    "version": "1.0.0",
+    "videoProtocol": "comfyui",
+    "transport": "local",
+    "apiUrl": "http://127.0.0.1:8188",
+    "cancelMode": "request",
+    "models": []
+  },
+  {
     "id": "fal",
     "label": "fal",
     "version": "1.0.0",

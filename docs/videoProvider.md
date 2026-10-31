@@ -31,6 +31,7 @@
 | `fal` | 模型队列；保存实际返回、绑定本次 request ID 的状态／产物／取消地址。 |
 | `replicate` | `owner/name` 模型 predictions；保存 prediction ID，查询并回收实际输出。 |
 | `ark` | 火山方舟官方 `contents/generations/tasks`；保存任务 ID，查询 `content.video_url` 并下载可解码产物。 |
+| `comfyui` | 本机或局域网 ComfyUI；按保存的映射替换工作流输入，提交后查询并回收产物。图片和音频模型也用此协议，见下文。 |
 | 未声明 | 保留既有 TF-router、APIMart、秘塔、优云智算和同步 HTTP 适配。 |
 
 内置增加本地视频服务、fal Kling 3.0 Pro 文生视频、Replicate Veo 3.1 八秒／首尾帧和火山方舟 Seedance 2.0 配置。目录存在不表示权重已加载、鉴权成功或生成已验收。本地模板模型 ID 须与实际服务公开名称一致；H3 模板只声明文生和首帧，不把尚未适配的多模态参考算作可用。
@@ -42,6 +43,51 @@
 部分账号的 Files API 不返回 `download_url`，此时参考准备会明确失败，不提交生成。File ID 不可代替 `asset://` 或视频 URL；需要配置可读的素材链接。TOS 使用 AK/SK 或 STS，不接受 Ark API Key。[官方凭据边界](https://console.volcengine.com/ark/region:cn-beijing/docs/iam-api-key-best-practices)
 
 API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应商原始错误正文不进入回执，仅保留有界错误码。生成结果下载不附带 Ark API Key。白模在该模型中属于运动、布局、镜头节奏的普通视频参考，不能宣称为逐像素深度约束或 ControlNet；生成后仍须核对主体运动、构图与连贯性。[官方查询任务](https://docs.volcengine.com/docs/ark/get-video-generation-task-api?lang=zh)
+
+## ComfyUI 工作流
+
+`videoProtocol:"comfyui"` 把 ComfyUI 的 API 格式工作流当成模型，图片、视频、音频都走同一条任务链路。内置供应商 `comfyui` 没有预置模型，地址和启用状态来自本地连接（`getLocalVideoConnection`），不在供应商配置里。
+
+```json
+{
+  "id": "wan22Flf2v",
+  "label": "Wan 2.2 首尾帧",
+  "type": "video",
+  "mode": ["startEndRequired"],
+  "imageRatios": ["16:9"],
+  "durationResolutionMap": [{ "duration": [5], "resolution": ["720p"] }],
+  "comfy": {
+    "workflow": { "6": { "class_type": "CLIPTextEncode", "inputs": { "text": "...", "clip": ["38", 0] } } },
+    "inputs": {
+      "prompt": [{ "node": "6", "field": "text" }],
+      "firstFrame": [{ "node": "52", "field": "image" }],
+      "lastFrame": [{ "node": "71", "field": "image" }],
+      "width": [{ "node": "83", "field": "width" }],
+      "height": [{ "node": "83", "field": "height" }],
+      "frames": [{ "node": "83", "field": "length" }]
+    },
+    "fps": 16,
+    "frameStep": 4
+  }
+}
+```
+
+| `comfy.inputs` 键 | 含义 |
+| --- | --- |
+| `prompt` | 必填。提示词写入所有目标，一个节点有多个文本字段时全部映射 |
+| `firstFrame`、`lastFrame` | 帧图片，写入所有目标 |
+| `images`、`videos`、`audios` | 参考素材，按顺序一一对应，数量必须与请求一致 |
+| `width`、`height` | 须同时映射。由画幅和分辨率算出，分辨率写成短边像素，如 `720p` |
+| `frames` | 由时长和 `fps` 算出，按 `frameStep` 对齐到 `n × frameStep + 1`，须同时声明 `fps` |
+
+映射目标必须是节点上的固定值，不能是连线。未映射的素材或时长直接拒绝，不静默丢弃；未映射尺寸时节点上的画幅不生效。模型目录不向节点和 Agent 下发 `comfy` 字段，生成请求只选模型，不能携带工作流。含非空凭据字段的工作流拒绝保存。
+
+- 素材按内容命名上传到 `input` 根目录，同一素材不重复上传。子目录会让部分自定义加载节点的校验失败。
+- `seed`、`noise_seed` 的固定值每次提交都随机替换，否则 ComfyUI 直接返回缓存。
+- 任务 ID 在提交前落盘并作为 `prompt_id` 发送。响应丢失时按同一 ID 查询，不重新提交；旧版 ComfyUI 忽略客户端 ID 时以响应为准。
+- 状态先查 `/queue` 再查 `/history/{id}`，两边都没有时报告未确认，不判定为失败。
+- 取消时排队中用 `POST /queue` 删除，运行中用 `POST /interrupt` 带 `prompt_id` 中断。
+- 产物只回收 `type:"output"` 且扩展名匹配媒体类型的文件，经 `/view` 下载，视频再用 FFprobe 校验。
 
 ## 自定义供应商
 

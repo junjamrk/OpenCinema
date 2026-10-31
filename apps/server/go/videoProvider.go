@@ -57,15 +57,18 @@ func validateVideoProvider(provider object) error {
 	if protocol == "" {
 		return nil
 	}
-	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" {
+	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" && protocol != "comfyui" {
 		return fail(400, "不支持的视频执行协议")
 	}
 	transport := str(provider["transport"])
 	if transport != "" && transport != "public" && transport != "local" {
 		return fail(400, "transport 须为 public 或 local")
 	}
-	if transport == "local" && protocol != "openaiVideo" {
-		return fail(400, "本地连接使用 openaiVideo 协议；平台协议保留公网边界")
+	if transport == "local" && protocol != "openaiVideo" && protocol != "comfyui" {
+		return fail(400, "本地连接使用 openaiVideo 或 comfyui 协议；平台协议保留公网边界")
+	}
+	if protocol == "comfyui" && transport != "local" {
+		return fail(400, "comfyui 协议须声明 transport: local")
 	}
 	if protocol == "ark" {
 		if err := validateArkVideoBase(providerBase(provider, object{})); err != nil {
@@ -90,7 +93,14 @@ func validateVideoProvider(provider object) error {
 	}
 	for _, raw := range array(provider["models"]) {
 		model := asObject(raw)
-		if str(model["type"]) != "video" {
+		if protocol == "comfyui" {
+			if err := validateComfyModel(model); err != nil {
+				return err
+			}
+			if str(model["type"]) != "video" {
+				continue
+			}
+		} else if str(model["type"]) != "video" {
 			return fail(400, "视频协议供应商只能声明 video 模型")
 		}
 		if audio := model["audio"]; audio != nil && audio != "optional" {

@@ -26,9 +26,9 @@ func localMediaConnectionState(settings object) object {
 	if endpoint == "" {
 		endpoint = "http://127.0.0.1:8188"
 	}
-	config := object{"enabled": boolean(saved["enabled"]), "endpoint": endpoint, "backend": "comfyui", "modelFamily": "minimaxH3"}
+	config := object{"enabled": boolean(saved["enabled"]), "endpoint": endpoint, "backend": "comfyui"}
 	encoded, _ := json.Marshal(config)
-	return object{"connectionId": "localComfy", "config": config, "configRevision": hash(encoded), "scope": "localRuntime", "executionSupported": false}
+	return object{"connectionId": "localComfy", "config": config, "configRevision": hash(encoded), "scope": "localRuntime", "executionSupported": true}
 }
 
 func localMediaEndpoint(value string) (*url.URL, error) {
@@ -172,7 +172,7 @@ func requireLocalMediaRevision(input, state object) error {
 }
 
 func localComfyClient(endpoint *url.URL) *http.Client {
-	// ACT: 单个已登记的 IP、端口和路径前缀，只执行能力读取，不提供通用私网代理。
+	// ACT: 单个已登记的 IP、端口和路径前缀，只访问 ComfyUI 固定接口，不提供通用私网代理。
 	return &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 		return fail(403, "本地执行连接不接受重定向")
 	}, Transport: &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -184,8 +184,8 @@ func localComfyClient(endpoint *url.URL) *http.Client {
 }
 
 func localComfyJSON(ctx context.Context, client *http.Client, endpoint *url.URL, path string, maxBytes int64) (object, error) {
-	if path != "/system_stats" && path != "/object_info" {
-		return nil, fail(403, "本地连接仅允许读取 ComfyUI 能力端点")
+	if path != "/system_stats" && path != "/object_info" && path != "/queue" && !strings.HasPrefix(path, "/history/") {
+		return nil, fail(403, "本地连接仅允许读取 ComfyUI 状态端点")
 	}
 	target := *endpoint
 	target.Path += path
