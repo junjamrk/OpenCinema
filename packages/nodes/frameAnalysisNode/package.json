@@ -9,7 +9,11 @@
     "category": "分析",
     "order": 9,
     "icon": "frames",
-    "description": "本地检测切点，输出关键帧、镜头片段和音轨"
+    "description": "本地检测切点，输出关键帧、镜头片段和音轨",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
   },
   "scripts": {
     "build": "vite build",

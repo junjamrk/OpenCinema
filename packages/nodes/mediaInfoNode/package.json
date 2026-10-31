@@ -11,6 +11,8 @@
     "icon": "info",
     "description": "本地读取编码、时长、帧率和轨道信息",
     "requires": {
+      "document": 1,
+      "workbench": 1,
       "workspaceFiles": 1,
       "workspaceReadRange": 1,
       "nodeHistory": 1,

@@ -11,6 +11,9 @@
     "icon": "motion",
     "description": "分析二维运动、姿态和相对深度，导出制作参考包",
     "requires": {
+      "document": 1,
+      "workbench": 1,
+      "state": 1,
       "pluginResources": 1,
       "worker": 1,
       "webAssembly": 1,

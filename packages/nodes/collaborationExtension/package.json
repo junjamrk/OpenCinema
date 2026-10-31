@@ -9,8 +9,10 @@
     "order": 13,
     "scope": "workspace",
     "requires": {
-      "workspaceExtensions": 1,
       "workspaceDocuments": 1,
+      "state": 1,
+      "files": 1,
+      "workspaceExtensions": 1,
       "collaboration": 1
     }
   },

@@ -174,6 +174,10 @@ export function createPluginRuntime<View = unknown>(options: PluginRuntimeOption
       config, capabilities, resources,
       getService<T>(name: string) {
         signal.throwIfAborted();
+        // ACT: requires 只裁剪 getService，不是沙箱。声明由插件自报，插件与工作台同处一个 JS 上下文，仍能直接发同源请求、
+        // 操作 DOM，视图 props 的 controller 也绕得过这里；workbench 是粗粒度门面，拿到它即可用 files、ffmpeg、hostRequest。
+        // 要隔离不可信插件，只能升级为 Worker 或 iframe 加消息代理，并按服务方法逐一授权。
+        if (!Object.hasOwn(definition.requires ?? {}, name)) throw new Error(`插件 ${pluginId} 未在 requires 中声明服务：${name}`);
         if (Object.hasOwn(input.services ?? {}, name)) return input.services![name] as T;
         if (!Object.hasOwn(options.services ?? {}, name)) throw new Error(`宿主未提供服务：${name}`);
         return options.services![name] as T;
