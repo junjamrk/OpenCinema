@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "openCinema": {
+    "id": "blockoutNode",
+    "name": "Blockout",
+    "order": 7,
+    "icon": "spatial",
+    "description": "3D 编排走位与摄影机，导出 RGB／Depth 参考"
+  },
   "scripts": {
     "build": "vite build --config viteConfig.ts",
     "dev": "vite build --watch --config viteConfig.ts",

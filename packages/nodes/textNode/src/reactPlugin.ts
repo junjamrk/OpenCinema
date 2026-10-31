@@ -1,3 +1,4 @@
+import { openCinema, version } from "../package.json";
 import { z } from "zod";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import type { NodeDocumentService } from "@toonflow/nodes-scaffold/react";
@@ -9,9 +10,9 @@ import { editorSession } from "@toonflow/node-shared/editorSession";
 
 const plugin: NodePluginDefinition<typeof TextNodeView> = {
   cloneData: cloneMediaNodeData,
-  apiVersion: 1, id: "textNode", name: "文本", version: "1.0.0", renderer: "react", view: TextNodeView,
+  ...openCinema, version, apiVersion: 1, renderer: "react", view: TextNodeView,
   composer: { label: "修改正文", placeholder: "描述写作要求，或希望如何修改这段正文…", tool: "generateText" },
-  createData: () => ({ label: "文本", handles: [
+  createData: () => ({ label: openCinema.name, handles: [
     { id: "in", type: "target", dataType: ["VIDEO", "IMAGE", "AUDIO", "STRING", "FILE"], label: "输入" },
     { id: "text", type: "source", dataType: "STRING", label: "输出" },
   ], outputs: { text: { dataType: "STRING", value: "" } } }),

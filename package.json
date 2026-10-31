@@ -21,16 +21,17 @@
     "packages/tools/*"
   ],
   "scripts": {
-    "dev": "bun run --filter @toonflow/web --filter @opencinema/server dev",
-    "dev:web": "bun run --cwd apps/web dev",
-    "dev:server": "bun run --cwd apps/server dev",
+    "generate:nodes": "bun packages/nodeScaffold/scripts/generateBuiltinNodes.ts",
+    "dev": "bun run generate:nodes && bun run --filter @toonflow/web --filter @opencinema/server dev",
+    "dev:web": "bun run generate:nodes && bun run --cwd apps/web dev",
+    "dev:server": "bun run generate:nodes && bun run --cwd apps/server dev",
     "dev:plugins": "NODE_ENV=production bun run --filter './packages/nodes/*' build",
     "start": "bun run --cwd apps/server start",
     "typecheck": "bun run --cwd apps/web typecheck && bun run --cwd packages/workbenchCore typecheck && bun run --cwd packages/mcp typecheck && bun run --cwd packages/openCinema typecheck && bun run --cwd apps/server typecheck",
-    "build:web": "bun run --cwd apps/web build",
+    "build:web": "bun run generate:nodes && bun run --cwd apps/web build",
     "build:nodes": "NODE_ENV=production bun run --filter './packages/nodes/*' build",
     "build:mcp": "bun run --cwd packages/mcp build",
-    "build:server": "bun apps/server/scripts/build.ts",
+    "build:server": "bun run generate:nodes && bun apps/server/scripts/build.ts",
     "build:plugin": "bun run --cwd packages/openCinema build",
     "build": "bun run build:web && bun run build:nodes && bun run build:mcp && bun run build:server && bun run build:plugin",
     "release": "bun packages/openCinema/scripts/release.ts"

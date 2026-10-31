@@ -1,3 +1,4 @@
+import { openCinema, version } from "../package.json";
 import { z } from "zod";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import { getTargetValues } from "@toonflow/nodes-scaffold/nodePortValues";
@@ -15,13 +16,13 @@ const resultSummarySchema = z.strictObject({ manifest: relativePathSchema, scene
 
 const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
   cloneData: cloneMediaNodeData,
-  apiVersion: 1, id: "frameAnalysisNode", name: "逐帧拉片", version: "2.0.0", renderer: "react", view: FrameAnalysisNodeView,
+  ...openCinema, version, apiVersion: 1, renderer: "react", view: FrameAnalysisNodeView,
   composer: { label: "分析镜头", placeholder: "描述希望重点分析的镜头语言、叙事或剪辑节奏…", tool: "analyzeScenes", maxLength: 2000 },
   canConnect(connection, context) {
     const edges = context.edges.filter(edge => edge.source !== connection.source || edge.sourceHandle !== connection.sourceHandle || edge.target !== connection.target || edge.targetHandle !== connection.targetHandle);
     return getTargetValues(connection.target, "in", context.nodes, [...edges, connection]).length <= 1;
   },
-  createData: () => ({ label: "逐帧拉片", handles: [{ id: "in", type: "target", dataType: "VIDEO", label: "视频素材" }], frameAnalysis: { ...defaults }, outputs: {} }),
+  createData: () => ({ label: openCinema.name, handles: [{ id: "in", type: "target", dataType: "VIDEO", label: "视频素材" }], frameAnalysis: { ...defaults }, outputs: {} }),
   activate(context) {
     const { id, document, workbench } = pluginServices(context);
     let task: { controller: AbortController; promise: Promise<void>; state: string; percent: number; label: string; hostPending: boolean; error?: string } | undefined;

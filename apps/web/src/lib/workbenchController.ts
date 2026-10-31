@@ -22,6 +22,7 @@ import { inferMediaFileType } from "./mediaFileTypes";
 import { createInstalledPluginLoader } from "./installedPluginLoader";
 import { localApiUrl } from "./openCinemaTransport";
 import { assetLibraryClient, assetMediaKind, type AssetLibraryEntry } from "./assetLibraryClient";
+import { builtinNodes } from "./builtinNodes";
 import { pluginPackageSchema, workbenchSettingsClient } from "./workbenchSettingsClient";
 import { isNodeOutput } from "@toonflow/nodes-scaffold/values";
 import { canvasNodePosition, createCanvasQueries, isCanvasRead, type CanvasQueryAvailability, type CanvasQueryRuntime } from "@/lib/canvasQueries";
@@ -32,22 +33,7 @@ import type { WorkbenchController, WorkbenchNodeViewProps, WorkbenchSnapshot } f
 type View = ComponentType<WorkbenchNodeViewProps>;
 type TextDraft = { text: string; session: DocumentSession };
 type NodePluginError = { pluginId: string; message: string; definition?: NodePluginDefinition<View> };
-const builtinPlugins: Record<string, { label: string; description?: string; icon?: string; scope?: "workspace"; load(): Promise<PluginModule<View>> }> = {
-  textNode: { label: "文本", description: "Markdown 写剧本、分镜和说明，文本可接入下游节点", icon: "text", load: () => import("@toonflow/node-text/reactPlugin") },
-  imageNode: { label: "图片", description: "导入图片，做局部重绘、裁剪、宫格、打光、机位与全景", icon: "image", load: () => import("@toonflow/node-image/reactPlugin") },
-  videoNode: { label: "视频", description: "导入视频，截帧、剪辑、变速、提取音轨和审片", icon: "video", load: () => import("@toonflow/node-video/reactPlugin") },
-  audioNode: { label: "音频", description: "导入音频，试听、波形剪辑、拼接、变速和转写", icon: "audio", load: () => import("@toonflow/node-audio/reactPlugin") },
-  imageGenerationNode: { label: "图像生成", description: "用提示词和参考图生成图片，可选 Agent 或专项模型", icon: "image", load: () => import("@toonflow/node-image-generation/reactPlugin") },
-  videoGenerationNode: { label: "视频生成", description: "文生视频、首尾帧与多模态参考，含镜头管理和审片", icon: "video", load: () => import("@toonflow/node-video-generation/reactPlugin") },
-  audioGenerationNode: { label: "音频生成", description: "用文本或参考素材生成配音与音效", icon: "audio", load: () => import("@toonflow/node-audio-generation/reactPlugin") },
-  frameAnalysisNode: { label: "逐帧拉片", description: "本地检测切点，输出关键帧、镜头片段和音轨", icon: "frames", load: () => import("@toonflow/node-frame-analysis/reactPlugin") },
-  mediaInfoNode: { label: "媒体信息", description: "本地读取编码、时长、帧率和轨道信息", icon: "info", load: () => import("@toonflow/node-media-info/reactPlugin") },
-  blockoutNode: { label: "Blockout 排演", description: "3D 编排走位与摄影机，导出 RGB／Depth 参考", icon: "spatial", load: () => import("@toonflow/node-blockout/reactPlugin") },
-  director3dNode: { label: "3D 导演台", description: "用文字生成 3D 动画和运镜，再手动取景导出", icon: "spatial", load: () => import("@toonflow/node-director3d/reactPlugin") },
-  videoDepthNode: { label: "视频深度白模", description: "用本地模型把视频转成深度白模参考", icon: "motion", load: () => import("@toonflow/node-video-depth/reactPlugin") },
-  motionAnalysisNode: { label: "Motion 运动分析", description: "分析二维运动、姿态和相对深度，导出制作参考包", icon: "motion", load: () => import("@toonflow/node-motion-analysis/reactPlugin") },
-  collaborationExtension: { label: "协作", scope: "workspace", load: () => import("@toonflow/node-collaboration/reactPlugin") as unknown as Promise<PluginModule<View>> },
-};
+const builtinPlugins = builtinNodes as unknown as Record<string, { displayName: string; description?: string; icon?: string; scope: "node" | "workspace"; load(): Promise<PluginModule<View>> }>;
 const relativePath = z.string().min(1).max(4096).refine(value => !/^(?:[\\/]|[a-z][a-z\d+.-]*:)/i.test(value)
   && !value.includes("\0") && value.replaceAll("\\", "/").split("/").every(part => !!part && part !== "." && part !== ".."), "路径必须位于工作区内");
 
@@ -68,7 +54,7 @@ export function createWorkbenchController() {
   const activated = new Map<string, NodePluginDefinition<View>>();
   const activatedConfigs = new Map<string, string>();
   const definitions = new Map<string, NodePluginDefinition<View>>();
-  const pluginLabels = new Map(Object.entries(builtinPlugins).map(([id, item]) => [id, item.label]));
+  const pluginLabels = new Map(Object.entries(builtinPlugins).map(([id, item]) => [id, item.displayName]));
   const disabledPlugins = new Set<string>();
   const loadingPlugins = new Map<string, Promise<NodePluginDefinition<View>>>();
   const pluginSources = new Map<string, string>();
@@ -107,7 +93,7 @@ export function createWorkbenchController() {
     canUndo: false, canRedo: false, readOnly: false, transitioning: false, projectName: "", canvasFiles: [], canvasFolders: [], plugins: [],
     host: { name: "未连接宿主", connected: false, canSend: false }, selectedIds: [], workspacePlugins: [],
   };
-  const runtime = createPluginRuntime<View>({ loadModule: createInstalledPluginLoader(controllerLifetime.signal) as (source: string) => Promise<PluginModule<View>>, capabilities: { documentEditing: 1, workspaceFiles: 1, workspaceReadRange: 1, nodeHistory: 1, workspaceDocuments: 1, workspaceExtensions: 1, pluginResources: 1, ffmpeg: 1, ...(typeof WebAssembly === "object" ? { webAssembly: 1 } : {}), ...(typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function" ? { worker: 1 } : {}) }, renderer: "react" });
+  const runtime = createPluginRuntime<View>({ loadModule: createInstalledPluginLoader(controllerLifetime.signal) as (source: string) => Promise<PluginModule<View>>, capabilities: { documentEditing: 1, workspaceFiles: 1, workspaceReadRange: 1, nodeHistory: 1, workspaceDocuments: 1, workspaceExtensions: 1, collaboration: 1, pluginResources: 1, ffmpeg: 1, ...(typeof WebAssembly === "object" ? { webAssembly: 1 } : {}), ...(typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function" ? { worker: 1 } : {}) }, renderer: "react" });
 
   function publish(patch: Partial<WorkbenchSnapshot> = {}) {
     const current = session?.getSnapshot();
@@ -515,7 +501,7 @@ export function createWorkbenchController() {
     for (const entry of catalog) {
       const id = entry.id ?? entry.name;
       if (entry.builtin && !builtinPlugins[id]) continue;
-      pluginLabels.set(id, entry.displayName ?? builtinPlugins[id]?.label ?? id);
+      pluginLabels.set(id, entry.displayName ?? builtinPlugins[id]?.displayName ?? id);
       pluginScopes.set(id, entry.scope ?? builtinPlugins[id]?.scope ?? "node");
       pluginConfigs.set(id, entry.config ?? {});
       if (entry.requires) pluginRequirements.set(id, entry.requires); else pluginRequirements.delete(id);
