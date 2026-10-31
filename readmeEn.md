@@ -15,6 +15,7 @@
 <p align="center">
   <a href="#quick-start">Quick Start</a> ·
   <a href="#features">Features</a> ·
+  <a href="roadmap.md">Roadmap</a> ·
   <a href="#building-plugins-and-contributing">Build a Plugin</a> ·
   <a href="docs/claudeSetup.md">Claude Setup</a> ·
   <a href="readme.md">中文</a> ·

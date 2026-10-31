@@ -15,6 +15,7 @@
 <p align="center">
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
+  <a href="roadmap.md">Roadmap</a> ·
   <a href="#开发插件与贡献代码">开发插件</a> ·
   <a href="docs/claudeSetup.md">Claude 接入</a> ·
   <a href="readmeEn.md">English</a> ·
