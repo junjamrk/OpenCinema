@@ -358,11 +358,11 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
   async function addStarterFlow() {
     const center = canvasCenter();
     const created: string[] = [];
-    await controller.asOneHistoryStep(async () => {
+    await controller.asOneHistoryStep(async step => {
       for (const [index, [type]] of starterFlow.entries()) {
         const position = { x: center.x - 580 + index * 420, y: center.y - 110 };
         const previous = created.at(-1);
-        if (previous) await controller.addConnectedNode(type, position, { nodeId: previous, handleId: starterFlow[index - 1]![1], direction: "source" }); else await controller.addNode(type, position);
+        await step(async () => { if (previous) await controller.addConnectedNode(type, position, { nodeId: previous, handleId: starterFlow[index - 1]![1], direction: "source" }); else await controller.addNode(type, position); });
         const nodeId = controller.getSnapshot().selectedIds[0];
         if (!nodeId) throw new Error("示例流程创建中断，请重试");
         created.push(nodeId);

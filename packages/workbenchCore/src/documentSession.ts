@@ -117,7 +117,7 @@ export function createDocumentSession(options: DocumentSessionOptions): Document
     getSnapshot: () => snapshot,
     getHistory: () => (["undo", "redo"] as const).flatMap(direction => [...(direction === "undo" ? undoHistory : redoHistory)].reverse().map((item, index) => ({ direction, steps: index + 1, nodes: item.nodes.length, edges: item.edges.length }))),
     historyDepth: () => undoHistory.length,
-    // ACT: 只按位置合并，操作期间撞到 historyLimit 时合并点会后移几步，上限前的历史仍完整。
+    // 调用方须确认 depth 之后都是同一次操作的步骤；撞到 historyLimit 时只少合并几步，不会多删。
     mergeHistorySince(depth) {
       if (undoHistory.length <= depth + 1) return;
       undoHistory.splice(depth + 1);

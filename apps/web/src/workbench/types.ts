@@ -122,7 +122,7 @@ export type WorkbenchController = ReactNodeServices & {
   getCapabilities(): Readonly<Record<string, number>>;
   setPluginEnabled(id: string, enabled: boolean): Promise<void>;
   getHistory(): { mode: "local" | "collaboration"; revision: number; savedRevision: number; entries: { direction: "undo" | "redo"; steps: number; nodes: number; edges: number }[] };
-  asOneHistoryStep<T>(operation: () => Promise<T>): Promise<T>;
+  asOneHistoryStep<T>(operation: (step: <R>(run: () => Promise<R>) => Promise<R>) => Promise<T>): Promise<T>;
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => WorkbenchSnapshot;
   openProject: (directory: string, initialCanvasId?: string) => Promise<void>;

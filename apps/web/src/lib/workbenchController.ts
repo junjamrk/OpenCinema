@@ -1586,26 +1586,36 @@ export function createWorkbenchController() {
         if (!file.size || file.size > (kind === "video" ? 2 * 1024 : 100) * 1024 ** 2) throw new Error(`文件为空或超过${kind === "video" ? "2 GiB" : "100 MiB"}导入上限：${file.name}`);
         if (kind === "text" && file.size > 1000000) throw new Error("文本文件最多 1 MB");
       }
-      await controller.asOneHistoryStep(async () => { for (const [index, file] of files.entries()) {
+      await controller.asOneHistoryStep(async step => { for (const [index, file] of files.entries()) {
         requireWritable(target);
         const { kind: type, mimeType } = inferMediaFileType(file);
         if (!type) throw new Error(`暂不支持此文件类型：${file.name}`);
         const text = type === "text" ? await file.text() : undefined; requireWritable(target);
-        const { node } = await addNode(target, { type: `${type}Node`, position: { x: position.x + index % 4 * 400, y: position.y + Math.floor(index / 4) * 300 }, label: file.name });
+        const { node } = await step(() => addNode(target, { type: `${type}Node`, position: { x: position.x + index % 4 * 400, y: position.y + Math.floor(index / 4) * 300 }, label: file.name }));
         requireWritable(target);
         const service = controller.getNodeService(node.id);
         if (type === "text") {
-          stageText(node.id, text!, target); await saveSession(target);
+          await step(async () => { stageText(node.id, text!, target); await saveSession(target); });
         } else {
           const path = await uploadNodeFile(service.files, node.id, file); requireWritable(target);
-          await controller.callNodeTool(node.id, `set${type[0]!.toUpperCase()}${type.slice(1)}`, { path, mimeType });
+          await step(() => controller.callNodeTool(node.id, `set${type[0]!.toUpperCase()}${type.slice(1)}`, { path, mimeType }));
         }
       } });
       await saveSession(target);
     },
+    // ACT: 快照历史没法把插在中间的编辑单独留下，两步之间深度变过就放弃合并，用户多按一次撤销，不丢操作。
+    // 上限：单步内部的并发编辑检测不到，所以上传这类长等待放在 step 外。
     async asOneHistoryStep(operation) {
-      const target = currentSession(), depth = target.historyDepth();
-      try { return await operation(); } finally { target.mergeHistorySince(depth); }
+      const target = currentSession(), start = target.historyDepth();
+      let expected = start, interleaved = false;
+      async function step<R>(run: () => Promise<R>) {
+        if (target.historyDepth() !== expected) interleaved = true;
+        const result = await run();
+        expected = target.historyDepth();
+        return result;
+      }
+      try { return await operation(step); }
+      finally { if (!interleaved && target.historyDepth() === expected) target.mergeHistorySince(start); }
     },
     select(ids) {
       const target = currentSession();
