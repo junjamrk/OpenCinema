@@ -54,6 +54,10 @@ func providerModel(provider object, id string) object {
 
 func validateVideoProvider(provider object) error {
 	protocol := videoProtocol(provider)
+	transport := str(provider["transport"])
+	if transport != "" && transport != "public" && transport != "local" {
+		return fail(400, "transport 须为 public 或 local")
+	}
 	if protocol == "" {
 		// ACT: 既有适配（TF-router、APIMart 等）的请求体是逐字段写死的，声明了也送不出去，所以直接拒绝。
 		// 上限是这些供应商暂时不能暴露厂商参数；升级方式是给对应适配加合入逻辑后放开此处。
@@ -67,12 +71,8 @@ func validateVideoProvider(provider object) error {
 	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" && protocol != "comfyui" {
 		return fail(400, "不支持的视频执行协议")
 	}
-	transport := str(provider["transport"])
-	if transport != "" && transport != "public" && transport != "local" {
-		return fail(400, "transport 须为 public 或 local")
-	}
 	if transport == "local" && protocol != "openaiVideo" && protocol != "comfyui" {
-		return fail(400, "本地连接使用 openaiVideo 或 comfyui 协议；平台协议保留公网边界")
+		return fail(400, "本地连接使用 openaiVideo、comfyui 或同步 HTTP 协议；平台协议保留公网边界")
 	}
 	if protocol == "comfyui" && transport != "local" {
 		return fail(400, "comfyui 协议须声明 transport: local")
