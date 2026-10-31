@@ -256,84 +256,67 @@ flowchart LR
 | `view` | React 界面 |
 | `registerTool` | 发布工具，用 Zod 声明参数。按钮和 Agent 调用同一个工具 |
 | `composer` | 可选，把节点接入底部输入框 |
-| `requires` | 需要的宿主能力，例如 `workspaceFiles`、`ffmpeg`、`webAssembly` |
+| `requires` | 需要的服务和宿主能力，例如 `workbench`、`workspaceFiles`、`ffmpeg`。`getService` 只能取到声明过的服务 |
+| `category`、`description` | 节点在添加面板里的分类和说明 |
 | `onDispose` | 释放 Worker、监听器等资源 |
 
 代码放哪里：节点专属逻辑放在自己的插件包；多个插件共用的业务放 `packages/nodeShared`；通用契约放 `packages/nodeScaffold`。
 
 ### 写一个节点插件
 
-下面做一个统计上游文本字数的节点。这份代码已实际跑通构建、安装和调用。目前插件需要在本仓库内开发，因为脚手架还没有发布到 npm。
+插件可以在仓库外独立开发。下面做一个统计上游文本字数的节点，这份代码已实际跑通类型检查和构建。脚手架还没有发布到 npm，所以先在本仓库打一个包。
 
-**1. 建立目录**
+**1. 打包脚手架**
+
+在仓库根目录运行，得到 `packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz`：
 
 ```bash
-mkdir -p packages/nodes/helloNode/src
+cd packages/nodeScaffold && npm pack
+```
+
+**2. 生成插件项目**
+
+在你放插件的目录运行，把 `<仓库路径>` 换成实际路径：
+
+```bash
+npx --yes --package <仓库路径>/packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz createOpenCinemaPlugin helloNode --name 文字统计 --scaffold file:<仓库路径>/packages/nodeScaffold/toonflow-nodes-scaffold-0.4.0.tgz
 ```
 
 ```bash
-cp packages/nodes/mediaInfoNode/tsconfig.json packages/nodes/helloNode/
+cd helloNode && npm install
 ```
 
-**2. `packages/nodes/helloNode/package.json`**
+**3. 在 `package.json` 里声明插件**
+
+名称、分类、描述和权限都写在 `openCinema` 块里，`getService` 只能取到 `requires` 声明过的服务：
 
 ```json
-{
-  "name": "@toonflow/node-hello",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "vite build --config viteConfig.ts",
-    "typecheck": "tsc --noEmit"
-  },
-  "exports": {
-    "./react": "./src/reactView.tsx",
-    "./reactPlugin": "./src/reactPlugin.ts"
-  },
-  "dependencies": {
-    "@toonflow/node-shared": "workspace:*",
-    "@toonflow/nodes-scaffold": "workspace:*",
-    "zod": "^4.6.2"
-  },
-  "devDependencies": {
-    "@types/react": "^19.0.0",
-    "typescript": "~6.0.3",
-    "vite": "^8.2.2"
-  },
-  "peerDependencies": {
-    "react": "^19.0.0"
-  }
+"openCinema": {
+  "id": "helloNode",
+  "name": "文字统计",
+  "description": "统计上游文本的字数",
+  "category": "文本与媒体",
+  "requires": { "workbench": 1 }
 }
 ```
 
-**3. `packages/nodes/helloNode/viteConfig.ts`**
-
-```ts
-import { createNodeConfig } from "@toonflow/nodes-scaffold";
-
-export default createNodeConfig({
-  name: "helloNode", displayName: "文字统计", author: "你的名字", github: "https://github.com/you/helloNode",
-  requires: { nodeHistory: 1 },
-}, import.meta.url);
-```
-
-**4. `packages/nodes/helloNode/src/reactPlugin.ts`**
+**4. `src/reactPlugin.ts`**
 
 ```ts
 import { z } from "zod";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
-import { pluginServices } from "@toonflow/node-shared/reactNode";
-import HelloNodeView from "./reactView";
+import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchServices";
+import { openCinema, version } from "../package.json";
+import PluginView from "./reactView";
 
-const plugin: NodePluginDefinition<typeof HelloNodeView> = {
-  apiVersion: 1, id: "helloNode", name: "文字统计", version: "1.0.0", renderer: "react", view: HelloNodeView,
-  createData: () => ({ label: "文字统计", handles: [
+const plugin: NodePluginDefinition<typeof PluginView> = {
+  ...openCinema, version, apiVersion: 1, renderer: "react", view: PluginView,
+  createData: () => ({ label: openCinema.name, handles: [
     { id: "text", type: "target", dataType: "STRING", label: "文本" },
     { id: "count", type: "source", dataType: "STRING", label: "字数" },
   ], outputs: {} }),
   activate(context) {
-    const { workbench } = pluginServices(context);
+    const workbench = context.getService<NodeWorkbenchService>("workbench");
     context.registerTool({
       name: "countText", description: "统计上游文本的字符数，并写入 count 输出端口。",
       parameters: z.strictObject({}),
@@ -348,19 +331,20 @@ const plugin: NodePluginDefinition<typeof HelloNodeView> = {
     });
   },
 };
+
 export default plugin;
 ```
 
-**5. `packages/nodes/helloNode/src/reactView.tsx`**
+**5. `src/reactView.tsx`**
 
 ```tsx
-import type { NodeViewProps } from "@toonflow/node-shared/reactNode";
+import type { ReactNodeViewProps } from "@toonflow/nodes-scaffold/react";
 
-export default function HelloNodeView({ node, controller, readOnly }: NodeViewProps) {
+export default function PluginView({ node, controller, readOnly }: ReactNodeViewProps) {
   const outputs = node.data?.outputs as { count?: { value?: string } } | undefined;
-  return <div className="nodeControls">
+  return <div className="nodrag">
     <button type="button" disabled={readOnly} onClick={() => void controller.callNodeTool(node.id, "countText", {})}>统计字数</button>
-    <span className="nodeStatus">{outputs?.count?.value ?? "尚未统计"}</span>
+    <span>{outputs?.count?.value ?? "尚未统计"}</span>
   </div>;
 }
 ```
@@ -368,26 +352,33 @@ export default function HelloNodeView({ node, controller, readOnly }: NodeViewPr
 **6. 构建**
 
 ```bash
-bun install
+npm run typecheck
 ```
 
 ```bash
-bun run --cwd packages/nodes/helloNode typecheck
+npm run build
 ```
 
-```bash
-bun run --cwd packages/nodes/helloNode build
-```
-
-产物在 `build/nodes/helloNode/`，其中 `install.json` 是可分发的插件包。
+产物在 `dist/`，其中 `install.json` 是可分发的插件包。
 
 **7. 安装并使用**
 
-打开 **设置 → 插件 → 安装插件包**，选择 `install.json`，确认后在添加节点面板里就能找到 **文字统计**。把文本节点接到它的输入端口，点击 **统计字数**。
+打开 **设置 → 插件 → 安装插件包**，选择 `install.json`，确认后在添加节点面板里就能找到 **文字统计**。把文本节点连到它的输入端，点击 **统计字数**。
 
 Agent 不用任何额外配置就能发现这个工具：`getNodeTools` 会返回 `node:countText` 及其 Schema。
 
-> 已安装的插件在页面里运行，可以读写工作区。请只安装你信任的插件包。
+**让插件提供生成服务**
+
+在 `viteConfig.ts` 里声明 `providers`，格式和[接入生成服务](#接入生成服务)的 JSON 清单相同，安装时走同一套校验。启用插件后它出现在媒体服务列表，停用或卸载后消失。ID 不能和内置或用户添加的供应商冲突：
+
+```ts
+export default createNodeConfig({
+  author: "", github: "",
+  providers: [{ id: "myVideo", label: "My Video", apiUrl: "https://video.example.com/v1", videoProtocol: "openaiVideo", endpoints: { video: "videos" }, rules: [], models: [] }],
+}, import.meta.url);
+```
+
+> 已安装的插件在页面里运行。`requires` 只限制 `getService`，不是沙箱，插件仍能读写工作区。请只安装你信任的插件包。
 
 插件合同、资源打包和宿主能力的完整说明见 [节点 SDK](packages/nodeScaffold/readme.md)。
 
@@ -455,11 +446,12 @@ ComfyUI 负责生成，OpenCinema 把工作流当成一个模型来用。图片�
 
 ### 把插件贡献到官方
 
-插件包可以直接分发给别人安装。想让它成为内置节点，除了提交 `packages/nodes/<id>/`，还要登记三处：
+插件包可以直接分发给别人安装。想让它成为内置节点：
 
-1. [`apps/web/package.json`](apps/web/package.json)：添加工作区依赖。
-2. [`apps/web/src/lib/workbenchController.ts`](apps/web/src/lib/workbenchController.ts)：在 `builtinPlugins` 中添加。
-3. [`apps/server/go/plugins.go`](apps/server/go/plugins.go)：在 `builtinNodes()` 中添加。
+1. 把项目放到 `packages/nodes/<id>/`，构建配置改从 `@toonflow/nodes-scaffold/reactBuild` 导入，并设置 `outDir: "../../../build/nodes/<id>"`。
+2. 在 `package.json` 的 `openCinema` 块里加上 `order`，决定它在菜单里的位置。
+3. 在 [`apps/web/package.json`](apps/web/package.json) 添加工作区依赖。
+4. 运行 `bun run generate:nodes` 重新生成内置节点清单，并提交生成结果。
 
 ### 提交代码
 
