@@ -354,8 +354,8 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 			if task := s.tasks[str(raw)]; task != nil && task.directory == directory {
 				task.touched = now
 				cancelling := strings.HasSuffix(p, "cancel")
-				resumingComfy := task.unknown && str(task.job["protocol"]) == "comfyui"
-				if cancelling && resumingComfy {
+				resumingRemote := task.unknown && task.job["cancelMode"] == "request"
+				if cancelling && resumingRemote {
 					task.cancelRequested = true
 				}
 				if err := s.resumeVideoTask(str(raw), task); err != nil {
@@ -368,8 +368,8 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 						s.tasksMu.Unlock()
 						return err
 					}
-					// 恢复的 ComfyUI 任务由查询循环发出取消；这里取消上下文，它连不上 ComfyUI 就退出了。
-					if !resumingComfy {
+					// 恢复的任务由查询循环发出取消；这里取消上下文，它连不上远端就退出了。
+					if !resumingRemote {
 						task.cancel()
 					}
 					waiting = append(waiting, task.done)
@@ -780,7 +780,7 @@ func (s *server) validateMedia(v object, allowEmptyPrompt bool) error {
 					return err
 				}
 				if str(p["transport"]) != "local" && strings.TrimSpace(str(config["apiKey"])) == "" {
-					return fail(400, "请先配置视频供应商 API Key")
+					return fail(400, "请先配置媒体供应商 API Key")
 				}
 				if !allowEmptyPrompt && kind == "video" {
 					if _, err := s.toolPath("ffprobe"); err != nil {
@@ -1030,7 +1030,7 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 	var results []string
 	if videoProtocol(provider) == "comfyui" {
 		results, err = s.generateComfy(ctx, provider, config, v, refs)
-	} else if kind == "video" && videoProtocol(provider) != "" {
+	} else if videoProtocol(provider) != "" {
 		results, err = s.generateVideoProvider(ctx, provider, config, v, refs)
 	} else {
 		switch str(provider["id"]) {
