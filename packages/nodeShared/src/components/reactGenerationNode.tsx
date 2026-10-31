@@ -19,6 +19,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const [price, setPrice] = useState("");
   const [runtimeState, setRuntimeState] = useState<string>();
   const [progress, setProgress] = useState<number>();
+  const [warning, setWarning] = useState<string>();
   const [cost, setCost] = useState<NodeMediaCost>();
   const [parameterIssues, setParameterIssues] = useState<Record<string, string | undefined>>({});
   const workbench = controller.getNodeService(node.id);
@@ -31,7 +32,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    setRuntimeState(undefined); setProgress(undefined); setCost(undefined);
+    setRuntimeState(undefined); setProgress(undefined); setWarning(undefined); setCost(undefined);
     async function observe() {
       try {
         const value = await controller.callNodeTool(node.id, "getGenerationStatus", {});
@@ -39,6 +40,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
         const state = String(value.status);
         setRuntimeState(state);
         setProgress("progress" in value && typeof value.progress === "number" ? value.progress : undefined);
+        setWarning("warning" in value && typeof value.warning === "string" ? value.warning : undefined);
         setCost("cost" in value ? value.cost as NodeMediaCost | undefined : undefined);
         if (mediaType === "video" && ["running", "unknown", "cancelRequested"].includes(state)) timer = setTimeout(observe, 3000);
       } catch (reason) { if (active) setError(errorText(reason)); }
@@ -129,6 +131,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
       {cost && <span className="nodeStatus">预估 {cost.estimate?.price ?? "无报价"} · 实际 {cost.actual ? `${cost.actual.amount} ${cost.actual.unit}（${cost.actual.source === "vendor" ? "厂商返回" : "余额差"}）` : "未知"}</span>}
       {mediaType === "video" && generationState === "completed" && value && <span className="nodeStatus" data-state={shotReview?.status === "rejected" ? "failed" : "pending"} title="审片记录绑定源文件版本；打开审片或合成时会重新核对当前版本">{shotReview?.source === value.url ? shotReview.status === "approved" ? `通过记录 · ${shotReview.start}–${shotReview.end}s（合成前核版本）` : "候选已拒收" : "视频候选 · 待审"}</span>}
     </div>}
+    {warning && running && <p className="nodeStatus" role="status">正在重试：{warning}</p>}
     {(error || generation?.error) && <p className="nodeError" role="alert">{error || generation?.error}</p>}
   </MediaNode>;
 }

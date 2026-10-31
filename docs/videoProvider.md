@@ -275,6 +275,7 @@ API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应�
 | `status.states` | 状态值映射，目标只能是 `queued`、`running`、`completed`、`failed`、`cancelled`，至少一项是 `completed`。比较时忽略大小写；键写空串表示字段缺失，布尔和数字按文本比较，例如 `{ "true": "completed", "": "running" }`。未列出的值视为未知，继续查询 |
 | `status.progressPath` | 可选。0 到 100 的数字 |
 | `outputPath` | 完成响应里产物的路径。值可以是地址、地址数组，或带 `url` 字段的对象及其数组 |
+| `outputAuth` | 可选。为 `true` 时带鉴权头下载产物，地址必须和 `apiUrl` 同源且在其路径之下，例如 Gemini Veo 的下载地址 |
 | `cancel` | 可选。`method` 为 `POST`（默认）、`PUT` 或 `DELETE`，`path` 必须含 `{id}`。未声明时不会向远端发取消 |
 
 路径用点号，数组用数字下标，例如 `data.videos.0.url`。键名含点的字段取不到。这不是表达式语言，没有通配符和条件。
@@ -292,9 +293,9 @@ API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应�
 - 响应里只取任务 ID，且校验字符集和跨目录；后续请求一律由 `apiUrl` 加路径模板拼出，响应不能改变请求目标。
 - 自定义鉴权头不跟随跨来源重定向。
 - 任务记录在发出提交请求前落盘。响应丢失时没有任务 ID，保持未确认，不重新提交。
-- 状态响应上限 2MiB，错误正文不读取。产物走安全下载，不带凭据。
+- 状态响应上限 2MiB，错误正文不读取。产物默认走安全下载，不带凭据；声明 `outputAuth` 时只向同源地址发送凭据。
 
-需要请求签名、multipart、按值换算、响应里内嵌裸 base64，或下载产物必须带凭据的服务，用 `adapter`。
+需要请求签名、multipart、按值换算，或响应里内嵌裸 base64 的服务，用 `adapter`。
 
 ## 子进程适配器 adapter
 
