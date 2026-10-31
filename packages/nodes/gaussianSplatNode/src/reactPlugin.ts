@@ -230,10 +230,12 @@ const plugin: NodePluginDefinition<typeof GaussianSplatNodeView> = {
         const source = requireSource(); requireIdle();
         const frames = Math.round(args.seconds * args.fps);
         if (frames < 1 || frames > 600) throw new Error("环绕视频最多 600 帧（seconds × fps）");
-        const ffmpeg = await workbench.ffmpeg(signal);
         const taskId = crypto.randomUUID();
         operation = new AbortController();
+        // 任务信号只跟随节点与取消，不跟随这次调用的 120 秒超时；FFmpeg 工厂绑定的是它的生命周期信号，必须用长期信号创建。
         const combined = AbortSignal.any([context.signal, operation.signal]);
+        signal.throwIfAborted();
+        const ffmpeg = await workbench.ffmpeg(combined);
         const framesDirectory = `${getNodeDirectory(id)}/turntable-${taskId}`;
         const current = task = (async () => {
           let created = false, cleanupSafe = true;
