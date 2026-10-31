@@ -6,10 +6,13 @@ type WorkspaceEntry = { name: string; path: string; type: "file" | "directory" }
 export type TextSnapshot = { text: string; revision: string; encoding: "utf-8" | "utf-8-bom" | "utf-16le" | "utf-16be" };
 export const workspaceFileClient = axios.create({ baseURL: "/api/workspaces/files", headers: { "x-toonflow-workspace": "1" } });
 // 只替换 Axios 的英文占位文案；错误对象不变，调用方仍按状态码和响应 code 分支。
-export function explainRequestError(error: unknown) {
+export async function explainRequestError(error: unknown) {
   if (!axios.isAxiosError(error) || axios.isCancel(error)) throw error;
   let body = error.response?.data;
-  if (body instanceof ArrayBuffer) try { body = JSON.parse(new TextDecoder().decode(body)); } catch { /* 非 JSON 响应保留状态码提示。 */ }
+  try {
+    if (body instanceof ArrayBuffer) body = JSON.parse(new TextDecoder().decode(body));
+    else if (body instanceof Blob) body = JSON.parse(await body.text());
+  } catch { /* 非 JSON 响应保留状态码提示。 */ }
   const message: unknown = body?.message;
   if (typeof message === "string" && message.trim()) error.message = message;
   else if (!error.response) error.message = "无法连接 OpenCinema 服务，请确认服务仍在运行";
