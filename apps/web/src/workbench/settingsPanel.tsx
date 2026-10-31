@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { WorkbenchController } from "./types";
 import ComfySettings from "./comfySettings";
 import NodeMenuSettings from "./nodeMenuSettings";
-import { canvasShortcutFields, defaultCanvasShortcuts, isShortcutAllowed, normalizeShortcut } from "@/lib/canvasShortcuts";
+import { canvasShortcutFields, defaultCanvasShortcuts, isModifierShortcut, isShortcutAllowed, normalizeShortcut, shortcutFromEvent, shortcutLabel } from "@/lib/canvasShortcuts";
 import { defaultPluginMarketUrl, ffmpegConfigurationSchema, ffmpegStatusSchema, mediaProviderSchema, pluginMarketClient, pluginMarketUrlOf, pluginPackageSchema, pluginSchema, providerModelSchema, workbenchSettingsClient, type PluginMarket, type PluginMarketEntry } from "@/lib/workbenchSettingsClient";
 
 const depthSchema = z.object({ available: z.boolean(), runtimeAvailable: z.boolean(), message: z.string(), preparationProgress: z.object({ phase: z.string(), received: z.number(), total: z.number(), error: z.string().optional() }).optional() });
@@ -174,7 +174,7 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
     setProviderValues({ ...(config[id] ?? {}) }); setModelDrafts(provider ? draftModels(provider) : []);
   }
   return <div className="settingsPanel">
-    <nav aria-label="设置分类">{([["host", "宿主 Agent"], ["plugins", "插件"], ["models", "媒体服务"], ["ffmpeg", "FFmpeg"], ["canvas", "画布"], ["nodeMenu", "节点菜单"]] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</nav>
+    <nav aria-label="设置分类">{([["host", "连接 Agent"], ["plugins", "插件"], ["models", "媒体服务"], ["ffmpeg", "FFmpeg"], ["canvas", "画布"], ["nodeMenu", "节点菜单"]] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => { setTab(id); setStatus(""); setError(""); }}>{label}</button>)}</nav>
     {tab === "nodeMenu" && <NodeMenuSettings controller={controller} />}
     {tab === "canvas" && <form className="settingsContent" onSubmit={event => { event.preventDefault(); void perform(async () => {
       if (!generalConfiguration) throw new Error("画布设置尚未读取");
@@ -187,14 +187,22 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
       <label className="settingToggle"><span>选中节点的连线流动动画</span><input type="checkbox" checked={generalConfiguration?.general.canvasEdgeAnimationEnabled !== false} disabled={busy || !generalConfiguration} onChange={event => setGeneralConfiguration(current => current ? { ...current, general: { ...current.general, canvasEdgeAnimationEnabled: event.target.checked } } : current)} /></label>
       <label>关联连线高亮颜色<select aria-label="关联连线高亮颜色模式" value={String(generalConfiguration?.general.canvasEdgeColorMode ?? "theme")} disabled={busy || !generalConfiguration} onChange={event => setGeneralConfiguration(current => current ? { ...current, general: { ...current.general, canvasEdgeColorMode: event.target.value } } : current)}><option value="none">不使用高亮颜色</option><option value="theme">跟随主题色</option><option value="custom">自选颜色</option></select></label>
       {generalConfiguration?.general.canvasEdgeColorMode === "custom" && <label>自选高亮颜色<input type="color" aria-label="连线高亮自选颜色" value={String(generalConfiguration.general.canvasEdgeColor ?? "#2dd4bf")} disabled={busy} onChange={event => setGeneralConfiguration(current => current ? { ...current, general: { ...current.general, canvasEdgeColor: event.target.value } } : current)} /></label>}
-      {canvasShortcutFields.map(field => {
+      <p>点击快捷键后直接按下新的组合键；需要按住的操作只按修饰键。Tab 离开输入框。</p>
+      <div className="shortcutGrid">{canvasShortcutFields.map(field => {
         const general = generalConfiguration?.general ?? {};
         const saved = general.canvasShortcuts && typeof general.canvasShortcuts === "object" ? general.canvasShortcuts as Record<string, string> : {};
-        return <label key={field.id}>{field.label}<input aria-label={`${field.label}快捷键`} value={saved[field.id] ?? defaultCanvasShortcuts[field.id]} disabled={busy || !generalConfiguration} onChange={event => setGeneralConfiguration(current => current ? { ...current, general: { ...current.general, canvasShortcuts: { ...saved, [field.id]: event.target.value } } } : current)} /></label>;
-      })}<button type="submit" disabled={busy || !generalConfiguration}>保存画布设置</button>
+        return <label key={field.id}><span>{field.label}</span><input readOnly aria-label={`${field.label}快捷键`} value={shortcutLabel(saved[field.id] ?? defaultCanvasShortcuts[field.id]) || "未设置"} disabled={busy || !generalConfiguration} onKeyDown={event => {
+          if (event.key === "Tab") return;
+          event.preventDefault();
+          const value = shortcutFromEvent(event.nativeEvent);
+          // 普通操作要等到非修饰键按下；按住类操作只记录修饰键。
+          if (!value || !field.hold && isModifierShortcut(value) || !isShortcutAllowed(field, value)) return;
+          setGeneralConfiguration(current => current ? { ...current, general: { ...current.general, canvasShortcuts: { ...saved, [field.id]: value } } } : current);
+        }} /></label>;
+      })}</div><div className="settingsActions"><button type="submit" disabled={busy || !generalConfiguration}>保存画布设置</button><button type="button" disabled={busy || !generalConfiguration} onClick={() => setGeneralConfiguration(current => current ? { ...current, general: { ...current.general, canvasShortcuts: { ...defaultCanvasShortcuts } } } : current)}>恢复默认快捷键</button></div>
     </form>}
     {tab === "host" && <div className="settingsContent">
-      <div className="settingRow"><span>当前宿主</span><strong>{snapshot.host.name}</strong><span className={snapshot.host.connected ? "connectedValue" : ""}>{snapshot.host.connected ? "已连接" : "未连接"}</span></div>
+      <div className="settingRow"><span>当前 Agent</span><strong>{snapshot.host.name}</strong><span className={snapshot.host.connected ? "connectedValue" : ""}>{snapshot.host.connected ? "已连接" : "未连接"}</span></div>
       {!native && hostSessions.length > 0 && <label>接收画布指令的 Agent<select value={hostSessionId} onChange={event => {
         const id = event.target.value;
         void perform(async () => {
@@ -204,15 +212,15 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
       }}><option value="">单个 Agent 时自动连接</option>{hostSessions.map(session => <option key={session.id} value={session.id}>{session.name}</option>)}</select></label>}
       {native ? <p>画布指令会连同固定的操作目标发送到当前宿主对话。请在对话和画布中查看结果；消息已接收不代表执行完成。</p> : <>
         <p>接入 Claude Code 或 Codex 后，底部输入框的创作要求会交给它执行。在仓库根目录完成 <code>bun run build</code> 后运行：</p>
-        <div className="hostSetup"><span>Claude Code</span><code>claude --plugin-dir ./build/openCinema</code><span>Codex</span><code>codex plugin marketplace add . --json</code><code>codex plugin add opencinema@openCinemaStandalone --json</code></div>
+        <div className="hostSetup">{([["Claude Code", ["claude --plugin-dir ./build/openCinema"]], ["Codex", ["codex plugin marketplace add . --json", "codex plugin add opencinema@openCinemaStandalone --json"]]] as const).map(([name, commands]) => <div key={name}><span>{name}</span>{commands.map(command => <div className="hostCommand" key={command}><code>{command}</code><button type="button" aria-label={`复制 ${command}`} onClick={() => void perform(async () => { await navigator.clipboard.writeText(command); setStatus("命令已复制"); })}>复制</button></div>)}</div>)}</div>
         <p>启动后告诉 Agent「连接 OpenCinema 工作台」（Claude Code 可用 <code>/opencinema:opencinema</code>），它注册为这个工程的接收端后，这里会显示“已连接”。</p>
-        <details className="settingEditor"><summary>其他 MCP 宿主</summary><label>MCP 服务地址<input readOnly value={`${location.origin}/mcp`} aria-label="MCP 服务地址" /></label>
+        <details className="settingEditor"><summary>其他 MCP 客户端</summary><label>MCP 服务地址<input readOnly value={`${location.origin}/mcp`} aria-label="MCP 服务地址" /></label>
           <button type="button" disabled={busy} onClick={() => void perform(async () => {
             const current = await api("settings/get");
             const value = z.object({ mcp: z.object({ enabled: z.boolean(), token: z.string().min(32) }) }).parse(current);
             if (!value.mcp.enabled) throw new Error("MCP 服务已关闭");
             await navigator.clipboard.writeText(JSON.stringify({ mcpServers: { openCinema: { url: `${location.origin}/mcp`, headers: { Authorization: `Bearer ${value.mcp.token}` } } } }, null, 2));
-            setStatus("连接配置已复制，请粘贴到宿主 Agent 的 MCP 配置中");
+            setStatus("连接配置已复制，请粘贴到 Agent 的 MCP 配置中");
           })}>复制 MCP 连接配置</button>
           <p>Agent 需调用 registerHost 声明能力，并用 pollHostRequests 领取画布指令、completeHostRequest 回报结果。仅建立 MCP 连接不代表 Agent 在线。</p></details>
       </>}

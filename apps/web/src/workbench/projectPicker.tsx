@@ -12,7 +12,7 @@ const listingSchema = z.object({
 });
 const api = { baseURL: "/api/workspaces" };
 
-export default function ProjectPicker({ creating, initialDirectory, pending, onOpen, children }: { creating: boolean; initialDirectory: string; pending: boolean; onOpen: (directory: string) => Promise<unknown>; children?: ReactNode }) {
+export default function ProjectPicker({ creating, initialDirectory, pending, onOpen, onToggleCreating, children }: { creating: boolean; initialDirectory: string; pending: boolean; onOpen: (directory: string) => Promise<unknown>; onToggleCreating: () => void; children?: ReactNode }) {
   const [path, setPath] = useState(initialDirectory);
   const [name, setName] = useState("");
   const [listing, setListing] = useState<z.infer<typeof listingSchema>>();
@@ -78,6 +78,7 @@ export default function ProjectPicker({ creating, initialDirectory, pending, onO
     </>}
     <small>{restricted ? "填写已存在文件夹的绝对路径。" : creating ? "会在这里新建同名文件夹，并创建第一张画布。" : "画布和素材都保存在这个文件夹里；空文件夹会自动创建第一张画布。"}</small>
     {error && <p className="projectPickerError" role="alert">{error}</p>}
+    {!restricted && <button type="button" className="projectPickerSwitch" disabled={pending} onClick={onToggleCreating}>{creating ? "打开已有工程" : "新建工程"}</button>}
     <button type="submit" disabled={!ready || pending}>{pending ? <IconLoader2 aria-hidden="true" focusable="false" className="spin" size={17} /> : creating && !restricted ? <IconFolderPlus aria-hidden="true" focusable="false" size={17} /> : <IconFolderOpen aria-hidden="true" focusable="false" size={17} />}{creating && !restricted ? "创建并打开" : "打开此文件夹"}</button>
     {children}
   </form>;

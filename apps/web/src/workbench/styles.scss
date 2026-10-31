@@ -562,10 +562,19 @@
         em { flex-shrink: 0; color: var(--textMuted); font-size: var(--fontSizeSmall); font-style: normal; &[data-ready="true"] { color: var(--selectionAccent); } }
       }
     }
+    .shortcutGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 8px 20px;
+      label { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--textSecondary); span { flex-shrink: 0; } }
+      input { width: 132px !important; height: 30px !important; padding: 4px 8px !important; font: 11px/16px var(--fontMono); text-align: center; caret-color: transparent; cursor: pointer; }
+    }
+    .hostCommand { display: flex; align-items: center; gap: 6px; min-width: 0; code { flex: 1; min-width: 0; overflow-x: auto; } button { flex-shrink: 0; } }
     .hostSetup {
       display: grid;
       gap: 6px;
       min-width: 0;
+      > div { display: grid; gap: 6px; min-width: 0; }
       span { color: var(--textMuted); font-size: var(--fontSizeSmall); }
       code {
         display: block;
@@ -1791,6 +1800,7 @@
             p { margin: 0; padding: 8px; color: var(--textMuted); font-size: 11px; }
           }
           .projectPickerError { width: 100%; margin: 0; color: var(--statusWarning); font-size: 12px; line-height: 18px; }
+          .projectPickerSwitch { margin-top: 4px; padding: 8px 4px; color: var(--textSecondary); font-size: 12px; &:hover:not(:disabled) { color: var(--selectionAccent); } }
         }
       }
     }
