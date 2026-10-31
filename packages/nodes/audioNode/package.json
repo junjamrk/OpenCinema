@@ -9,7 +9,11 @@
     "category": "文本与媒体",
     "order": 3,
     "icon": "audio",
-    "description": "导入音频，试听、波形剪辑、拼接、变速和转写"
+    "description": "导入音频，试听、波形剪辑、拼接、变速和转写",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
   },
   "exports": {
     "./react": "./src/reactView.tsx",

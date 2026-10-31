@@ -9,7 +9,11 @@
     "category": "生成",
     "order": 5,
     "icon": "video",
-    "description": "文生视频、首尾帧与多模态参考，含镜头管理和审片"
+    "description": "文生视频、首尾帧与多模态参考，含镜头管理和审片",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
   },
   "scripts": {
     "build": "vite build",

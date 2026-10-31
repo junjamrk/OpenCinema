@@ -9,7 +9,11 @@
     "category": "生成",
     "order": 6,
     "icon": "audio",
-    "description": "用文本或参考素材生成配音与音效"
+    "description": "用文本或参考素材生成配音与音效",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
   },
   "scripts": {
     "build": "vite build",

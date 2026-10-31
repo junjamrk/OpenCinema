@@ -95,7 +95,7 @@ export function createWorkbenchController() {
     canUndo: false, canRedo: false, readOnly: false, transitioning: false, projectName: "", canvasFiles: [], canvasFolders: [], plugins: [],
     host: { name: "未连接宿主", connected: false, canSend: false }, selectedIds: [], workspacePlugins: [],
   };
-  const runtime = createPluginRuntime<View>({ loadModule: createInstalledPluginLoader(controllerLifetime.signal) as (source: string) => Promise<PluginModule<View>>, capabilities: { documentEditing: 1, workspaceFiles: 1, workspaceReadRange: 1, nodeHistory: 1, workspaceDocuments: 1, workspaceExtensions: 1, collaboration: 1, pluginResources: 1, ffmpeg: 1, ...(typeof WebAssembly === "object" ? { webAssembly: 1 } : {}), ...(typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function" ? { worker: 1 } : {}) }, renderer: "react" });
+  const runtime = createPluginRuntime<View>({ loadModule: createInstalledPluginLoader(controllerLifetime.signal) as (source: string) => Promise<PluginModule<View>>, capabilities: { document: 1, workbench: 1, files: 1, inputs: 1, state: 1, documentEditing: 1, workspaceFiles: 1, workspaceReadRange: 1, nodeHistory: 1, workspaceDocuments: 1, workspaceExtensions: 1, collaboration: 1, pluginResources: 1, ffmpeg: 1, ...(typeof WebAssembly === "object" ? { webAssembly: 1 } : {}), ...(typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function" ? { worker: 1 } : {}) }, renderer: "react" });
 
   function publish(patch: Partial<WorkbenchSnapshot> = {}) {
     const current = session?.getSnapshot();

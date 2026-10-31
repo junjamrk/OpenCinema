@@ -9,7 +9,11 @@
     "category": "分析",
     "order": 12,
     "icon": "motion",
-    "description": "用本地模型把视频转成深度白模参考"
+    "description": "用本地模型把视频转成深度白模参考",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
   },
   "scripts": {
     "build": "vite build --config viteConfig.ts",

@@ -9,7 +9,11 @@
     "category": "生成",
     "order": 4,
     "icon": "image",
-    "description": "用提示词和参考图生成图片，可选 Agent 或专项模型"
+    "description": "用提示词和参考图生成图片，可选 Agent 或专项模型",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
   },
   "scripts": {
     "build": "vite build",
