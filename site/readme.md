@@ -1,0 +1,51 @@
+# opencinema.site
+
+The landing page for OpenCinema. Static HTML, no framework, no runtime dependencies: Vercel serves this folder as-is.
+
+## Layout
+
+| Path | What |
+| --- | --- |
+| `index.html`, `zh/index.html` | Generated pages (English, Chinese). Do not edit by hand. |
+| `src/page.mjs` | The page template as a render function. |
+| `src/i18n/en.json`, `src/i18n/zh.json` | All copy. Edit here, then rebuild. |
+| `assets/site.css`, `assets/site.js` | Styles and progressive enhancement (reveal on scroll, film dialog, GitHub stars). |
+| `assets/img/` | WebP screenshots exported from `../assets/screenshots`, brand SVGs, icons, `og.png`. |
+| `assets/media/` | 720p web encode of the launch film and its poster. |
+| `assets/fonts/` | Self-hosted Inter and JetBrains Mono (variable, latin subset, OFL). |
+| `build.mjs` | Renders both pages, `sitemap.xml` and `robots.txt`; computes the asset cache-busting version. |
+| `og.mjs` | Renders `assets/img/og.png` with Chromium (Playwright). |
+| `vercel.json` | Clean URLs, long-lived caching for `/assets`, security headers including a strict CSP. |
+
+## Edit and rebuild
+
+```bash
+node site/build.mjs
+```
+
+Regenerate the social image after changing the hero screenshot or the headline:
+
+```bash
+node site/og.mjs
+```
+
+Refresh screenshots from the repository's `assets/screenshots` (WebP, quality 84) and re-encode the film (1280×720, H.264 CRF 23) when those sources change; the commands used are recorded in the repository history of this folder.
+
+## Deploy on Vercel
+
+The project for `opencinema.site` should serve this folder as a static site.
+
+**Git integration** (recommended): in the Vercel project settings set *Root Directory* to `site`, *Framework Preset* to **Other**, leave *Build Command* and *Install Command* empty, and set *Output Directory* to `.` (the root of `site`). Every push to the production branch redeploys.
+
+**CLI**: from the repository root,
+
+```bash
+cd site
+npx vercel --prod
+```
+
+Either way the committed `vercel.json` in this folder applies: clean URLs (`/zh` → `zh/index.html`), immutable caching for `/assets/*` (file names are versioned with `?v=` so updates are picked up), and security headers. The domain is attached in the Vercel dashboard under *Domains*; both `opencinema.site` and `www.opencinema.site` should point at this project, with `www` redirecting to the apex.
+
+## Design notes
+
+Same visual system as the launch film and the README: off-white `#F7F7F4`, graphite `#101315`, mint `#4FDBC8` used only for small accents, dark product panels, Inter for text and JetBrains Mono for labels. Every image is a real screenshot of the workbench. Copy follows the project's accuracy rules: 0.4.0 is in development, generation uses the user's providers, previs and depth are references, review is a recorded human decision, agents are named in plain text.

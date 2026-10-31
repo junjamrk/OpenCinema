@@ -1,0 +1,159 @@
+{
+  "lang": "en",
+  "dir": "",
+  "otherLang": { "code": "zh", "label": "中文", "href": "/zh/" },
+  "meta": {
+    "title": "OpenCinema — Your agent. Your canvas. Your film.",
+    "description": "A local, open-source video workbench your agent operates. Codex, Claude Code or any MCP agent does the planning; OpenCinema provides the node canvas, image and video tools, 3D previs, shot review and the final edit."
+  },
+  "nav": {
+    "features": "Features",
+    "how": "How it works",
+    "film": "Film",
+    "docs": "Docs",
+    "github": "GitHub",
+    "cta": "Get started"
+  },
+  "hero": {
+    "eyebrow": "Open source · MIT · 0.4.0 in development",
+    "title": ["Your agent.", "Your canvas.", "Your film."],
+    "lede": "A local video workbench your agent operates. Codex, Claude Code or any MCP agent does the planning. OpenCinema gives it a node canvas, image and video tools, 3D previs, shot review and the final cut, and keeps you in control of every shot.",
+    "primary": "Star on GitHub",
+    "secondary": "Watch the 30-second film",
+    "trust": ["Runs on your machine", "Your models and your keys", "Nothing is accepted without review"],
+    "shotAlt": "The OpenCinema canvas: a brief, reference stills, a reference clip and an audio bed wired into a Blockout previs, an image generation node and a video generation node."
+  },
+  "works": {
+    "label": "Works with the agent you already use",
+    "items": ["Codex", "Claude Code", "Any MCP client"],
+    "note": "Plain MCP. No lock-in, no proprietary agent."
+  },
+  "how": {
+    "label": "How it works",
+    "title": "Direct. See. Finish.",
+    "steps": [
+      { "n": "01", "title": "Direct", "text": "Select one node, a group of shots, or nothing at all. Describe the change in the composer. The scope is yours to set.", "img": "composerScope", "alt": "The composer with its scope set to one video generation node and five references." },
+      { "n": "02", "title": "See", "text": "Your agent works on the same canvas you are looking at. Open an editor, paint a selection, adjust a reference, keep a take you like.", "img": "imageEditor", "alt": "The image editor with inpaint, crop, grid split, lighting, angle and panorama tools." },
+      { "n": "03", "title": "Finish", "text": "Review every candidate against six checks. Replace only the shot that failed. Render the full cut with its audio track.", "img": "mediaEditing", "alt": "A video node with its media editing tools: trim, frames, audio, frame analysis, review, speed, transcription." }
+    ]
+  },
+  "features": {
+    "label": "Features",
+    "title": "One canvas takes a film from idea to final cut.",
+    "rows": [
+      {
+        "kicker": "Canvas",
+        "title": "Every asset and every step is a node.",
+        "text": "Script, stills, clips, audio, previs, generation, review and the edit plan live on one canvas. Edges are reference relationships. Thirteen node plugins ship built in, from text and media to analysis and generation, plus a collaboration extension.",
+        "points": ["Drop files to create nodes", "Group, arrange, batch connect, undo", "Everything the agent does is a visible state change"],
+        "img": "canvas", "alt": "A connected canvas with text, media, previs and generation nodes.", "side": "right"
+      },
+      {
+        "kicker": "Scope",
+        "title": "You decide what the agent may touch.",
+        "text": "The composer acts on your selection: one node, a marquee of nodes, or the whole canvas. Generation nodes can switch between generating and letting the agent adjust the node itself. References are numbered so you can see what the model will receive.",
+        "points": ["One node, N nodes, or the canvas", "References shown as numbered chips", "Manual and agent edits share one undo history"],
+        "img": "composerScope", "alt": "The composer showing the scope: Shot 02 candidates, five references.", "side": "left"
+      },
+      {
+        "kicker": "Editors",
+        "title": "Change only what matters.",
+        "text": "Paint a selection and only that region changes. Crop and transform, split a grid, relight, change the angle, capture a panorama. Trim clips, extract audio, separate tracks, change speed and transcribe, all through local FFmpeg.",
+        "points": ["Image: inpaint, crop, grid split, lighting, angle, panorama", "Video: trim, frames, audio, speed, frame analysis", "Results become new nodes; sources stay untouched"],
+        "img": "imageEditor", "alt": "The image editor open on a rainy harbor still.", "side": "right"
+      },
+      {
+        "kicker": "Previs",
+        "title": "See the shot before you generate it.",
+        "text": "Block the action and the camera on a white-model stage. Export RGB, depth and normal layers per shot and freeze them as reference nodes for generation. Previs and depth are references for framing and rhythm, not a motion lock.",
+        "points": ["Characters, set pieces, camera blocking, takes", "RGB, depth and normal exports per shot", "Frame analysis, pose tracking and relative depth from real footage"],
+        "img": "blockout", "alt": "The Blockout previs editor with a mannequin on a white-model stage.", "side": "left"
+      },
+      {
+        "kicker": "Your models",
+        "title": "Your providers. Your keys. Your machine.",
+        "text": "Connect Volcengine Ark Seedance, fal, Replicate or any OpenAI-compatible video service, or import a custom provider from a JSON manifest. Credentials live in local settings; agents only ever see whether one is configured.",
+        "points": ["Provider manifests, no code", "FFmpeg and the depth model prepared explicitly and pinned by hash", "Go server listens on loopback only"],
+        "img": "providers", "alt": "The media services settings panel.", "side": "right"
+      }
+    ]
+  },
+  "review": {
+    "label": "Plan, review, edit",
+    "title": "The model proposes. You decide.",
+    "cards": [
+      { "title": "See the plan first", "text": "Before anything is paid for, the generation plan shows the final prompt, the real model parameters and the role of every reference: instruction, identity, composition, motion or exclude." },
+      { "title": "Six checks, your call", "text": "Direction, action, identity, continuity, unexpected cuts, deformation and branding. A candidate is approved only when you mark every check and write what you saw. Rejected candidates stay in the project." },
+      { "title": "Replace one shot, keep the rest", "text": "The edit plan holds 2 to 16 shots, in and out points, output spec and one audio track. Swap a single shot; the others never move. Rendering creates a new cut and keeps the old one." }
+    ]
+  },
+  "film": {
+    "label": "The film",
+    "title": "Thirty seconds. Every frame drawn in code.",
+    "text": "The launch film is built from the same design system as the product. No stock, no generated footage, no screenshots: every interface element is live state rendered frame by frame.",
+    "cta": "Storyboard and source on GitHub"
+  },
+  "start": {
+    "label": "Get started",
+    "title": "Build it, open a folder, connect your agent.",
+    "text": "0.4.0 is in development. Source builds need Bun 1.3.14+, Go 1.26+ and Node.js 22+. Running a packaged plugin needs Node.js 22+ only.",
+    "buildTitle": "Run from source",
+    "build": "git clone https://github.com/junjamrk/OpenCinema.git\ncd OpenCinema\nbun install --frozen-lockfile\nbun run build\nbun start",
+    "buildNote": "Open http://127.0.0.1:47920 and point it at any folder.",
+    "agentTitle": "Connect Claude Code",
+    "agent": "claude --plugin-dir ./build/openCinema\n# then\n/opencinema:opencinema",
+    "agentNote": "Codex: codex plugin add opencinema@openCinemaStandalone. Any MCP client can copy the connection from the settings panel.",
+    "links": [
+      { "label": "Readme", "href": "https://github.com/junjamrk/OpenCinema#readme" },
+      { "label": "Architecture", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" },
+      { "label": "Write a node", "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" },
+      { "label": "Video providers", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/videoProvider.md" },
+      { "label": "Shot workflow", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/videoShotWorkflow.md" },
+      { "label": "Contributing", "href": "https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" }
+    ]
+  },
+  "community": {
+    "label": "Open source",
+    "title": "Built in the open.",
+    "text": "MIT licensed. A Go server, a React canvas, a framework-independent editing session and a node SDK, all in one repository. Issues, pull requests and node plugins are welcome.",
+    "cards": [
+      { "title": "Write a node", "text": "A node is a package that exports a plugin definition and registers Zod-typed tools. Your UI and the agent call the same implementation." },
+      { "title": "Add a provider", "text": "A service that speaks an existing protocol needs only a JSON manifest. Unmapped references are refused, not dropped." },
+      { "title": "Shape the tools", "text": "Every tool has a live schema, output validation and annotations. Errors carry a machine code and a recovery action." }
+    ],
+    "cta": "Open an issue",
+    "ctaHref": "https://github.com/junjamrk/OpenCinema/issues"
+  },
+  "honest": [
+    "0.4.0 is in development and unreleased.",
+    "AI generation uses providers you configure and may cost money. No host subscription includes a video model.",
+    "Previs, white model and depth are references. Motion analysis tracks pose and 2D camera motion, not a 3D solve.",
+    "Review is a recorded decision made by a person."
+  ],
+  "footer": {
+    "tagline": "A local video workbench your agent operates.",
+    "columns": [
+      { "title": "Project", "links": [
+        { "label": "GitHub", "href": "https://github.com/junjamrk/OpenCinema" },
+        { "label": "Issues", "href": "https://github.com/junjamrk/OpenCinema/issues" },
+        { "label": "Changelog", "href": "https://github.com/junjamrk/OpenCinema/blob/main/changelog.md" },
+        { "label": "Security", "href": "https://github.com/junjamrk/OpenCinema/blob/main/security.md" }
+      ]},
+      { "title": "Docs", "links": [
+        { "label": "Readme", "href": "https://github.com/junjamrk/OpenCinema#readme" },
+        { "label": "Architecture", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" },
+        { "label": "Claude setup", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/claudeSetup.md" },
+        { "label": "Release guide", "href": "https://github.com/junjamrk/OpenCinema/blob/main/docs/releaseGuide.md" }
+      ]},
+      { "title": "Extend", "links": [
+        { "label": "Node SDK", "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" },
+        { "label": "MCP SDK", "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/mcp/README.md" },
+        { "label": "Plugin notes", "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/openCinema/readme.md" },
+        { "label": "Contributing", "href": "https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" }
+      ]}
+    ],
+    "license": "MIT License. Blockout and Motion adapted from Sam Wasserman's tools (Apache-2.0). Fonts: Inter and JetBrains Mono (OFL).",
+    "copyright": "OpenCinema contributors"
+  },
+  "dialog": { "close": "Close", "title": "OpenCinema launch film" }
+}
