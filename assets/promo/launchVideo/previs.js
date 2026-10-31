@@ -48,22 +48,24 @@
   const COL = { ground: [172, 176, 184], water: [40, 46, 58], set: [216, 219, 225], car: [190, 194, 201], man: [232, 234, 238], post: [200, 203, 209] };
   const LIGHT = norm([-0.45, 0.85, -0.35]);
 
-  // The staged action for the previs shot; u = seconds since the shot began (0..1.6)
+  // The staged action for the previs shot; u = seconds since the shot began (0..DUR)
+  const DUR = 2.5;
   function action(u) {
-    const run = clamp(u / 1.05, 0, 1);
+    const s = clamp(u / DUR, 0, 1);
+    const run = clamp(s / 0.66, 0, 1);
     const px = lerp(-3.2, 1.6, run);
     const dist = (px + 3.2);
     const phase = dist / 1.45;
-    const duck = smooth((u - 0.95) / 0.18) * (1 - smooth((u - 1.35) / 0.2));
-    const carX = 10.5 - 13.5 * clamp((u - 0.08) / 1.42, 0, 1);
-    const camAngle = 2.35 - 1.55 * (u / 1.6);
-    return { px, phase, duck, carX, camAngle };
+    const duck = smooth((s - 0.60) / 0.11) * (1 - smooth((s - 0.84) / 0.12));
+    const carX = 10.5 - 13.5 * clamp((s - 0.05) / 0.89, 0, 1);
+    const camAngle = 2.35 - 1.55 * s;
+    return { px, phase, duck, carX, camAngle, s };
   }
 
   function renderPrevis(ctx, W, H, o) {
     const u = o.time || 0, mode = o.mode || "rgb";
     const act = action(u);
-    const az = 0.95 - 0.30 * (u / 1.6), el = 0.40, dist = 16.5 - 1.6 * (u / 1.6);
+    const az = 0.95 - 0.30 * act.s, el = 0.40, dist = 16.5 - 1.6 * act.s;
     const target = [0.2, 0.9, 2.0];
     const eye = [target[0] + dist * Math.cos(el) * Math.sin(az), target[1] + dist * Math.sin(el), target[2] - dist * Math.cos(el) * Math.cos(az)];
     const cam = lookAt(eye, target);
@@ -180,5 +182,5 @@
     return act;
   }
 
-  window.Previs = { renderPrevis, action };
+  window.Previs = { renderPrevis, action, DUR };
 })();
