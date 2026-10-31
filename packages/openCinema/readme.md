@@ -23,7 +23,7 @@ claude --plugin-dir /绝对路径/openCinema
 
 默认无需环境变量。启动器将运行资源按完整产物的 SHA-256 revision 复制到独立数据目录的 `runtimeBuilds/<revision>`，再自动启动或复用同版本及明确兼容的 Go 实例。macOS 默认目录为 `~/Library/Application Support/openCinema/standalone/data`；Windows 使用 `%LOCALAPPDATA%/openCinema/standalone/data`；Linux 使用 `$XDG_DATA_HOME/openCinema/standalone/data`（缺省 `~/.local/share`）。`OPENCINEMA_DATA_DIR` 可设为另一个绝对路径。用户工程仍由 `renderOpenCinema` 的 `directory` 明确指定，不自动导入或迁移旧工程。
 
-Go 仅监听本机随机端口。运行信息 `runtime.json` 和 `.runtimeLock/owner.json` 仅当前用户可读写；启动器核对 PID、instanceId、revision 与运行信息路径后复用，不抢未知残锁、不终止其他版本。每个 stdio 连接持有独立租约，每 20 秒续租；所有连接结束或租约过期后，由 Go 延迟安全退出。多聊天共享同版本实例，单个聊天关闭不会终止其他聊天的实例。
+Go 仅监听本机随机端口。运行信息 `runtime.json` 和 `.runtimeLock/owner.json` 仅当前用户可读写；启动器核对 PID、instanceId、revision 与运行信息路径后复用，不终止其他版本。Go 进程崩溃或被强杀后，下次启动由 Go 确认持有者已退出再回收残锁；无法确认或上次退出时后台任务未收尾的锁不会自动回收。每个 stdio 连接持有独立租约，每 20 秒续租；所有连接结束或租约过期后，由 Go 延迟安全退出。多聊天共享同版本实例，单个聊天关闭不会终止其他聊天的实例。
 
 如需连接已启动的外部实例，设置 `OPENCINEMA_RUNTIME` 为其运行信息文件的绝对路径。该文件须属于当前用户且权限为 `0600`，地址只能指向本机 `/mcp`。显式外部模式不启动 Go、不持租约，也不终止外部进程。配置中不填写令牌。
 

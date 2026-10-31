@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { createMediaAiClient, type NodeMediaModel } from "@toonflow/nodes-scaffold/nodeAiClient";
+import { createMediaAiClient, type NodeMediaCost, type NodeMediaModel, type NodeModelParameter } from "@toonflow/nodes-scaffold/nodeAiClient";
 import MediaNode from "./reactMediaNode";
 import { errorText, readMedia, type MediaType, type NodeViewProps } from "../reactNode";
-import { matchingVideoModes } from "../reactGeneration";
+import { matchingVideoModes, normalizeParameters, parameterIssue } from "../reactGeneration";
 import { readReferences } from "../reactReferences";
 import ReferenceList from "./reactReferences";
 import GenerationLoading from "./reactGenerationLoading";
@@ -19,6 +19,9 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const [price, setPrice] = useState("");
   const [runtimeState, setRuntimeState] = useState<string>();
   const [progress, setProgress] = useState<number>();
+  const [warning, setWarning] = useState<string>();
+  const [cost, setCost] = useState<NodeMediaCost>();
+  const [parameterIssues, setParameterIssues] = useState<Record<string, string | undefined>>({});
   const workbench = controller.getNodeService(node.id);
   const prompt = String(node.data?.prompt ?? "");
   const value = readMedia(node.data, mediaType);
@@ -29,7 +32,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    setRuntimeState(undefined); setProgress(undefined);
+    setRuntimeState(undefined); setProgress(undefined); setWarning(undefined); setCost(undefined);
     async function observe() {
       try {
         const value = await controller.callNodeTool(node.id, "getGenerationStatus", {});
@@ -37,6 +40,8 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
         const state = String(value.status);
         setRuntimeState(state);
         setProgress("progress" in value && typeof value.progress === "number" ? value.progress : undefined);
+        setWarning("warning" in value && typeof value.warning === "string" ? value.warning : undefined);
+        setCost("cost" in value ? value.cost as NodeMediaCost | undefined : undefined);
         if (mediaType === "video" && ["running", "unknown", "cancelRequested"].includes(state)) timer = setTimeout(observe, 3000);
       } catch (reason) { if (active) setError(errorText(reason)); }
     }
@@ -45,8 +50,10 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   }, [controller, node.id, mediaType, generation?.taskId, generation?.status, generation?.finishedAt]);
   useEffect(() => {
     const lifetime = new AbortController();
-    void createMediaAiClient(lifetime.signal).getMediaModels().then(values => setModels(values.filter(value => value.type === mediaType))).catch(reason => { if (!lifetime.signal.aborted) setError(errorText(reason)); });
-    return () => lifetime.abort();
+    const refresh = () => void createMediaAiClient(lifetime.signal).getMediaModels().then(values => setModels(values.filter(value => value.type === mediaType))).catch(reason => { if (!lifetime.signal.aborted) setError(errorText(reason)); });
+    refresh();
+    window.addEventListener("toonflow:provider-config-changed", refresh);
+    return () => { lifetime.abort(); window.removeEventListener("toonflow:provider-config-changed", refresh); };
   }, [mediaType]);
   const model = models.find(value => JSON.stringify([value.providerId, value.modelId]) === node.data?.model);
   const inputs = readReferences(workbench, node.data ?? {});
@@ -66,6 +73,28 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const field = (key: string, title: string, choices: readonly unknown[] | undefined) => choices?.length ? <label className="nodeField"><span>{title}</span><select disabled={readOnly || blocked || busy} value={String(node.data?.[key] ?? "")} onChange={event => void call("setConfig", { [key]: key === "duration" ? Number(event.target.value) : event.target.value })}>
     <option value="" disabled>跟随模型</option>{choices.map(value => <option key={String(value)} value={String(value)}>{String(value)}</option>)}
   </select></label> : null;
+  const parameters = model ? normalizeParameters(node.data ?? {}, model) : {};
+  const locked = !!readOnly || blocked || busy;
+  function setParameter(key: string, value: string | number | boolean | undefined) {
+    const { [key]: _previous, ...others } = parameters;
+    void call("setConfig", { parameters: value === undefined ? others : { ...others, [key]: value } });
+  }
+  function parameterField(key: string, schema: NodeModelParameter) {
+    const current = parameters[key], title = schema.title ?? key;
+    const choices = schema.enum ?? (schema.type === "boolean" ? [true, false] : undefined);
+    if (choices) return <label key={key} className="nodeField"><span>{title}</span><select disabled={locked} value={current === undefined ? "" : choices.indexOf(current)} onChange={event => setParameter(key, choices[Number(event.target.value)])}>
+      <option value="" disabled>跟随模型</option>{choices.map((value, index) => <option key={String(value)} value={index}>{value === true ? "开启" : value === false ? "关闭" : String(value)}</option>)}
+    </select></label>;
+    const text = schema.type === "string", issue = parameterIssues[key];
+    return <label key={key} className="nodeField"><span>{title}</span><input key={String(current)} type={text ? "text" : "number"} min={schema.minimum} max={schema.maximum} step={schema.type === "integer" ? 1 : "any"} defaultValue={current === undefined ? "" : String(current)} readOnly={locked} aria-invalid={!!issue} onBlur={event => {
+      const input = event.target, value = input.value === "" ? schema.default : text ? input.value : Number(input.value);
+      const problem = value === undefined ? undefined : parameterIssue(schema, value);
+      setParameterIssues(issues => ({ ...issues, [key]: problem }));
+      // 不合法的值不保存，恢复原值并就地提示：输入框显示的始终是下次生成会发送的值。
+      if (problem || value === current) input.value = current === undefined ? "" : String(current);
+      else setParameter(key, value);
+    }} />{issue && <span className="nodeError" role="alert">{issue}</span>}</label>;
+  }
   const toolbarAction = props.cardAction || !blocked && (value || guide) ? <>{props.cardAction}{!blocked && (value || guide) && <button type="button" className="nodeMediaTool nodeMediaToolPrimary" disabled={busy || readOnly} title={value ? "在底部继续创作" : "在底部描述重绘要求"} aria-label={value ? "在底部继续创作" : "在底部描述重绘要求"} onClick={() => compose()}><NodeIcon name="generate" /></button>}</> : undefined;
   return <MediaNode {...props} compact disabled={blocked || busy} toolbarAction={toolbarAction} emptyAction={<div className="nodeComposerEmpty"><NodeIcon name="generate" size={20} /><span>在下方描述创作要求</span></div>} fallbackPreview={mediaType === "image" && guide ? { url: guide, mimeType: "image/png" } : undefined} fallbackCaption="红色标注为重绘区域" stageOverlay={running ? <GenerationLoading controller={controller} mediaType={mediaType} status={generationState} prior={prior} startedAt={generation?.startedAt} disabled={busy || readOnly} onCancel={() => void call("cancelGeneration")} /> : undefined}>
     <ReferenceList {...props} readOnly={readOnly || blocked || busy} videoRoles={mediaType === "video"} onMention={compose} />
@@ -77,9 +106,10 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
       if (choice) void call("setConfig", { providerId: choice.providerId, modelId: choice.modelId });
     }}><option value="">宿主 Agent</option>{groupNodeModels(models).map(group => <optgroup key={group.id} label={group.label}>{group.models.map(model => <option key={model.modelId} value={JSON.stringify([model.providerId, model.modelId])}>{model.label}</option>)}</optgroup>)}</select></label>
     {model && <div className="nodeFields">
-      {field("ratio", "画幅", mediaType === "video" ? model.imageRatios?.length ? model.imageRatios : ["16:9", "9:16", "1:1", "4:3", "3:4"] : model.imageRatios)}{field("size", "分辨率", model.imageSizes)}{field("resolution", "分辨率", [...new Set(model.durationResolutionMap?.filter(item => item.duration.includes(Number(node.data?.duration))).flatMap(item => item.resolution))])}{field("duration", "时长（秒）", [...new Set(model.durationResolutionMap?.flatMap(item => item.duration))])}
+      {field("ratio", "画幅", mediaType === "video" ? model.imageRatios?.length ? model.imageRatios : model.execution?.protocol === "comfyui" ? undefined : ["16:9", "9:16", "1:1", "4:3", "3:4"] : model.imageRatios)}{field("size", "分辨率", model.imageSizes)}{field("resolution", "分辨率", [...new Set(model.durationResolutionMap?.filter(item => item.duration.includes(Number(node.data?.duration))).flatMap(item => item.resolution))])}{field("duration", "时长（秒）", [...new Set(model.durationResolutionMap?.flatMap(item => item.duration))])}
       {mediaType === "video" && model.mode?.length ? <label className="nodeField"><span>参考模式</span><select value={String(node.data?.mode ?? "")} disabled={readOnly || blocked || busy} onChange={event => void call("setConfig", { mode: JSON.parse(event.target.value) })}><option value="" disabled>选择模式</option>{matchingVideoModes(model, videoInputs).map(mode => <option key={JSON.stringify(mode)} value={JSON.stringify(mode)}>{Array.isArray(mode) ? mode.join(" · ") : ({ text: "文生视频", singleImage: "单图参考", startEndRequired: "首尾帧", startFrameOptional: "尾帧 / 首尾帧", endFrameOptional: "首帧 / 首尾帧" } as Record<string, string>)[mode] ?? mode}</option>)}</select></label> : null}
       {mediaType === "video" && model.audio === "optional" && <label className="nodeField"><span>音轨</span><select value={node.data?.generateAudio ? "1" : "0"} disabled={readOnly || blocked || busy} onChange={event => void call("setConfig", { generateAudio: event.target.value === "1" })}><option value="0">无声</option><option value="1">生成声音</option></select></label>}
+      {Object.entries(model.parameters?.properties ?? {}).map(([key, schema]) => parameterField(key, schema))}
     </div>}
     {model?.execution && <p className="nodeStatus">{({ local: "本地 / 局域网执行", remote: "远程模型服务", platform: "平台执行" })[model.execution.location]}{model.execution.cancelMode === "none" ? " · 服务未声明中止能力" : ""}</p>}
     {mediaType === "audio" && <div className="nodeFields">
@@ -98,8 +128,10 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
       {generationState === "resultReady" && <button type="button" disabled={busy || readOnly} onClick={() => void call("applyGenerationResult").then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); })}>采用已完成视频</button>}
       {generationState === "interrupted" && <button type="button" disabled={busy || readOnly} onClick={() => void call("cancelGeneration").then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); })}>确认上次任务终态</button>}
       <span className="nodeStatus" data-state={generationState} role="status">{({ running: "生成中", delegated: "已交给宿主，等待产物", completed: "产物已保存", resultReady: "视频已生成，待采用", cancelled: "已取消", failed: "生成失败", interrupted: "上次生成已中断", unknown: "任务终态尚未确认", cancelRequested: "正在确认取消" } as Record<string, string>)[generationState] ?? generationState}{progress !== undefined && running ? ` · ${Math.round(progress)}%` : ""}</span>
+      {cost && <span className="nodeStatus">预估 {cost.estimate?.price ?? "无报价"} · 实际 {cost.actual ? `${cost.actual.amount} ${cost.actual.unit}（${cost.actual.source === "vendor" ? "厂商返回" : "余额差"}）` : "未知"}</span>}
       {mediaType === "video" && generationState === "completed" && value && <span className="nodeStatus" data-state={shotReview?.status === "rejected" ? "failed" : "pending"} title="审片记录绑定源文件版本；打开审片或合成时会重新核对当前版本">{shotReview?.source === value.url ? shotReview.status === "approved" ? `通过记录 · ${shotReview.start}–${shotReview.end}s（合成前核版本）` : "候选已拒收" : "视频候选 · 待审"}</span>}
     </div>}
+    {warning && running && <p className="nodeStatus" role="status">正在重试：{warning}</p>}
     {(error || generation?.error) && <p className="nodeError" role="alert">{error || generation?.error}</p>}
   </MediaNode>;
 }

@@ -3,6 +3,18 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
+  "openCinema": {
+    "id": "textNode",
+    "name": "文本",
+    "category": "文本与媒体",
+    "order": 0,
+    "icon": "text",
+    "description": "Markdown 写剧本、分镜和说明，文本可接入下游节点",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
+  },
   "exports": {
     "./react": "./src/reactView.tsx",
     "./reactPlugin": "./src/reactPlugin.ts"

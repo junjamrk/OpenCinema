@@ -5,19 +5,37 @@ import (
 	"net/http"
 )
 
+// catalogFields 只由内置目录决定：清单不能声明，旧版保存的内置供应商副本没有它们时也以目录为准。
+var catalogFields = []string{"generator", "regionUrls", "supportsPrice", "supportsBalance"}
+
+func savedBuiltinProvider(saved, builtin object) object {
+	provider := asObject(clone(saved))
+	for _, field := range catalogFields {
+		if value, declared := builtin[field]; declared {
+			provider[field] = value
+		}
+	}
+	if provider["apiUrl"] == nil && builtin["apiUrl"] != nil {
+		provider["apiUrl"] = builtin["apiUrl"]
+	}
+	return provider
+}
+
 func configuredProvider(settings object, id string) (object, error) {
+	var builtin object
+	for _, raw := range builtinMediaProviders() {
+		if provider := asObject(raw); str(provider["id"]) == id {
+			builtin = provider
+		}
+	}
 	if raw, exists := asObject(settings["mediaProviders"])[id]; exists {
 		if raw == nil {
 			return nil, fail(404, "供应商已移除")
 		}
-		return asObject(raw), nil
+		return savedBuiltinProvider(asObject(raw), builtin), nil
 	}
-	builtin := builtinMediaProviders()
-	for _, raw := range builtin {
-		provider := asObject(raw)
-		if str(provider["id"]) == id {
-			return provider, nil
-		}
+	if builtin != nil {
+		return builtin, nil
 	}
 	return nil, fail(404, "供应商不存在")
 }
@@ -73,7 +91,7 @@ func (s *server) providerConfiguration(w http.ResponseWriter, r *http.Request) e
 	s.configMu.Lock()
 	defer s.configMu.Unlock()
 	settings := asObject(s.config["settings"])
-	provider, err := configuredProvider(settings, id)
+	provider, err := s.configurableProvider(settings, id)
 	if err != nil {
 		return err
 	}

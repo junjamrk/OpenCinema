@@ -1,3 +1,4 @@
+import { openCinema, version } from "../package.json";
 import { z } from "zod";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import type { WorkspaceDocuments } from "@toonflow/nodes-scaffold/workspaceDocuments";
@@ -6,12 +7,11 @@ import CollaborationPanel from "./reactView";
 import { createService } from "./reactService";
 
 export default {
+  ...openCinema,
+  version,
   apiVersion: 1,
-  id: "collaborationExtension",
-  name: "多人协作",
-  version: "2.0.0",
   renderer: "react",
-  scope: "workspace",
+  scope: openCinema.scope as "workspace",
   view: CollaborationPanel,
   activate(context) {
     const service = createService({

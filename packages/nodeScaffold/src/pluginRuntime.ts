@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { nodeRequirementsSchema } from "./nodeCapabilities";
+import { nodeMetadataSchema, nodeRequirementsSchema } from "./nodeCapabilities";
 import { createNodeResources, nodeResourceManifestSchema } from "./nodeResources";
 import { ToolExecutionError, serializeToolError, toolAnnotationsSchema } from "./toolErrors";
 import type {
@@ -72,6 +72,7 @@ export function createPluginRuntime<View = unknown>(options: PluginRuntimeOption
     pluginIdentitySchema.parse({ apiVersion: definition.apiVersion, id: definition.id, name: definition.name, version: definition.version });
     const requires = nodeRequirementsSchema.parse(definition.requires ?? {});
     z.enum(["node", "workspace"]).optional().parse(definition.scope);
+    nodeMetadataSchema.pick({ category: true, description: true }).parse({ category: definition.category, description: definition.description });
     z.strictObject({ label: z.string().trim().min(1).max(80), placeholder: z.string().trim().min(1).max(256), tool: toolNameSchema, maxLength: z.number().int().min(1).max(100000).optional(), defaultAction: z.boolean().optional(), getState: z.custom<NonNullable<NodePluginDefinition["composer"]>["getState"]>(value => typeof value === "function").optional() }).optional().parse(definition.composer);
     for (const [name, version] of Object.entries(requires)) {
       if ((capabilities[name] ?? 0) < version) throw new Error(`插件 ${definition.id} 需要能力 ${name}@${version}`);
@@ -173,6 +174,10 @@ export function createPluginRuntime<View = unknown>(options: PluginRuntimeOption
       config, capabilities, resources,
       getService<T>(name: string) {
         signal.throwIfAborted();
+        // ACT: requires 只裁剪 getService，不是沙箱。声明由插件自报，插件与工作台同处一个 JS 上下文，仍能直接发同源请求、
+        // 操作 DOM，视图 props 的 controller 也绕得过这里；workbench 是粗粒度门面，拿到它即可用 files、ffmpeg、hostRequest。
+        // 要隔离不可信插件，只能升级为 Worker 或 iframe 加消息代理，并按服务方法逐一授权。
+        if (!Object.hasOwn(definition.requires ?? {}, name)) throw new Error(`插件 ${pluginId} 未在 requires 中声明服务：${name}`);
         if (Object.hasOwn(input.services ?? {}, name)) return input.services![name] as T;
         if (!Object.hasOwn(options.services ?? {}, name)) throw new Error(`宿主未提供服务：${name}`);
         return options.services![name] as T;

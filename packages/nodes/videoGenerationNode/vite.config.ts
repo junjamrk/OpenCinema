@@ -1,8 +1,6 @@
-import { createNodeConfig } from "@toonflow/nodes-scaffold";
+import { createNodeConfig } from "@toonflow/nodes-scaffold/reactBuild";
 
 export default createNodeConfig({
-  name: "videoGenerationNode",
-  displayName: "视频生成",
   author: "Toonflow",
-  github: "https://github.com/HBAI-Ltd/Toonflow-app",
+  github: "https://github.com/HBAI-Ltd/Toonflow-app", outDir: "../../../build/nodes/videoGenerationNode",
 }, import.meta.url);

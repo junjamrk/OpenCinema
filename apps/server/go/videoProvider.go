@@ -27,9 +27,9 @@ type videoRequestRejected struct {
 
 func (e *videoRequestRejected) Error() string {
 	if e.code != "" {
-		return fmt.Sprintf("视频供应商拒绝请求（HTTP %d，%s）；未接受生成", e.status, e.code)
+		return fmt.Sprintf("媒体供应商拒绝请求（HTTP %d，%s）；未接受生成", e.status, e.code)
 	}
-	return fmt.Sprintf("视频供应商拒绝请求（HTTP %d）；未接受生成", e.status)
+	return fmt.Sprintf("媒体供应商拒绝请求（HTTP %d）；未接受生成", e.status)
 }
 
 func builtinMediaProviders() []any {
@@ -54,18 +54,28 @@ func providerModel(provider object, id string) object {
 
 func validateVideoProvider(provider object) error {
 	protocol := videoProtocol(provider)
-	if protocol == "" {
-		return nil
-	}
-	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" {
-		return fail(400, "不支持的视频执行协议")
-	}
 	transport := str(provider["transport"])
 	if transport != "" && transport != "public" && transport != "local" {
 		return fail(400, "transport 须为 public 或 local")
 	}
-	if transport == "local" && protocol != "openaiVideo" {
-		return fail(400, "本地连接使用 openaiVideo 协议；平台协议保留公网边界")
+	if protocol == "" {
+		// ACT: 既有适配（TF-router、APIMart 等）的请求体是逐字段写死的，声明了也送不出去，所以直接拒绝。
+		// 上限是这些供应商暂时不能暴露厂商参数；升级方式是给对应适配加合入逻辑后放开此处。
+		for _, raw := range array(provider["models"]) {
+			if asObject(raw)["parameters"] != nil {
+				return fail(400, "parameters 只支持声明了 videoProtocol 的供应商")
+			}
+		}
+		return nil
+	}
+	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" && protocol != "comfyui" && protocol != "httpTask" && protocol != "adapter" {
+		return fail(400, "不支持的视频执行协议")
+	}
+	if transport == "local" && !localProtocol(protocol) {
+		return fail(400, "本地连接使用 openaiVideo、comfyui、httpTask 或同步 HTTP 协议；平台协议保留公网边界")
+	}
+	if protocol == "comfyui" && transport != "local" {
+		return fail(400, "comfyui 协议须声明 transport: local")
 	}
 	if protocol == "ark" {
 		if err := validateArkVideoBase(providerBase(provider, object{})); err != nil {
@@ -79,6 +89,16 @@ func validateVideoProvider(provider object) error {
 	if cancelMode != "" && cancelMode != "none" && cancelMode != "request" {
 		return fail(400, "cancelMode 须为 none 或 request")
 	}
+	if protocol == "httpTask" {
+		if err := validateHttpTask(provider); err != nil {
+			return err
+		}
+	}
+	if protocol == "adapter" {
+		if err := validateAdapterProvider(provider); err != nil {
+			return err
+		}
+	}
 	if protocol == "openaiVideo" {
 		endpoint := str(asObject(provider["endpoints"])["video"])
 		if endpoint == "" {
@@ -90,8 +110,26 @@ func validateVideoProvider(provider object) error {
 	}
 	for _, raw := range array(provider["models"]) {
 		model := asObject(raw)
-		if str(model["type"]) != "video" {
-			return fail(400, "视频协议供应商只能声明 video 模型")
+		// 须在下面的 continue 之前：ComfyUI 的图片和音频模型不走后续校验。
+		if err := validateModelParameters(model); err != nil {
+			return err
+		}
+		kind := str(model["type"])
+		if protocol == "comfyui" {
+			if err := validateComfyModel(model); err != nil {
+				return err
+			}
+			if kind != "video" {
+				continue
+			}
+		} else if kind != "video" && (!protocolCoversAllMedia(protocol) || (kind != "image" && kind != "audio")) {
+			return fail(400, protocol+" 协议只能声明 video 模型；图片和音频须用 fal、replicate、httpTask 或 adapter")
+		}
+		if protocol == "httpTask" && len(taskSpec(provider, kind)) == 0 {
+			return fail(400, "模型 "+str(model["id"])+" 没有对应的 task."+kind+" 声明")
+		}
+		if (protocol == "httpTask" || protocol == "adapter") && model["video"] != nil {
+			return fail(400, protocol+" 自己映射字段，不使用 model.video")
 		}
 		if audio := model["audio"]; audio != nil && audio != "optional" {
 			if _, ok := audio.(bool); !ok {
@@ -169,20 +207,19 @@ func validateVideoProvider(provider object) error {
 				return fail(400, "视频字段映射无效")
 			}
 		}
-		for _, rawMode := range array(model["mode"]) {
-			valid := false
-			if mode, ok := rawMode.(string); ok {
-				for _, allowed := range []string{"text", "singleImage", "startEndRequired", "endFrameOptional", "startFrameOptional"} {
-					valid = valid || mode == allowed
-				}
-			} else if modes, ok := rawMode.([]any); ok && len(modes) > 0 && len(modes) <= 3 {
-				valid = true
-				for _, item := range modes {
-					valid = valid && regexp.MustCompile("^(image|video|audio)Reference:([1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-6])$").MatchString(str(item))
-				}
+		// ComfyUI 的参数按 comfy.inputs.parameters 写进工作流，不进请求体，不存在字段冲突。
+		if protocol != "comfyui" {
+			reserved := map[string]bool{}
+			for _, target := range videoFieldTargets(model, protocol) {
+				reserved[target] = true
 			}
-			if !valid {
-				return fail(400, "视频模型 mode 声明无效")
+			for _, target := range videoReservedFields[protocol] {
+				reserved[target] = true
+			}
+			for name := range asObject(asObject(model["parameters"])["properties"]) {
+				if reserved[name] {
+					return fail(400, "模型参数与协议字段冲突: "+name)
+				}
 			}
 		}
 		for key, value := range asObject(options["defaults"]) {
@@ -200,6 +237,25 @@ func validateVideoProvider(provider object) error {
 				return fail(400, "视频 stringFields 无效")
 			}
 		}
+		if kind != "video" {
+			continue
+		}
+		for _, rawMode := range array(model["mode"]) {
+			valid := false
+			if mode, ok := rawMode.(string); ok {
+				for _, allowed := range []string{"text", "singleImage", "startEndRequired", "endFrameOptional", "startFrameOptional"} {
+					valid = valid || mode == allowed
+				}
+			} else if modes, ok := rawMode.([]any); ok && len(modes) > 0 && len(modes) <= 3 {
+				valid = true
+				for _, item := range modes {
+					valid = valid && regexp.MustCompile("^(image|video|audio)Reference:([1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-6])$").MatchString(str(item))
+				}
+			}
+			if !valid {
+				return fail(400, "视频模型 mode 声明无效")
+			}
+		}
 		if len(array(model["mode"])) == 0 {
 			return fail(400, "视频模型须声明支持的 mode，不能猜测参考能力")
 		}
@@ -207,13 +263,78 @@ func validateVideoProvider(provider object) error {
 	return nil
 }
 
+// videoReservedFields 列出协议在请求体里固定写入、又不经 inputMap 的字段。
+var videoReservedFields = map[string][]string{"ark": {"model", "content", "ratio", "execution_expires_after"}, "openaiVideo": {"model", "size"}}
+
+// videoFieldTargets 给出输入字段写入请求体时使用的字段名，inputMap 优先于协议默认值。
+func videoFieldTargets(model object, protocol string) map[string]string {
+	targets := map[string]string{"prompt": "prompt", "duration": "seconds"}
+	if protocol != "openaiVideo" {
+		targets["duration"], targets["ratio"], targets["resolution"], targets["generateAudio"] = "duration", "aspect_ratio", "resolution", "generate_audio"
+	}
+	for field, target := range asObject(asObject(model["video"])["inputMap"]) {
+		targets[field] = str(target)
+	}
+	return targets
+}
+
+// videoBaseBody 是请求体的起点：用户填的模型参数覆盖 defaults，与已映射字段重名时由调用方按冲突拒绝。
+func videoBaseBody(model, input object) object {
+	body := asObject(clone(asObject(model["video"])["defaults"]))
+	for key, value := range asObject(input["parameters"]) {
+		body[key] = value
+	}
+	return body
+}
+
+// 这些协议的任务接口与媒体类型无关；openaiVideo 和 ark 的合同只覆盖视频。
+func protocolCoversAllMedia(protocol string) bool {
+	return protocol == "fal" || protocol == "replicate" || protocol == "httpTask" || protocol == "adapter"
+}
+
+func localProtocol(protocol string) bool {
+	return protocol == "openaiVideo" || protocol == "comfyui" || protocol == "httpTask"
+}
+
+func providerCancelMode(provider object, kind string) string {
+	protocol := videoProtocol(provider)
+	if protocol == "fal" || protocol == "replicate" || provider["cancelMode"] == "request" || len(asObject(taskSpec(provider, kind)["cancel"])) > 0 {
+		return "request"
+	}
+	return "none"
+}
+
+var mediaInputFields = map[string][]string{
+	"image": {"prompt", "ratio", "size", "images"},
+	"video": {"prompt", "duration", "ratio", "resolution", "generateAudio", "images", "videos", "audios", "firstFrame", "lastFrame"},
+	"audio": {"prompt", "voice", "speed", "volume", "pitch", "language", "format", "sampleRate", "images", "audios"},
+}
+
 func videoInputField(key string) bool {
-	for _, field := range []string{"prompt", "duration", "ratio", "resolution", "generateAudio", "images", "videos", "audios", "firstFrame", "lastFrame"} {
-		if key == field {
-			return true
+	for _, fields := range mediaInputFields {
+		for _, field := range fields {
+			if key == field {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// 节点总会带上 size、ratio、language 等默认值。图片和音频模型没声明这项能力时不发占位值；
+// 声明了能力却没有映射，就和未映射的参考素材一样明确拒绝。
+func undeclaredMediaDefault(model object, field string) bool {
+	switch field {
+	case "prompt", "images", "videos", "audios":
+		return false
+	case "ratio":
+		return len(array(model["imageRatios"])) == 0
+	case "size":
+		return len(array(model["imageSizes"])) == 0
+	case "voice":
+		return len(array(model["voices"])) == 0
+	}
+	return true
 }
 
 func validateVideoInputs(model, input object) error {
@@ -320,7 +441,7 @@ func validateVideoInputs(model, input object) error {
 func videoEndpoint(base, relative string) (*url.URL, error) {
 	u, err := url.Parse(base)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return nil, fail(400, "视频供应商地址无效")
+		return nil, fail(400, "媒体供应商地址无效")
 	}
 	r, err := url.Parse(relative)
 	if err != nil || r.IsAbs() || r.Host != "" || r.RawQuery != "" || r.Fragment != "" || strings.ContainsAny(relative, "\\\x00") {
@@ -374,10 +495,12 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 		}
 		base = endpoint.String()
 	}
-	u, err := videoEndpoint(base, relative)
+	path, query, _ := strings.Cut(relative, "?")
+	u, err := videoEndpoint(base, path)
 	if err != nil {
 		return nil, err
 	}
+	u.RawQuery = query
 	client, err := videoClient(provider, config)
 	if err != nil {
 		return nil, err
@@ -388,21 +511,35 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 	}
 	key := strings.TrimSpace(strings.TrimPrefix(str(config["apiKey"]), "Bearer "))
 	if key == "" && str(provider["transport"]) != "local" {
-		return nil, fail(400, "请先配置视频供应商 API Key")
+		return nil, fail(400, "请先配置媒体供应商 API Key")
 	}
-	if key != "" {
-		prefix := "Bearer "
-		if videoProtocol(provider) == "fal" {
-			prefix = "Key "
+	if videoProtocol(provider) == "httpTask" {
+		for name, value := range asObject(provider["headers"]) {
+			req.Header.Set(name, str(value))
 		}
-		req.Header.Set("Authorization", prefix+key)
+	}
+	header, prefix := videoAuthHeader(provider)
+	if key != "" {
+		req.Header.Set(header, prefix+key)
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+	if header != "Authorization" {
+		// 标准库跨域重定向只剥离 Authorization，自定义鉴权头会被带走，这里一律不跟随跨来源重定向。
+		follow := client.CheckRedirect
+		strict := *client
+		strict.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+			if r.URL.Host != via[0].URL.Host || r.URL.Scheme != via[0].URL.Scheme {
+				return fail(403, "带凭据的供应商请求不能跨来源重定向")
+			}
+			return follow(r, via)
+		}
+		client = &strict
+	}
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("视频供应商连接失败: %w", err)
+		return nil, fmt.Errorf("媒体供应商连接失败: %w", err)
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		code := ""
@@ -420,9 +557,21 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 		case 400, 401, 403, 404, 405, 422:
 			return nil, &videoRequestRejected{status: response.StatusCode, code: code}
 		}
-		return nil, fail(502, fmt.Sprintf("视频供应商 HTTP %d；未读取可能包含凭据的错误正文", response.StatusCode))
+		return nil, fail(502, fmt.Sprintf("媒体供应商 HTTP %d；未读取可能包含凭据的错误正文", response.StatusCode))
 	}
 	return response, nil
+}
+
+func videoAuthHeader(provider object) (string, string) {
+	switch videoProtocol(provider) {
+	case "fal":
+		return "Authorization", "Key "
+	case "httpTask":
+		if auth := asObject(provider["auth"]); str(auth["header"]) != "" {
+			return str(auth["header"]), str(auth["prefix"])
+		}
+	}
+	return "Authorization", "Bearer "
 }
 
 func videoJSON(ctx context.Context, provider, config object, method, relative string, body any) (object, error) {
@@ -450,11 +599,11 @@ func videoJSON(ctx context.Context, provider, config object, method, relative st
 		return nil, err
 	}
 	if len(data) > 2*1024*1024 {
-		return nil, fail(502, "视频任务响应超过2MiB")
+		return nil, fail(502, "媒体任务响应超过2MiB")
 	}
 	var result object
 	if json.Unmarshal(data, &result) != nil || result == nil {
-		return nil, fail(502, "视频任务响应须为 JSON 对象")
+		return nil, fail(502, "媒体任务响应须为 JSON 对象")
 	}
 	return result, nil
 }
@@ -464,18 +613,16 @@ func videoBody(model, input, refs object, protocol string) (object, error) {
 		return arkVideoBody(model, input, refs)
 	}
 	options := asObject(model["video"])
-	body := asObject(clone(options["defaults"]))
+	body := videoBaseBody(model, input)
 	mapping := asObject(options["inputMap"])
-	defaults := map[string]string{"prompt": "prompt", "duration": "seconds"}
-	if protocol != "openaiVideo" {
-		defaults["duration"] = "duration"
-		defaults["ratio"] = "aspect_ratio"
-		defaults["resolution"] = "resolution"
-		defaults["generateAudio"] = "generate_audio"
-	}
-	for _, field := range []string{"prompt", "duration", "ratio", "resolution", "generateAudio", "images", "videos", "audios", "firstFrame", "lastFrame"} {
+	targets := videoFieldTargets(model, protocol)
+	kind := str(model["type"])
+	for _, field := range mediaInputFields[kind] {
 		value := input[field]
 		if protocol == "openaiVideo" && field == "generateAudio" && mapping[field] == nil && model["audio"] != "optional" {
+			continue
+		}
+		if kind != "video" && mapping[field] == nil && undeclaredMediaDefault(model, field) {
 			continue
 		}
 		if field == "images" || field == "videos" || field == "audios" || field == "firstFrame" || field == "lastFrame" {
@@ -487,10 +634,7 @@ func videoBody(model, input, refs object, protocol string) (object, error) {
 		if items, ok := value.([]any); ok && len(items) == 0 {
 			continue
 		}
-		target := str(mapping[field])
-		if target == "" {
-			target = defaults[field]
-		}
+		target := targets[field]
 		if target == "" {
 			if field == "ratio" || field == "resolution" {
 				continue
@@ -536,7 +680,7 @@ func videoBody(model, input, refs object, protocol string) (object, error) {
 }
 
 func arkVideoBody(model, input, refs object) (object, error) {
-	body := asObject(clone(asObject(model["video"])["defaults"]))
+	body := videoBaseBody(model, input)
 	if refs["executionExpiresAfter"] != nil {
 		if number(refs["executionExpiresAfter"]) != 3600 {
 			return nil, fail(400, "临时参考仅支持已声明的1小时方舟任务预算")
@@ -603,8 +747,20 @@ func arkVideoBody(model, input, refs object) (object, error) {
 	return body, nil
 }
 
+func newRemoteJob(ctx context.Context, provider, config, input object) object {
+	job := currentVideoJob(ctx)
+	job["protocol"], job["providerId"], job["modelId"] = videoProtocol(provider), provider["id"], input["modelId"]
+	job["providerRevision"], job["configRevision"], job["cancelMode"] = provider["revision"], videoConfigRevision(config), providerCancelMode(provider, str(input["mediaType"]))
+	delete(job, "phase")
+	return job
+}
+
 func submitVideo(ctx context.Context, provider, config, input, refs object) (object, object, error) {
 	protocol := videoProtocol(provider)
+	job := newRemoteJob(ctx, provider, config, input)
+	if protocol == "httpTask" {
+		return submitHttpTask(ctx, provider, config, input, refs, job)
+	}
 	model := providerModel(provider, str(input["modelId"]))
 	body, err := videoBody(model, input, refs, protocol)
 	if err != nil {
@@ -624,13 +780,6 @@ func submitVideo(ctx context.Context, provider, config, input, refs object) (obj
 		}
 		endpoint = "models/" + parts[0] + "/" + parts[1] + "/predictions"
 		body = object{"input": body}
-	}
-	job := currentVideoJob(ctx)
-	job["protocol"], job["providerId"], job["modelId"] = protocol, provider["id"], input["modelId"]
-	job["providerRevision"], job["configRevision"], job["cancelMode"] = provider["revision"], videoConfigRevision(config), "none"
-	delete(job, "phase")
-	if protocol == "fal" || protocol == "replicate" || provider["cancelMode"] == "request" {
-		job["cancelMode"] = "request"
 	}
 	var response object
 	if protocol == "openaiVideo" {
@@ -695,7 +844,7 @@ func submitVideo(ctx context.Context, provider, config, input, refs object) (obj
 		id = str(response["request_id"])
 	}
 	if !regexp.MustCompile("^[a-zA-Z0-9_-]{1,256}$").MatchString(id) {
-		return nil, nil, fail(502, "供应商未返回有效视频任务 ID；禁止自动重新提交")
+		return nil, nil, fail(502, "供应商未返回有效媒体任务 ID；禁止自动重新提交")
 	}
 	job["id"] = id
 	switch protocol {
@@ -741,16 +890,17 @@ func videoResponsePath(base, value string) (string, error) {
 	}
 	u, err := url.Parse(value)
 	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return "", fail(502, "视频任务地址无效")
+		return "", fail(502, "媒体任务地址无效")
 	}
 	u = b.ResolveReference(u)
 	if u.Scheme != b.Scheme || u.Host != b.Host || !strings.HasPrefix(u.Path, b.Path) {
-		return "", fail(502, "视频任务地址不能改变供应商来源或路径边界")
+		return "", fail(502, "媒体任务地址不能改变供应商来源或路径边界")
 	}
 	return strings.TrimPrefix(u.Path, b.Path), nil
 }
 
-func videoOutputURLs(result object, protocol string) []string {
+func videoOutputURLs(result, provider object, kind string) []string {
+	protocol := videoProtocol(provider)
 	values := []string{}
 	var collect func(any)
 	collect = func(raw any) {
@@ -767,15 +917,26 @@ func videoOutputURLs(result object, protocol string) []string {
 			}
 		}
 	}
-	if protocol == "ark" {
+	if protocol == "httpTask" {
+		collect(taskValue(result, str(taskSpec(provider, kind)["outputPath"])))
+	} else if protocol == "adapter" {
+		collect(result["outputs"])
+	} else if protocol == "ark" {
 		collect(asObject(result["content"])["video_url"])
 	} else if protocol == "replicate" {
 		collect(result["output"])
 	} else {
-		collect(result["video"])
-		collect(result["videos"])
+		collect(result[kind])
+		collect(result[kind+"s"])
 	}
 	return values
+}
+
+func remoteJobState(provider object, kind string, result object) string {
+	if videoProtocol(provider) == "httpTask" {
+		return httpTaskState(taskSpec(provider, kind), result)
+	}
+	return videoRemoteState(result)
 }
 
 func videoRemoteState(result object) string {

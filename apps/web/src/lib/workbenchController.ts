@@ -22,6 +22,7 @@ import { inferMediaFileType } from "./mediaFileTypes";
 import { createInstalledPluginLoader } from "./installedPluginLoader";
 import { localApiUrl } from "./openCinemaTransport";
 import { assetLibraryClient, assetMediaKind, type AssetLibraryEntry } from "./assetLibraryClient";
+import { builtinNodes } from "./builtinNodes";
 import { pluginPackageSchema, workbenchSettingsClient } from "./workbenchSettingsClient";
 import { isNodeOutput } from "@toonflow/nodes-scaffold/values";
 import { canvasNodePosition, createCanvasQueries, isCanvasRead, type CanvasQueryAvailability, type CanvasQueryRuntime } from "@/lib/canvasQueries";
@@ -31,23 +32,9 @@ import type { WorkbenchController, WorkbenchNodeViewProps, WorkbenchSnapshot } f
 
 type View = ComponentType<WorkbenchNodeViewProps>;
 type TextDraft = { text: string; session: DocumentSession };
+type PluginDetails = { category?: string; description?: string; icon?: string };
 type NodePluginError = { pluginId: string; message: string; definition?: NodePluginDefinition<View> };
-const builtinPlugins: Record<string, { label: string; icon?: string; scope?: "workspace"; load(): Promise<PluginModule<View>> }> = {
-  textNode: { label: "文本", icon: "text", load: () => import("@toonflow/node-text/reactPlugin") },
-  imageNode: { label: "图片", icon: "image", load: () => import("@toonflow/node-image/reactPlugin") },
-  videoNode: { label: "视频", icon: "video", load: () => import("@toonflow/node-video/reactPlugin") },
-  audioNode: { label: "音频", icon: "audio", load: () => import("@toonflow/node-audio/reactPlugin") },
-  imageGenerationNode: { label: "图像生成", icon: "image", load: () => import("@toonflow/node-image-generation/reactPlugin") },
-  videoGenerationNode: { label: "视频生成", icon: "video", load: () => import("@toonflow/node-video-generation/reactPlugin") },
-  audioGenerationNode: { label: "音频生成", icon: "audio", load: () => import("@toonflow/node-audio-generation/reactPlugin") },
-  frameAnalysisNode: { label: "逐帧拉片", icon: "frames", load: () => import("@toonflow/node-frame-analysis/reactPlugin") },
-  mediaInfoNode: { label: "媒体信息", icon: "info", load: () => import("@toonflow/node-media-info/reactPlugin") },
-  blockoutNode: { label: "Blockout 排演", icon: "spatial", load: () => import("@toonflow/node-blockout/reactPlugin") },
-  director3dNode: { label: "3D 导演台", icon: "spatial", load: () => import("@toonflow/node-director3d/reactPlugin") },
-  videoDepthNode: { label: "视频深度白模", icon: "motion", load: () => import("@toonflow/node-video-depth/reactPlugin") },
-  motionAnalysisNode: { label: "Motion 运动分析", icon: "motion", load: () => import("@toonflow/node-motion-analysis/reactPlugin") },
-  collaborationExtension: { label: "协作", scope: "workspace", load: () => import("@toonflow/node-collaboration/reactPlugin") as unknown as Promise<PluginModule<View>> },
-};
+const builtinPlugins = builtinNodes as unknown as Record<string, PluginDetails & { displayName: string; scope: "node" | "workspace"; load(): Promise<PluginModule<View>> }>;
 const relativePath = z.string().min(1).max(4096).refine(value => !/^(?:[\\/]|[a-z][a-z\d+.-]*:)/i.test(value)
   && !value.includes("\0") && value.replaceAll("\\", "/").split("/").every(part => !!part && part !== "." && part !== ".."), "路径必须位于工作区内");
 
@@ -68,7 +55,8 @@ export function createWorkbenchController() {
   const activated = new Map<string, NodePluginDefinition<View>>();
   const activatedConfigs = new Map<string, string>();
   const definitions = new Map<string, NodePluginDefinition<View>>();
-  const pluginLabels = new Map(Object.entries(builtinPlugins).map(([id, item]) => [id, item.label]));
+  const pluginLabels = new Map(Object.entries(builtinPlugins).map(([id, item]) => [id, item.displayName]));
+  const pluginDetails = new Map<string, PluginDetails>(Object.entries(builtinPlugins));
   const disabledPlugins = new Set<string>();
   const loadingPlugins = new Map<string, Promise<NodePluginDefinition<View>>>();
   const pluginSources = new Map<string, string>();
@@ -107,7 +95,7 @@ export function createWorkbenchController() {
     canUndo: false, canRedo: false, readOnly: false, transitioning: false, projectName: "", canvasFiles: [], canvasFolders: [], plugins: [],
     host: { name: "未连接宿主", connected: false, canSend: false }, selectedIds: [], workspacePlugins: [],
   };
-  const runtime = createPluginRuntime<View>({ loadModule: createInstalledPluginLoader(controllerLifetime.signal) as (source: string) => Promise<PluginModule<View>>, capabilities: { documentEditing: 1, workspaceFiles: 1, workspaceReadRange: 1, nodeHistory: 1, workspaceDocuments: 1, workspaceExtensions: 1, pluginResources: 1, ffmpeg: 1, ...(typeof WebAssembly === "object" ? { webAssembly: 1 } : {}), ...(typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function" ? { worker: 1 } : {}) }, renderer: "react" });
+  const runtime = createPluginRuntime<View>({ loadModule: createInstalledPluginLoader(controllerLifetime.signal) as (source: string) => Promise<PluginModule<View>>, capabilities: { document: 1, workbench: 1, files: 1, inputs: 1, state: 1, documentEditing: 1, workspaceFiles: 1, workspaceReadRange: 1, nodeHistory: 1, workspaceDocuments: 1, workspaceExtensions: 1, collaboration: 1, pluginResources: 1, ffmpeg: 1, ...(typeof WebAssembly === "object" ? { webAssembly: 1 } : {}), ...(typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function" ? { worker: 1 } : {}) }, renderer: "react" });
 
   function publish(patch: Partial<WorkbenchSnapshot> = {}) {
     const current = session?.getSnapshot();
@@ -237,7 +225,10 @@ export function createWorkbenchController() {
     return next;
   }
   function publishPlugins() {
-    publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => ({ type: `remote-${id}`, label, icon: definitions.get(id)?.icon ?? builtinPlugins[id]?.icon, composer: definitions.get(id)?.composer, category: /Generation/.test(id) ? "生成" : /Analysis|Info|Depth/.test(id) ? "分析" : /blockout|director/.test(id) ? "空间与摄影" : "文本与媒体", supported: !disabledPlugins.has(id) })),
+    publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => {
+      const details = { ...pluginDetails.get(id), ...definitions.get(id) };
+      return { type: `remote-${id}`, label, description: details.description, icon: details.icon, composer: details.composer, category: details.category, supported: !disabledPlugins.has(id) };
+    }),
       workspacePlugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) === "workspace").map(([id, label]) => ({ id, label, enabled: !disabledPlugins.has(id) })) });
   }
   function pluginAvailability(pluginId: string, id?: string): CanvasQueryAvailability {
@@ -495,7 +486,7 @@ export function createWorkbenchController() {
     const response = await fetch("/api/nodes/get", { headers: { "x-toonflow-workspace": "1" }, signal: controllerLifetime.signal, cache: "no-store" });
     const body = await response.json();
     if (!response.ok || body.code !== 200) throw new Error(body.message || "插件目录读取失败");
-    const catalog = z.array(z.object({ name: nodeId, id: nodeId.optional(), displayName: z.string().optional(), version: z.string().optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), requires: nodeRequirementsSchema.optional(), scope: z.enum(["node", "workspace"]).optional(), url: z.string().optional(), config: z.record(z.string(), z.json()).nullish() })).parse(body.data);
+    const catalog = z.array(z.object({ name: nodeId, id: nodeId.optional(), displayName: z.string().optional(), version: z.string().optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), requires: nodeRequirementsSchema.optional(), scope: z.enum(["node", "workspace"]).optional(), category: z.string().optional().catch(undefined), description: z.string().optional().catch(undefined), icon: z.string().optional().catch(undefined), url: z.string().optional(), config: z.record(z.string(), z.json()).nullish() })).parse(body.data);
     const installedIds = new Set(catalog.map(entry => entry.id ?? entry.name));
     const changedIds = new Set([...pluginSources.keys()].filter(id => !installedIds.has(id)));
     for (const entry of catalog) {
@@ -510,12 +501,13 @@ export function createWorkbenchController() {
     const failures: string[] = [];
     for (const id of pluginSources.keys()) if (!installedIds.has(id)) {
       await runtime.unload(id); pluginSources.delete(id); definitions.delete(id); views.delete(id); views.delete(`remote-${id}`);
-      pluginLabels.delete(id); pluginScopes.delete(id); pluginRequirements.delete(id); workspaceSubscriptions.get(id)?.(); workspaceSubscriptions.delete(id); workspacePlugins.delete(id);
+      pluginLabels.delete(id); pluginDetails.delete(id); pluginScopes.delete(id); pluginRequirements.delete(id); workspaceSubscriptions.get(id)?.(); workspaceSubscriptions.delete(id); workspacePlugins.delete(id);
     }
     for (const entry of catalog) {
       const id = entry.id ?? entry.name;
       if (entry.builtin && !builtinPlugins[id]) continue;
-      pluginLabels.set(id, entry.displayName ?? builtinPlugins[id]?.label ?? id);
+      pluginLabels.set(id, entry.displayName ?? builtinPlugins[id]?.displayName ?? id);
+      pluginDetails.set(id, { category: entry.category, description: entry.description, icon: entry.icon });
       pluginScopes.set(id, entry.scope ?? builtinPlugins[id]?.scope ?? "node");
       pluginConfigs.set(id, entry.config ?? {});
       if (entry.requires) pluginRequirements.set(id, entry.requires); else pluginRequirements.delete(id);
@@ -1792,6 +1784,12 @@ export function createWorkbenchController() {
     }
     if (name === "getProviderModels" || name === "setProviderModels") {
       const input = peripheralToolSchemas[name].parse(args);
+      if (name === "setProviderModels") {
+        // 工作流会在 ComfyUI 上执行，只能由用户在设置页导入；Agent 可以改名或移除已有工作流，不能新增或改图。
+        const saved = (await workbenchSettingsClient.providers(signal)).find(provider => provider.id === input.providerId)?.models ?? [];
+        const changed = peripheralToolSchemas.setProviderModels.parse(args).models.some(model => "comfy" in model && JSON.stringify(model.comfy) !== JSON.stringify(saved.find(item => item.id === model.id)?.comfy));
+        if (changed) throw new Error("ComfyUI 工作流只能由用户在设置页导入；Agent 不能新增或修改工作流");
+      }
       const provider = name === "setProviderModels" ? await workbenchSettingsClient.saveProviderModels(input.providerId, peripheralToolSchemas.setProviderModels.parse(args).models, peripheralToolSchemas.setProviderModels.parse(args).expectedRevision, signal) : (await workbenchSettingsClient.providers(signal)).find(provider => provider.id === input.providerId);
       if (!provider) throw new Error("供应商不存在");
       if (name === "setProviderModels") { window.dispatchEvent(new Event("toonflow:provider-config-changed")); return { providerId: provider.id, providerRevision: provider.revision, modelCount: provider.models.length, saved: true }; }
@@ -1816,7 +1814,9 @@ export function createWorkbenchController() {
           const target = currentSession(), content = await createWorkspaceFiles(target.getSnapshot().directory).read(input.path, 2 * 1024 ** 2, signal);
           requireSession(target); signal.throwIfAborted();
           if (await contentRevision(content) !== input.fileRevision) throw new Error("供应商清单已变化，请重新读取fileRevision");
-          provider = await workbenchSettingsClient.addProvider(new TextDecoder().decode(content), signal); requireSession(target);
+          const source = new TextDecoder().decode(content);
+          if (JSON.parse(source).models?.some?.((model: { comfy?: unknown }) => model?.comfy)) throw new Error("ComfyUI 工作流只能由用户在设置页导入；Agent 不能通过清单写入工作流");
+          provider = await workbenchSettingsClient.addProvider(source, signal); requireSession(target);
         }
         providerId = provider.id; providerRevision = provider.revision;
       }

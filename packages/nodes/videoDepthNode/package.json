@@ -3,6 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "openCinema": {
+    "id": "videoDepthNode",
+    "name": "视频深度白模",
+    "category": "分析",
+    "order": 12,
+    "icon": "motion",
+    "description": "用本地模型把视频转成深度白模参考",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
+  },
   "scripts": {
     "build": "vite build --config viteConfig.ts",
     "dev": "vite build --watch --config viteConfig.ts",

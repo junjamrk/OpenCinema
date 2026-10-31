@@ -3,6 +3,18 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
+  "openCinema": {
+    "id": "audioGenerationNode",
+    "name": "音频生成",
+    "category": "生成",
+    "order": 6,
+    "icon": "audio",
+    "description": "用文本或参考素材生成配音与音效",
+    "requires": {
+      "document": 1,
+      "workbench": 1
+    }
+  },
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",

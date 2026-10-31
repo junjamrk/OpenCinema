@@ -1,3 +1,4 @@
+import { openCinema } from "../package.json";
 import { z } from "zod";
 import type { PluginActivationContext } from "@toonflow/nodes-scaffold/contracts";
 import { pluginServices, readNodeData, mediaValueSchema, nodePreconditionError } from "@toonflow/node-shared/reactNode";
@@ -12,7 +13,7 @@ async function digest(bytes: ArrayBuffer) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(value => value.toString(16).padStart(2, "0")).join("");
 }
 export function createVideoDepthData() {
-  return { label: "视频深度白模", analysisSettings: { start: 0, end: 1, sampleFps: 6 }, outputs: {}, handles: [
+  return { label: openCinema.name, analysisSettings: { start: 0, end: 1, sampleFps: 6 }, outputs: {}, handles: [
     { id: "input", type: "target", dataType: "VIDEO", label: "原视频" },
     { id: "video", type: "source", dataType: "VIDEO", label: "深度参考" },
     { id: "manifest", type: "source", dataType: "FILE", label: "来源与编码" },

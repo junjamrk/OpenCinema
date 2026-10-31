@@ -26,9 +26,9 @@ func localMediaConnectionState(settings object) object {
 	if endpoint == "" {
 		endpoint = "http://127.0.0.1:8188"
 	}
-	config := object{"enabled": boolean(saved["enabled"]), "endpoint": endpoint, "backend": "comfyui", "modelFamily": "minimaxH3"}
+	config := object{"enabled": boolean(saved["enabled"]), "endpoint": endpoint, "backend": "comfyui"}
 	encoded, _ := json.Marshal(config)
-	return object{"connectionId": "localComfy", "config": config, "configRevision": hash(encoded), "scope": "localRuntime", "executionSupported": false}
+	return object{"connectionId": "localComfy", "config": config, "configRevision": hash(encoded), "scope": "localRuntime", "executionSupported": true}
 }
 
 func localMediaEndpoint(value string) (*url.URL, error) {
@@ -172,7 +172,7 @@ func requireLocalMediaRevision(input, state object) error {
 }
 
 func localComfyClient(endpoint *url.URL) *http.Client {
-	// ACT: 单个已登记的 IP、端口和路径前缀，只执行能力读取，不提供通用私网代理。
+	// ACT: 只连已登记的单个 IP 和端口，不跟随重定向；不提供通用私网代理，路径由各协议自己限定。
 	return &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 		return fail(403, "本地执行连接不接受重定向")
 	}, Transport: &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -180,12 +180,56 @@ func localComfyClient(endpoint *url.URL) *http.Client {
 			return nil, fail(403, "本地执行连接不能改变目标 IP 或端口")
 		}
 		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, endpoint.Host)
-	}, MaxResponseHeaderBytes: 64 * 1024}}
+	}, DisableKeepAlives: true, MaxResponseHeaderBytes: 64 * 1024}}
+}
+
+// localProviderClient 只给声明 transport:"local" 且地址通过 localMediaEndpoint 的 Provider 换固定拨号客户端；
+// 公网 Provider 返回 nil，继续由 safeClient 封锁私网。返回的 base 是规范化后的地址，固定拨号按它比对目标。
+func localProviderClient(provider object, base string) (*http.Client, string, error) {
+	if str(provider["transport"]) != "local" {
+		return nil, base, nil
+	}
+	endpoint, err := localMediaEndpoint(base)
+	if err != nil {
+		return nil, "", err
+	}
+	client := localComfyClient(endpoint)
+	// 同步接口跑完模型才返回；任务上下文的上限也是 30 分钟。
+	client.Timeout = 30 * time.Minute
+	return client, endpoint.String(), nil
+}
+
+// resultClient 选产物下载的客户端：本地服务同 IP、同端口的产物走固定拨号客户端，其余一律按公网规则下载。
+func resultClient(provider, config object, result string) (*http.Client, string, error) {
+	client, base, err := localProviderClient(provider, providerBase(provider, config))
+	if err != nil {
+		return nil, "", err
+	}
+	if client == nil {
+		return safeClient(), result, nil
+	}
+	target, err := url.Parse(result)
+	if err != nil {
+		return nil, "", fail(502, "本地服务返回的产物地址无效")
+	}
+	endpoint, err := url.Parse(base)
+	if err != nil {
+		return nil, "", err
+	}
+	host := target.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		host = "127.0.0.1"
+	}
+	if target.Scheme != endpoint.Scheme || net.JoinHostPort(host, target.Port()) != endpoint.Host {
+		return safeClient(), result, nil
+	}
+	target.Host = endpoint.Host
+	return client, target.String(), nil
 }
 
 func localComfyJSON(ctx context.Context, client *http.Client, endpoint *url.URL, path string, maxBytes int64) (object, error) {
-	if path != "/system_stats" && path != "/object_info" {
-		return nil, fail(403, "本地连接仅允许读取 ComfyUI 能力端点")
+	if path != "/system_stats" && path != "/object_info" && path != "/queue" && !strings.HasPrefix(path, "/history/") {
+		return nil, fail(403, "本地连接仅允许读取 ComfyUI 状态端点")
 	}
 	target := *endpoint
 	target.Path += path

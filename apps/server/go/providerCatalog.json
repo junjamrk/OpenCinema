@@ -3,6 +3,10 @@
     "id": "tfRouter",
     "label": "TF-router",
     "version": "2.0.2",
+    "generator": "tfRouter",
+    "apiUrl": "https://api.toonflow.net/v1",
+    "supportsPrice": true,
+    "supportsBalance": true,
     "rules": [
       {
         "type": "input",
@@ -373,6 +377,14 @@
     "id": "apiMart",
     "label": "APIMart",
     "version": "2.0.0",
+    "generator": "apiMart",
+    "apiUrl": "https://api.apib.ai/v1",
+    "regionUrls": {
+      "field": "isOverseas",
+      "urls": {
+        "2": "https://api.apimart.ai/v1"
+      }
+    },
     "rules": [
       {
         "type": "input",
@@ -709,6 +721,8 @@
     "id": "metaso",
     "label": "秘塔版MiniMax H3",
     "version": "2.0.0",
+    "generator": "metaso",
+    "apiUrl": "https://metaso.cn/api/minimax",
     "rules": [
       {
         "type": "input",
@@ -776,6 +790,8 @@
     "id": "compshare",
     "label": "优云智算",
     "version": "2.0.0",
+    "generator": "compshare",
+    "apiUrl": "https://api.modelverse.cn",
     "rules": [
       {
         "type": "input",

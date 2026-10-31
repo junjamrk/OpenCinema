@@ -1,7 +1,9 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -9,18 +11,24 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var pluginName = regexp.MustCompile(`^[a-z][a-zA-Z0-9]{0,95}$`)
 
+// builtinNodes.json 由 packages/nodeScaffold/scripts/generateBuiltinNodes.ts 生成，不在此手写名单。
+//
+//go:embed builtinNodes.json
+var builtinNodeCatalog []byte
+
 func builtinNodes() []any {
-	nodes := []any{}
-	for _, item := range [][2]string{{"textNode", "文本"}, {"imageNode", "图片"}, {"videoNode", "视频"}, {"audioNode", "音频"}, {"imageGenerationNode", "图片生成"}, {"videoGenerationNode", "视频生成"}, {"audioGenerationNode", "音频生成"}, {"frameAnalysisNode", "视频分析"}, {"mediaInfoNode", "媒体信息"}, {"blockoutNode", "Blockout"}, {"director3dNode", "3D 导演"}, {"motionAnalysisNode", "Motion"}, {"videoDepthNode", "视频深度白模"}, {"collaborationExtension", "协作"}} {
-		scope := "node"
-		if item[0] == "collaborationExtension" {
-			scope = "workspace"
+	var nodes []any
+	_ = json.Unmarshal(builtinNodeCatalog, &nodes)
+	for _, raw := range nodes {
+		node := asObject(raw)
+		for key, value := range (object{"name": node["id"], "apiVersion": 1, "renderer": "react", "builtin": true, "enabled": true, "config": object{}, "configRules": []any{}, "canConfigure": true, "loadError": ""}) {
+			node[key] = value
 		}
-		nodes = append(nodes, object{"name": item[0], "displayName": item[1], "id": item[0], "scope": scope, "version": "2.0.0", "apiVersion": 1, "renderer": "react", "builtin": true, "enabled": true, "config": object{}, "configRules": []any{}, "canConfigure": true, "loadError": ""})
 	}
 	return nodes
 }
@@ -230,8 +238,29 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 				return fail(400, "内置插件更新不能改变原有 scope")
 			}
 		}
+		for field, limit := range map[string]int{"category": 64, "description": 512, "icon": 64} {
+			if value, declared := manifest[field]; declared {
+				if text, valid := value.(string); !valid || strings.TrimSpace(text) == "" || utf8.RuneCountInString(text) > limit {
+					return fail(400, fmt.Sprintf("插件 %s 须为不超过 %d 字符的非空字符串", field, limit))
+				}
+			}
+		}
 		if !strings.Contains(source, "export") {
 			return fail(400, "插件必须是 ESM 模块")
+		}
+		providers, err := parsePluginProviders(manifest)
+		if err != nil {
+			return err
+		}
+		pluginProviderChange.Lock()
+		defer pluginProviderChange.Unlock()
+		if err = s.checkPluginProviders(name, providers); err != nil {
+			return err
+		}
+		if boolean(v["force"]) {
+			if err = s.forgetProviderConfigs(staleProviderIDs(s.pluginOwnProviders(name), providers)); err != nil {
+				return err
+			}
 		}
 		installed, err := s.installNodeModule(name, source, manifest, v)
 		if err != nil {
@@ -250,6 +279,11 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		}
 		marker := filepath.Join(directory, name+".disabled")
 		if boolean(v["enabled"]) {
+			pluginProviderChange.Lock()
+			defer pluginProviderChange.Unlock()
+			if err = s.checkPluginProviders(name, s.pluginOwnProviders(name)); err != nil {
+				return err
+			}
 			if err = os.Remove(marker); err != nil && !os.IsNotExist(err) {
 				return err
 			}
@@ -298,6 +332,11 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 					return fail(403, "恢复内置版本需明确 restoreBuiltin:true，不能删除内置能力")
 				}
 			}
+		}
+		pluginProviderChange.Lock()
+		defer pluginProviderChange.Unlock()
+		if err = s.forgetProviderConfigs(staleProviderIDs(s.pluginOwnProviders(name), nil)); err != nil {
+			return err
 		}
 		for _, suffix := range []string{".js", ".json", ".disabled"} {
 			if err = os.Remove(filepath.Join(directory, name+suffix)); err != nil && !os.IsNotExist(err) {

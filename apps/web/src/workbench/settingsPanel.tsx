@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 import type { WorkbenchController } from "./types";
+import ComfySettings from "./comfySettings";
 import NodeMenuSettings from "./nodeMenuSettings";
 import { canvasShortcutFields, defaultCanvasShortcuts, isShortcutAllowed, normalizeShortcut } from "@/lib/canvasShortcuts";
 import { ffmpegConfigurationSchema, ffmpegStatusSchema, mediaProviderSchema, pluginPackageSchema, pluginSchema, providerModelSchema, workbenchSettingsClient } from "@/lib/workbenchSettingsClient";
@@ -8,6 +9,17 @@ import { ffmpegConfigurationSchema, ffmpegStatusSchema, mediaProviderSchema, plu
 const depthSchema = z.object({ available: z.boolean(), runtimeAvailable: z.boolean(), message: z.string(), preparationProgress: z.object({ phase: z.string(), received: z.number(), total: z.number(), error: z.string().optional() }).optional() });
 const hostSessionSchema = z.object({ id: z.string(), name: z.string(), directory: z.string().optional() });
 type ModelDraft = { id: string; label: string; type: "image" | "video" | "audio" | "text"; options: string };
+export type SettingsTab = "host" | "plugins" | "models" | "canvas" | "ffmpeg" | "nodeMenu";
+const apiKeyRule = { field: "apiKey", title: "API Key", type: "input", value: "", props: { type: "password" } };
+const providerTemplates = {
+  video: { id: "remoteVideo", label: "自建视频服务", apiUrl: "https://video.example.com/v1", videoProtocol: "openaiVideo", transport: "public", cancelMode: "none", endpoints: { video: "videos" }, rules: [apiKeyRule], models: [{ id: "deployedModelName", label: "已部署的视频模型", type: "video", mode: ["text", "endFrameOptional"], imageRatios: ["16:9", "9:16"], audio: false, durationResolutionMap: [{ duration: [4, 8], resolution: ["720p"] }], video: { inputMap: { firstFrame: "input_reference" } } }] },
+  comfy: { id: "studioComfy", label: "工作站 ComfyUI", apiUrl: "http://192.168.1.20:8188", videoProtocol: "comfyui", transport: "local", cancelMode: "request", rules: [{ field: "apiUrl", title: "服务地址", type: "input", value: "http://192.168.1.20:8188" }], models: [] },
+  image: { id: "customImage", label: "自定义图片服务", apiUrl: "https://api.example.com/v1", protocol: "openai", rules: [apiKeyRule], models: [{ id: "deployedImageModel", label: "已部署的图片模型", type: "image" }] },
+};
+const modelKinds = { image: "图片", video: "视频", audio: "音频", text: "文本" };
+function providerSummary(provider: z.infer<typeof mediaProviderSchema>) {
+  return [[...new Set(provider.models.map(model => modelKinds[model.type]))].join(" / "), `${provider.models.length} 个模型`].filter(Boolean).join(" · ");
+}
 function draftModels(provider: z.infer<typeof mediaProviderSchema>): ModelDraft[] {
   return provider.models.map(({ id, label, type, ...options }) => ({ id, label, type, options: JSON.stringify(options, null, 2) }));
 }
@@ -30,10 +42,10 @@ async function api(path: string, body?: unknown, method = "POST") {
   return value.data;
 }
 
-export default function SettingsPanel({ controller }: { controller: WorkbenchController }) {
+export default function SettingsPanel({ controller, initialTab = "host" }: { controller: WorkbenchController; initialTab?: SettingsTab }) {
   const native = !!window.openCinemaTransport;
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
-  const [tab, setTab] = useState<"host" | "plugins" | "models" | "canvas" | "ffmpeg" | "nodeMenu">("host");
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [generalConfiguration, setGeneralConfiguration] = useState<Awaited<ReturnType<typeof workbenchSettingsClient.generalConfiguration>>>();
   const [providers, setProviders] = useState<z.infer<typeof mediaProviderSchema>[]>([]);
@@ -159,15 +171,20 @@ export default function SettingsPanel({ controller }: { controller: WorkbenchCon
           setHostSessionId(id);
         });
       }}><option value="">单个 Agent 时自动连接</option>{hostSessions.map(session => <option key={session.id} value={session.id}>{session.name}</option>)}</select></label>}
-      {!native && <><label>MCP 服务地址<input readOnly value={`${location.origin}/mcp`} aria-label="MCP 服务地址" /></label>
-      <button type="button" disabled={busy} onClick={() => void perform(async () => {
-        const current = await api("settings/get");
-        const value = z.object({ mcp: z.object({ enabled: z.boolean(), token: z.string().min(32) }) }).parse(current);
-        if (!value.mcp.enabled) throw new Error("MCP 服务已关闭");
-        await navigator.clipboard.writeText(JSON.stringify({ mcpServers: { openCinema: { url: `${location.origin}/mcp`, headers: { Authorization: `Bearer ${value.mcp.token}` } } } }, null, 2));
-        setStatus("连接配置已复制，请粘贴到宿主 Agent 的 MCP 配置中");
-      })}>复制 MCP 连接配置</button></>}
-      <p>{native ? "画布指令会连同固定的操作目标发送到当前宿主对话。请在对话和画布中查看结果；消息已接收不代表执行完成。" : "Agent 接入后调用 registerHost 声明创作能力，并通过 pollHostRequests 领取画布指令。节点工具按当前画布动态发现，执行结果通过 completeHostRequest 回报。"}</p>
+      {native ? <p>画布指令会连同固定的操作目标发送到当前宿主对话。请在对话和画布中查看结果；消息已接收不代表执行完成。</p> : <>
+        <p>接入 Claude Code 或 Codex 后，底部输入框的创作要求会交给它执行。在仓库根目录完成 <code>bun run build</code> 后运行：</p>
+        <div className="hostSetup"><span>Claude Code</span><code>claude --plugin-dir ./build/openCinema</code><span>Codex</span><code>codex plugin marketplace add . --json</code><code>codex plugin add opencinema@openCinemaStandalone --json</code></div>
+        <p>启动后告诉 Agent「连接 OpenCinema 工作台」（Claude Code 可用 <code>/opencinema:opencinema</code>），它注册为这个工程的接收端后，这里会显示“已连接”。</p>
+        <details className="settingEditor"><summary>其他 MCP 宿主</summary><label>MCP 服务地址<input readOnly value={`${location.origin}/mcp`} aria-label="MCP 服务地址" /></label>
+          <button type="button" disabled={busy} onClick={() => void perform(async () => {
+            const current = await api("settings/get");
+            const value = z.object({ mcp: z.object({ enabled: z.boolean(), token: z.string().min(32) }) }).parse(current);
+            if (!value.mcp.enabled) throw new Error("MCP 服务已关闭");
+            await navigator.clipboard.writeText(JSON.stringify({ mcpServers: { openCinema: { url: `${location.origin}/mcp`, headers: { Authorization: `Bearer ${value.mcp.token}` } } } }, null, 2));
+            setStatus("连接配置已复制，请粘贴到宿主 Agent 的 MCP 配置中");
+          })}>复制 MCP 连接配置</button>
+          <p>Agent 需调用 registerHost 声明能力，并用 pollHostRequests 领取画布指令、completeHostRequest 回报结果。仅建立 MCP 连接不代表 Agent 在线。</p></details>
+      </>}
     </div>}
     {tab === "plugins" && <div className="settingsContent">
       <div className="settingsActions"><button type="button" disabled={busy} onClick={() => void perform(async () => { await controller.refreshPlugins(); setInstalledPlugins(await workbenchSettingsClient.plugins(new AbortController().signal)); setStatus("插件目录已刷新"); })}>刷新目录</button><button type="button" disabled={busy} onClick={() => pluginFile.current?.click()}>安装插件包</button><a href="/pluginSdk.js" target="_blank" rel="noreferrer">插件 SDK</a></div>
@@ -206,19 +223,20 @@ export default function SettingsPanel({ controller }: { controller: WorkbenchCon
       <p>已安装的插件可读取和修改工作区。停用插件会保留画布和素材，重新启用后恢复编辑能力。</p>
     </div>}
     {tab === "models" && <div className="settingsContent">
-      <label>媒体供应商<select value={providerId} onChange={event => selectProvider(event.target.value)}><option value="">选择供应商</option>{providers.map(provider => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</select></label>
+      <div className="providerList" role="group" aria-label="媒体供应商">{providers.map(provider => <button type="button" className="providerRow" key={provider.id} aria-pressed={provider.id === providerId} onClick={() => selectProvider(provider.id)}><span><strong>{provider.label}</strong><small>{providerSummary(provider)}</small></span><em data-ready={provider.transport === "local" || provider.videoProtocol === "adapter" || !!provider.credentialConfigured}>{provider.transport === "local" ? "本地服务" : provider.videoProtocol === "adapter" ? "本机适配器" : provider.credentialConfigured ? "已配置" : "待配置"}</em></button>)}</div>
       <div className="settingsActions"><button type="button" disabled={busy} onClick={() => setAddingProvider(!addingProvider)}>添加自定义供应商</button></div>
       {providerCatalog.some(provider => !providers.some(item => item.id === provider.id)) && <label>恢复内置供应商<select value="" disabled={busy} onChange={event => { const id = event.target.value; if (id) void perform(async () => { const value = await workbenchSettingsClient.addBuiltinProvider(id, new AbortController().signal); await refreshProviderList(); setProviderId(value.id); setModelDrafts(draftModels(value)); setProviderValues({}); setStatus("内置供应商已恢复，请填写连接配置"); }); }}><option value="">选择供应商</option>{providerCatalog.filter(provider => !providers.some(item => item.id === provider.id)).map(provider => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</select></label>}
-      {addingProvider && <form className="settingEditor" onSubmit={event => { event.preventDefault(); void perform(async () => { const value = await workbenchSettingsClient.addProvider(providerSource, new AbortController().signal); const list = await refreshProviderList(); setProviderId(value.id); setModelDrafts(draftModels(list.find(item => item.id === value.id) ?? value)); setProviderValues({}); setAddingProvider(false); setProviderSource(""); setStatus("供应商已添加"); }); }}><label>HTTP 供应商清单（JSON）<textarea rows={8} value={providerSource} maxLength={2 * 1024 ** 2} onChange={event => setProviderSource(event.target.value)} spellCheck={false} /></label><input ref={providerFile} type="file" accept="application/json,.json" hidden aria-label="供应商清单文件" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void perform(async () => { if (file.size > 2 * 1024 ** 2) throw new Error("供应商清单超过 2 MiB"); setProviderSource(await file.text()); }); }} /><p>声明 id、label、apiUrl、protocol、endpoints、models 和 rules。使用 HTTP JSON 清单，原有 TypeScript 脚本需转换为此格式。</p><div className="settingsActions"><button type="button" disabled={busy} onClick={() => providerFile.current?.click()}>读取 JSON 文件</button><button type="submit" disabled={busy || !providerSource.trim()}>添加供应商</button><button type="button" disabled={busy} onClick={() => setAddingProvider(false)}>取消</button></div></form>}
+      {addingProvider && <form className="settingEditor" onSubmit={event => { event.preventDefault(); void perform(async () => { const value = await workbenchSettingsClient.addProvider(providerSource, new AbortController().signal); const list = await refreshProviderList(); setProviderId(value.id); setModelDrafts(draftModels(list.find(item => item.id === value.id) ?? value)); setProviderValues({}); setAddingProvider(false); setProviderSource(""); setStatus("供应商已添加"); }); }}><label>HTTP 供应商清单（JSON）<textarea rows={8} value={providerSource} maxLength={2 * 1024 ** 2} onChange={event => setProviderSource(event.target.value)} spellCheck={false} /></label><input ref={providerFile} type="file" accept="application/json,.json" hidden aria-label="供应商清单文件" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void perform(async () => { if (file.size > 2 * 1024 ** 2) throw new Error("供应商清单超过 2 MiB"); setProviderSource(await file.text()); }); }} /><p>从模板改起：把地址、模型 ID 换成你的服务，API Key 添加后再在连接配置里填写，不要写进清单。协议有 openaiVideo、ark（仅视频），fal、replicate、httpTask（图片、视频、音频）和 adapter（本机适配器，可执行文件只能手动放到数据目录，清单不能声明命令）；连本机或局域网服务时加 transport: "local"。详见 docs/videoProvider.md。</p><div className="settingsActions"><button type="button" disabled={busy} onClick={() => setProviderSource(JSON.stringify(providerTemplates.video, null, 2))}>视频服务模板</button><button type="button" disabled={busy} onClick={() => setProviderSource(JSON.stringify(providerTemplates.image, null, 2))}>图片服务模板</button><button type="button" disabled={busy} onClick={() => setProviderSource(JSON.stringify(providerTemplates.comfy, null, 2))}>其他 ComfyUI 服务模板</button><button type="button" disabled={busy} onClick={() => providerFile.current?.click()}>读取 JSON 文件</button><button type="button" disabled={busy || !providerSource.trim()} onClick={() => void perform(async () => { const value = await workbenchSettingsClient.validateProvider(providerSource, new AbortController().signal); setStatus(`清单有效：${value.label}，${value.models.length} 个模型`); })}>校验清单</button><button type="submit" disabled={busy || !providerSource.trim()}>添加供应商</button><button type="button" disabled={busy} onClick={() => setAddingProvider(false)}>取消</button></div></form>}
       {activeProvider && <>
-      {typeof activeProvider.videoProtocol === "string" && <p>{activeProvider.transport === "local" ? "本地 / 局域网执行" : activeProvider.videoProtocol === "openaiVideo" ? "远程模型服务" : "平台执行"} · 与所有视频节点共用生成、任务和产物入口</p>}
-      <form className="settingEditor" onSubmit={event => { event.preventDefault(); void perform(async () => {
+      {typeof activeProvider.videoProtocol === "string" && <p>{activeProvider.transport === "local" ? "本地 / 局域网执行" : activeProvider.videoProtocol === "openaiVideo" ? "远程模型服务" : "平台执行"} · 与所有生成节点共用任务和产物入口</p>}
+      {activeProvider.videoProtocol === "comfyui" && <ComfySettings provider={activeProvider} busy={busy} perform={perform} onStatus={setStatus} onSaved={async value => { const list = await refreshProviderList(); if (value) setModelDrafts(draftModels(list.find(item => item.id === value.id) ?? value)); }} />}
+      {activeProvider.id !== "comfyui" && <form className="settingEditor" onSubmit={event => { event.preventDefault(); void perform(async () => {
       if (!providerId) return;
       const current = z.record(z.string(), z.unknown()).parse(await api("settings/get"));
       const configs = current.mediaProviderConfigs && typeof current.mediaProviderConfigs === "object" ? current.mediaProviderConfigs as Record<string, Record<string, unknown>> : {};
       const next = { ...current, mediaProviderConfigs: { ...configs, [providerId]: { ...configs[providerId], ...providerValues } } };
-      await api("settings/save", { settings: next }, "PUT"); setSettings(next); setStatus("媒体服务设置已保存"); window.dispatchEvent(new Event("toonflow:provider-config-changed"));
-    }); }}><strong>{activeProvider.label} · 连接配置</strong><SettingFields rules={activeProvider.rules ?? []} values={providerValues} disabled={busy} onChange={(field, value) => setProviderValues({ ...providerValues, [field]: value })} /><button type="submit" disabled={busy}>保存连接配置</button></form>
+      await api("settings/save", { settings: next }, "PUT"); setSettings(next); await refreshProviderList(); setStatus("媒体服务设置已保存，可以在生成节点里选择模型");
+    }); }}><strong>{activeProvider.label} · 连接配置</strong><SettingFields rules={activeProvider.rules ?? []} values={providerValues} disabled={busy} onChange={(field, value) => setProviderValues({ ...providerValues, [field]: value })} /><button type="submit" disabled={busy}>保存连接配置</button></form>}
       <form className="settingEditor" onSubmit={event => { event.preventDefault(); void perform(async () => { const models = modelDrafts.map(({ options, ...fields }) => { const parsed = z.record(z.string(), z.json()).parse(JSON.parse(options)); return providerModelSchema.parse({ ...parsed, ...fields }); }); const result = await workbenchSettingsClient.saveProviderModels(providerId, models, activeProvider.revision, new AbortController().signal); await refreshProviderList(); setModelDrafts(draftModels(result)); setStatus("模型列表已保存"); }); }}><strong>模型列表 · {modelDrafts.length}</strong>
         {modelDrafts.map((model, index) => <div className="providerModelEditor" key={index}><div className="providerModelFields"><label>模型 ID<input value={model.id} required maxLength={256} disabled={busy} onChange={event => setModelDrafts(modelDrafts.map((item, itemIndex) => itemIndex === index ? { ...item, id: event.target.value } : item))} /></label><label>显示名称<input value={model.label} required maxLength={200} disabled={busy} onChange={event => setModelDrafts(modelDrafts.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} /></label><label>类型<select value={model.type} disabled={busy} onChange={event => setModelDrafts(modelDrafts.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value as ModelDraft["type"] } : item))}><option value="image">图片</option><option value="video">视频</option><option value="audio">音频</option>{model.type === "text" && <option value="text">文本（保留）</option>}</select></label><button type="button" disabled={busy} aria-label={`移除模型 ${model.label || index + 1}`} onClick={() => setModelDrafts(modelDrafts.filter((_, itemIndex) => itemIndex !== index))}>移除</button></div><details><summary>高级能力声明</summary><label>尺寸、时长、参考素材等能力（JSON）<textarea rows={4} spellCheck={false} value={model.options} disabled={busy} onChange={event => setModelDrafts(modelDrafts.map((item, itemIndex) => itemIndex === index ? { ...item, options: event.target.value } : item))} /></label></details></div>)}
         <div className="settingsActions"><button type="button" disabled={busy} onClick={() => setModelDrafts([...modelDrafts, { id: "", label: "", type: "image", options: "{}" }])}>添加模型</button><button type="submit" disabled={busy}>保存模型列表</button><button type="button" disabled={busy} onClick={() => setModelDrafts(draftModels(activeProvider))}>还原修改</button>{activeProvider.modelsUrl && <button type="button" disabled={busy} onClick={() => void perform(async () => { const value = await workbenchSettingsClient.fetchProviderModels(providerId, activeProvider.revision, new AbortController().signal); await refreshProviderList(); setModelDrafts(draftModels(value)); setStatus("已从供应商获取模型列表"); })}>从供应商获取模型</button>}</div>

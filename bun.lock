@@ -110,18 +110,26 @@
     },
     "packages/nodeScaffold": {
       "name": "@toonflow/nodes-scaffold",
-      "version": "0.0.0",
+      "version": "0.4.0",
+      "bin": {
+        "createOpenCinemaPlugin": "dist/createPlugin.js",
+      },
       "dependencies": {
-        "@toonflow/ffmpeg": "workspace:*",
-        "@toonflow/tools-scaffold": "workspace:*",
         "zod": "^4.6.2",
       },
       "devDependencies": {
+        "@toonflow/ffmpeg": "workspace:*",
         "@toonflow/file": "workspace:*",
+        "@toonflow/tools-scaffold": "workspace:*",
         "@types/react": "^19.0.0",
         "@vitejs/plugin-react": "^5.2.0",
         "react": "^19.0.0",
         "typescript": "~6.0.3",
+        "vite": "^8.2.2",
+      },
+      "peerDependencies": {
+        "@vitejs/plugin-react": "^5.2.0",
+        "react": "^19.0.0",
         "vite": "^8.2.2",
       },
     },
