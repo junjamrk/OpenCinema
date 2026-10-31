@@ -7,6 +7,10 @@ export const hostCapabilityVersions = Object.fromEntries(Object.entries(hostCapa
 export function capabilityLabel(name: string) {
   return (hostCapabilities as Record<string, { label: string } | undefined>)[name]?.label ?? name;
 }
+export function missingCapabilityText(name: string, requiredVersion: number, providedVersion: number) {
+  const label = capabilityLabel(name), wanted = label === name ? `能力 ${name}（版本 ${requiredVersion}）` : `「${label}」（${name} 版本 ${requiredVersion}）`;
+  return `需要${wanted}，当前工作台${providedVersion ? `只提供版本 ${providedVersion}` : "没有提供"}`;
+}
 
 export const nodeRequirementsSchema = z.record(
   z.string().regex(/^[a-z][a-zA-Z0-9]{0,63}$/), z.number().int().min(1).max(1024),

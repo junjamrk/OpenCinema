@@ -5,7 +5,7 @@ import { createDocumentSession, parseCanvasDocument, parseDocumentCommand, type 
 import { createPluginRuntime, getComposerState } from "@toonflow/nodes-scaffold/pluginRuntime";
 import { ToolExecutionError } from "@toonflow/nodes-scaffold/toolErrors";
 import { isTypeCompatible } from "@toonflow/nodes-scaffold/connection";
-import { hostCapabilityVersions, nodeRequirementsSchema } from "@toonflow/nodes-scaffold/nodeCapabilities";
+import { hostCapabilityVersions } from "@toonflow/nodes-scaffold/nodeCapabilities";
 import type { HostAdapter, HostContext, HostToolProvider, NodePluginDefinition, PluginInstance, PluginModule, PluginSource } from "@toonflow/nodes-scaffold/contracts";
 import type { NodeDocumentService } from "@toonflow/nodes-scaffold/react";
 import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchServices";
@@ -23,7 +23,7 @@ import { createInstalledPluginLoader } from "./installedPluginLoader";
 import { localApiUrl } from "./openCinemaTransport";
 import { assetLibraryClient, assetMediaKind, type AssetLibraryEntry } from "./assetLibraryClient";
 import { builtinNodes } from "./builtinNodes";
-import { pluginMarketClient, pluginMarketUrlOf, pluginPackageSchema, workbenchSettingsClient } from "./workbenchSettingsClient";
+import { missingCapabilities, parsePluginPackage, pluginErrorText, pluginMarketClient, pluginMarketUrlOf, workbenchSettingsClient } from "./workbenchSettingsClient";
 import { isNodeOutput } from "@toonflow/nodes-scaffold/values";
 import { canvasNodePosition, createCanvasQueries, isCanvasRead, type CanvasQueryAvailability, type CanvasQueryRuntime } from "@/lib/canvasQueries";
 import { copyNodesToClipboard, readClipboardNodes } from "@/lib/nodeClipboard";
@@ -228,18 +228,18 @@ export function createWorkbenchController() {
   function publishPlugins() {
     publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => {
       const details = { ...pluginDetails.get(id), ...definitions.get(id) };
-      return { type: `remote-${id}`, label, description: details.description, icon: details.icon, composer: details.composer, category: details.category, supported: !disabledPlugins.has(id) };
+      return { type: `remote-${id}`, label, description: moduleErrors.get(id) ?? details.description, icon: details.icon, composer: details.composer, category: details.category, supported: !disabledPlugins.has(id) && !moduleErrors.has(id) };
     }),
       workspacePlugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) === "workspace").map(([id, label]) => ({ id, label, enabled: !disabledPlugins.has(id) })) });
   }
   function pluginAvailability(pluginId: string, id?: string): CanvasQueryAvailability {
     const definition = definitions.get(pluginId), declared = pluginRequirements.get(pluginId);
     const requires = { ...declared, ...definition?.requires }, capabilities = runtime.getCapabilities();
-    const missingCapabilities = Object.entries(requires).flatMap(([name, requiredVersion]) => (capabilities[name] ?? 0) < requiredVersion ? [{ name, requiredVersion, providedVersion: capabilities[name] ?? 0 }] : []);
-    const base = { requires, requirementsDeclared: declared !== undefined || definition?.requires !== undefined, missingCapabilities };
+    const missing = missingCapabilities(requires, capabilities);
+    const base = { requires, requirementsDeclared: declared !== undefined || definition?.requires !== undefined, missingCapabilities: missing };
     if (["group", "canvasGroup"].includes(pluginId)) return { ...base, status: "available", code: "groupNode", reason: "画布分组不注册插件函数", recovery: { action: "none", message: "通过画布分组工具操作此节点" } };
     if (disabledPlugins.has(pluginId)) return { ...base, status: "unavailable", code: "pluginDisabled", reason: "插件已停用，节点与素材仍保留", recovery: { action: "readState", message: "启用该插件后重新发现工具", tool: "setPluginEnabled", args: { pluginId, enabled: true, toolCatalogVersion: runtime.getVersion() } } };
-    if (missingCapabilities.length) return { ...base, status: "unavailable", code: "missingCapabilities", reason: "当前React provider未声明满足插件要求的服务版本", recovery: { action: "readState", message: "在提供所列服务版本的React provider中打开现有工程，再重新发现工具；不要盲目重试" } };
+    if (missing.length) return { ...base, status: "unavailable", code: "missingCapabilities", reason: "当前React provider未声明满足插件要求的服务版本", recovery: { action: "readState", message: "在提供所列服务版本的React provider中打开现有工程，再重新发现工具；不要盲目重试" } };
     const activationError = id ? nodeErrors.get(id)?.message : undefined, moduleError = moduleErrors.get(pluginId);
     if (activationError || moduleError) return { ...base, status: "unavailable", code: activationError ? "activationFailed" : "moduleLoadFailed", reason: (activationError ?? moduleError)!.slice(0, 1024), recovery: { action: "readState", message: "读取插件配置与错误，修复依赖或插件后重新加载同一工程并发现工具", tool: "getPluginConfiguration", args: { pluginId } } };
     if (!pluginLabels.has(pluginId)) return { ...base, status: "unavailable", code: "pluginNotInstalled", reason: "节点所需插件未登记，当前无法注册其函数", recovery: { action: "readState", message: "从可信插件包复核并安装缺失插件，然后重新发现工具", tool: "getPluginConfiguration", args: { pluginId } } };
@@ -287,8 +287,9 @@ export function createWorkbenchController() {
     const builtin = builtinPlugins[id], source = pluginSources.get(id);
     if (!builtin && !source) return Promise.reject(new Error(`插件尚未加载：${id}`));
     const pending = loadDefinition(source ?? builtin!.load, id).catch(error => {
-      moduleErrors.set(id, error instanceof Error ? error.message : String(error));
-      throw error;
+      moduleErrors.set(id, pluginErrorText(error));
+      publishPlugins();
+      throw new Error(moduleErrors.get(id));
     }).finally(() => { loadingPlugins.delete(id); });
     loadingPlugins.set(id, pending);
     return pending;
@@ -484,10 +485,7 @@ export function createWorkbenchController() {
   }
   async function refreshPlugins(allowTransition = false): Promise<void> {
     if (session && !allowTransition) return serialize(() => refreshPlugins(true));
-    const response = await fetch("/api/nodes/get", { headers: { "x-toonflow-workspace": "1" }, signal: controllerLifetime.signal, cache: "no-store" });
-    const body = await response.json();
-    if (!response.ok || body.code !== 200) throw new Error(body.message || "插件目录读取失败");
-    const catalog = z.array(z.object({ name: nodeId, id: nodeId.optional(), displayName: z.string().optional(), version: z.string().optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), requires: nodeRequirementsSchema.optional(), scope: z.enum(["node", "workspace"]).optional(), category: z.string().optional().catch(undefined), description: z.string().optional().catch(undefined), icon: z.string().optional().catch(undefined), url: z.string().optional(), config: z.record(z.string(), z.json()).nullish() })).parse(body.data);
+    const catalog = await workbenchSettingsClient.plugins(controllerLifetime.signal);
     const installedIds = new Set(catalog.map(entry => entry.id ?? entry.name));
     const changedIds = new Set([...pluginSources.keys()].filter(id => !installedIds.has(id)));
     for (const entry of catalog) {
@@ -501,7 +499,7 @@ export function createWorkbenchController() {
     }
     const failures: string[] = [];
     for (const id of pluginSources.keys()) if (!installedIds.has(id)) {
-      await runtime.unload(id); pluginSources.delete(id); definitions.delete(id); views.delete(id); views.delete(`remote-${id}`);
+      await runtime.unload(id); pluginSources.delete(id); definitions.delete(id); moduleErrors.delete(id); views.delete(id); views.delete(`remote-${id}`);
       pluginLabels.delete(id); pluginDetails.delete(id); pluginScopes.delete(id); pluginRequirements.delete(id); workspaceSubscriptions.get(id)?.(); workspaceSubscriptions.delete(id); workspacePlugins.delete(id);
     }
     for (const entry of catalog) {
@@ -524,8 +522,9 @@ export function createWorkbenchController() {
         else definitions.delete(id);
         pluginSources.delete(id);
       }
+      moduleErrors.delete(id);
       if (entry.enabled) {
-        disabledPlugins.delete(id); moduleErrors.delete(id);
+        disabledPlugins.delete(id);
         for (const [nodeId, error] of nodeErrors) if (error.pluginId === id) nodeErrors.delete(nodeId);
       }
       else {
@@ -533,6 +532,7 @@ export function createWorkbenchController() {
         views.delete(id); views.delete(`remote-${id}`);
         workspaceSubscriptions.get(id)?.(); workspaceSubscriptions.delete(id); workspacePlugins.delete(id);
       }
+      if (entry.loadError) moduleErrors.set(id, entry.loadError);
     }
     publishPlugins();
     window.dispatchEvent(new Event("toonflow:provider-config-changed"));
@@ -585,8 +585,13 @@ export function createWorkbenchController() {
     return failures;
   }
 
+  // 目录读取失败不能把工作台永久锁死，下一次打开工程时重试。
+  function whenReady() {
+    ready = ready.catch(() => initializePlugins());
+    return ready;
+  }
   async function openCanvas(directory: string, path: string, signal?: AbortSignal) {
-    await ready; assertAlive(); relativePath.parse(path);
+    await whenReady(); assertAlive(); relativePath.parse(path);
     signal?.throwIfAborted();
     const previous = session;
     const files = createWorkspaceFiles(directory);
@@ -1448,6 +1453,13 @@ export function createWorkbenchController() {
       await addEndpointNode(currentSession(), { type, position, endpoint: connectionEndpointSchema.parse(endpoint) });
     },
     refreshPlugins,
+    getPluginError: id => moduleErrors.get(id),
+    getCapabilities: () => runtime.getCapabilities(),
+    async probePlugin(id) {
+      // 失败原因已写入 moduleErrors；这里只需要等它结束。
+      await ensurePlugin(id).catch(() => {});
+      return moduleErrors.get(id);
+    },
     async setPluginEnabled(id, enabled) {
       nodeId.parse(id);
       await serialize(async () => {
@@ -1759,7 +1771,7 @@ export function createWorkbenchController() {
   async function readPluginPackage(path: string, target: DocumentSession, signal: AbortSignal) {
     const content = await createWorkspaceFiles(target.getSnapshot().directory).read(path, 100 * 1024 ** 2, signal);
     requireSession(target); signal.throwIfAborted();
-    return { value: pluginPackageSchema.parse(JSON.parse(new TextDecoder().decode(content))), fileRevision: await contentRevision(content), size: content.byteLength };
+    return { value: parsePluginPackage(new TextDecoder().decode(content)), fileRevision: await contentRevision(content), size: content.byteLength };
   }
   async function executePeripheral(name: string, args: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
     if (name === "getCanvasPreferences" || name === "setCanvasPreferences") {

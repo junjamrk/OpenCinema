@@ -20,7 +20,7 @@ const beforeUnload = (event: BeforeUnloadEvent) => {
 };
 window.addEventListener("beforeunload", beforeUnload);
 let cleanupHost: (() => void) | undefined;
-void controller.ready.then(async () => {
+void controller.ready.catch(error => { console.error("插件目录读取失败，打开工程时会重试", error); }).then(async () => {
   const connection = await connectWorkbenchHost(controller);
   cleanupHost = connection.cleanup;
   const parameters = new URLSearchParams(window.location.search);
