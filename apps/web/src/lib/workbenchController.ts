@@ -1792,6 +1792,12 @@ export function createWorkbenchController() {
     }
     if (name === "getProviderModels" || name === "setProviderModels") {
       const input = peripheralToolSchemas[name].parse(args);
+      if (name === "setProviderModels") {
+        // 工作流会在 ComfyUI 上执行，只能由用户在设置页导入；Agent 可以改名或移除已有工作流，不能新增或改图。
+        const saved = (await workbenchSettingsClient.providers(signal)).find(provider => provider.id === input.providerId)?.models ?? [];
+        const changed = peripheralToolSchemas.setProviderModels.parse(args).models.some(model => "comfy" in model && JSON.stringify(model.comfy) !== JSON.stringify(saved.find(item => item.id === model.id)?.comfy));
+        if (changed) throw new Error("ComfyUI 工作流只能由用户在设置页导入；Agent 不能新增或修改工作流");
+      }
       const provider = name === "setProviderModels" ? await workbenchSettingsClient.saveProviderModels(input.providerId, peripheralToolSchemas.setProviderModels.parse(args).models, peripheralToolSchemas.setProviderModels.parse(args).expectedRevision, signal) : (await workbenchSettingsClient.providers(signal)).find(provider => provider.id === input.providerId);
       if (!provider) throw new Error("供应商不存在");
       if (name === "setProviderModels") { window.dispatchEvent(new Event("toonflow:provider-config-changed")); return { providerId: provider.id, providerRevision: provider.revision, modelCount: provider.models.length, saved: true }; }
@@ -1816,7 +1822,9 @@ export function createWorkbenchController() {
           const target = currentSession(), content = await createWorkspaceFiles(target.getSnapshot().directory).read(input.path, 2 * 1024 ** 2, signal);
           requireSession(target); signal.throwIfAborted();
           if (await contentRevision(content) !== input.fileRevision) throw new Error("供应商清单已变化，请重新读取fileRevision");
-          provider = await workbenchSettingsClient.addProvider(new TextDecoder().decode(content), signal); requireSession(target);
+          const source = new TextDecoder().decode(content);
+          if (JSON.parse(source).models?.some?.((model: { comfy?: unknown }) => model?.comfy)) throw new Error("ComfyUI 工作流只能由用户在设置页导入；Agent 不能通过清单写入工作流");
+          provider = await workbenchSettingsClient.addProvider(source, signal); requireSession(target);
         }
         providerId = provider.id; providerRevision = provider.revision;
       }

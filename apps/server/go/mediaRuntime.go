@@ -182,7 +182,7 @@ func (s *server) mediaModels() []any {
 	models := []any{}
 	for _, raw := range s.providers() {
 		p := asObject(raw)
-		if videoProtocol(p) == "comfyui" && !s.comfyEnabled() {
+		if videoProtocol(p) == "comfyui" && !s.comfyEnabled(p) {
 			continue
 		}
 		for _, rawModel := range array(p["models"]) {
@@ -225,7 +225,7 @@ func (s *server) provider(id string) (object, object, error) {
 			for k, v := range asObject(asObject(s.settings()["mediaProviderConfigs"])[id]) {
 				config[k] = v
 			}
-			if videoProtocol(p) == "comfyui" {
+			if str(p["id"]) == "comfyui" {
 				config["apiUrl"] = asObject(localMediaConnectionState(s.settings())["config"])["endpoint"]
 			}
 			return p, config, nil
@@ -755,7 +755,7 @@ func (s *server) validateMedia(v object, allowEmptyPrompt bool) error {
 					return err
 				}
 			}
-			if videoProtocol(p) == "comfyui" && !s.comfyEnabled() {
+			if videoProtocol(p) == "comfyui" && !s.comfyEnabled(p) {
 				return fail(400, "请先在 设置 → 媒体服务 → ComfyUI 工作流 中启用连接")
 			}
 			if videoProtocol(p) != "" {

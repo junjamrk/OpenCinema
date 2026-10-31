@@ -81,7 +81,8 @@ func parseHTTPProvider(source string) (object, error) {
 		}
 	}
 	models, valid := provider["models"].([]any)
-	if !valid || len(models) == 0 || len(models) > 2000 {
+	// ComfyUI 的模型是用户随后导入的工作流，新建连接时可以为空。
+	if !valid || len(models) == 0 && videoProtocol(provider) != "comfyui" || len(models) > 2000 {
 		return nil, fail(400, "供应商须声明1至2000个媒体模型")
 	}
 	seen := map[string]bool{}

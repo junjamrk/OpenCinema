@@ -100,7 +100,12 @@ function videoModes(loaders: ComfyLoader[]) {
   return [[images && `imageReference:${images}`, videos && `videoReference:${videos}`, audios && `audioReference:${audios}`].filter((value): value is string => !!value)];
 }
 
-export function buildComfyModel(analysis: ComfyAnalysis, draft: { id: string; label: string; type: ComfyMediaType; promptNode: string; loaders: ComfyLoader[] }) {
+export function comfyDefaults({ size, frames, fps }: ComfyAnalysis) {
+  const divisor = size && greatestDivisor(size.width, size.height);
+  return { ratios: size ? [`${size.width / divisor!}:${size.height / divisor!}`] : [], durations: frames && fps ? [Math.max(1, Math.round(frames.count / fps))] : [] };
+}
+
+export function buildComfyModel(analysis: ComfyAnalysis, draft: { id: string; label: string; type: ComfyMediaType; promptNode: string; loaders: ComfyLoader[]; ratios?: string[]; durations?: number[] }) {
   const textNode = analysis.textNodes.find(item => item.node === draft.promptNode);
   if (!textNode) throw new Error("请选择接收提示词的节点");
   const target = ({ node, field }: ComfyTarget) => ({ node, field });
@@ -109,16 +114,18 @@ export function buildComfyModel(analysis: ComfyAnalysis, draft: { id: string; la
   const { size, frames, fps } = analysis;
   if (size) { inputs.width = size.targets.filter(item => item.field === "width"); inputs.height = size.targets.filter(item => item.field === "height"); }
   const video = draft.type === "video";
-  const duration = video && frames && fps ? Math.max(1, Math.round(frames.count / fps)) : undefined;
-  if (duration) inputs.frames = frames!.targets;
-  const divisor = size && greatestDivisor(size.width, size.height);
+  const defaults = comfyDefaults(analysis);
+  const ratios = draft.ratios?.length ? draft.ratios : defaults.ratios, durations = video ? draft.durations?.length ? draft.durations : defaults.durations : [];
+  if (ratios.some(ratio => !/^[1-9]\d{0,3}:[1-9]\d{0,3}$/.test(ratio))) throw new Error("画幅须写成 16:9 这样的比例");
+  if (durations.some(duration => !Number.isFinite(duration) || duration <= 0 || duration > 3600)) throw new Error("时长须为大于 0 的秒数");
+  if (durations.length) inputs.frames = frames!.targets;
   const short = size && `${Math.min(size.width, size.height)}p`;
   const frameStep = frames && (frames.count - 1) % 8 === 0 ? 8 : frames && (frames.count - 1) % 4 === 0 ? 4 : 1;
   return {
     id: draft.id, label: draft.label, type: draft.type,
-    ...(size && draft.type !== "audio" ? { imageRatios: [`${size.width / divisor!}:${size.height / divisor!}`] } : {}),
+    ...(size && draft.type !== "audio" ? { imageRatios: ratios } : {}),
     ...(size && draft.type === "image" ? { imageSizes: [short!] } : {}),
-    ...(video ? { mode: videoModes(draft.loaders), ...(duration ? { durationResolutionMap: [{ duration: [duration], resolution: short ? [short] : [] }] } : {}) } : {}),
-    comfy: { workflow: analysis.workflow, inputs: Object.fromEntries(Object.entries(inputs).filter(([, targets]) => targets.length)), ...(duration ? { fps, frameStep } : {}) },
+    ...(video ? { mode: videoModes(draft.loaders), ...(durations.length ? { durationResolutionMap: [{ duration: durations, resolution: short ? [short] : [] }] } : {}) } : {}),
+    comfy: { workflow: analysis.workflow, inputs: Object.fromEntries(Object.entries(inputs).filter(([, targets]) => targets.length)), ...(durations.length ? { fps, frameStep } : {}) },
   };
 }

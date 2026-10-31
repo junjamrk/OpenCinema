@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,12 +20,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 // ComfyUI 工作流按黑盒执行：Provider 模型保存 API 格式的图和显式输入映射，
 // 这里只替换映射到的字段、提交并回收产物，不解析或改写工作流的生成逻辑。
-// ACT: 工作流只由设置页或 setProviderModels 显式保存；生成请求只选模型，不能携带图。上限是一个 ComfyUI 连接。
+// ACT: 工作流只由用户在设置页导入；Agent 工具和生成请求都不能写入或携带图。
 
 var comfyListSlots = map[string]bool{"images": true, "videos": true, "audios": true}
 var comfyOutputTypes = map[string]map[string]string{
@@ -38,8 +41,9 @@ type comfyConnection struct {
 	endpoint *url.URL
 }
 
-func (s *server) comfyEnabled() bool {
-	return boolean(asObject(localMediaConnectionState(s.settings())["config"])["enabled"])
+// 内置 comfyui 供应商的地址和启用状态来自本地连接；用户添加的其他 ComfyUI 服务用自己的 apiUrl，随供应商增删。
+func (s *server) comfyEnabled(provider object) bool {
+	return str(provider["id"]) != "comfyui" || boolean(asObject(localMediaConnectionState(s.settings())["config"])["enabled"])
 }
 
 func validateComfyModel(model object) error {
@@ -315,7 +319,7 @@ func comfyRejection(data []byte) string {
 
 func (c comfyConnection) submit(ctx context.Context, provider, config, input, workflow object) (object, error) {
 	id := strings.ToLower(str(input["taskId"]))
-	data, err := json.Marshal(object{"prompt": workflow, "prompt_id": id, "client_id": "openCinema"})
+	data, err := json.Marshal(object{"prompt": workflow, "prompt_id": id, "client_id": id})
 	if err != nil {
 		return nil, err
 	}
@@ -488,6 +492,88 @@ func (c comfyConnection) cancel(ctx context.Context, job object) error {
 	}
 }
 
+func readComfyFrame(reader *bufio.Reader) (byte, []byte, error) {
+	var head [2]byte
+	if _, err := io.ReadFull(reader, head[:]); err != nil {
+		return 0, nil, err
+	}
+	size := int64(head[1] & 0x7f)
+	if size == 126 {
+		var extended [2]byte
+		if _, err := io.ReadFull(reader, extended[:]); err != nil {
+			return 0, nil, err
+		}
+		size = int64(binary.BigEndian.Uint16(extended[:]))
+	} else if size == 127 {
+		var extended [8]byte
+		if _, err := io.ReadFull(reader, extended[:]); err != nil {
+			return 0, nil, err
+		}
+		size = int64(binary.BigEndian.Uint64(extended[:]))
+	}
+	if size < 0 {
+		return 0, nil, fail(502, "ComfyUI WebSocket 帧无效")
+	}
+	// 预览图等大帧不解析，只跳过。
+	if size > 1024*1024 {
+		_, err := io.CopyN(io.Discard, reader, size)
+		return 0, nil, err
+	}
+	payload := make([]byte, size)
+	_, err := io.ReadFull(reader, payload)
+	return head[0] & 0x0f, payload, err
+}
+
+// 进度只用于展示，任务状态始终以轮询为准，所以这里任何失败都直接放弃。
+// ACT: 只实现读进度所需的最小 WebSocket 客户端，不支持 https 端点和分片文本帧；需要时再换成完整实现。
+func (c comfyConnection) watchProgress(ctx context.Context, id string, progress *atomic.Int64) {
+	if c.endpoint.Scheme != "http" {
+		return
+	}
+	connection, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", c.endpoint.Host)
+	if err != nil {
+		return
+	}
+	defer connection.Close()
+	defer context.AfterFunc(ctx, func() { connection.Close() })()
+	target := *c.endpoint
+	target.Path += "/ws"
+	target.RawQuery = url.Values{"clientId": {id}}.Encode()
+	key := base64.StdEncoding.EncodeToString([]byte(randomID())[:16])
+	if _, err = fmt.Fprintf(connection, "GET %s HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\n\r\n", target.RequestURI(), target.Host, key); err != nil {
+		return
+	}
+	reader := bufio.NewReader(connection)
+	response, err := http.ReadResponse(reader, nil)
+	if err != nil || response.StatusCode != http.StatusSwitchingProtocols {
+		return
+	}
+	for {
+		opcode, payload, err := readComfyFrame(reader)
+		if err != nil || opcode == 8 {
+			return
+		}
+		if opcode == 9 && len(payload) <= 125 {
+			// 客户端帧必须带掩码；全零掩码不改变内容。
+			frame := append([]byte{0x8a, 0x80 | byte(len(payload)), 0, 0, 0, 0}, payload...)
+			if _, err = connection.Write(frame); err != nil {
+				return
+			}
+		}
+		if opcode != 1 {
+			continue
+		}
+		var message object
+		if json.Unmarshal(payload, &message) != nil || str(message["type"]) != "progress" {
+			continue
+		}
+		data := asObject(message["data"])
+		if str(data["prompt_id"]) == id && number(data["max"]) > 0 {
+			progress.Store(int64(number(data["value"]) * 100 / number(data["max"])))
+		}
+	}
+}
+
 func (s *server) mediaCancelRequested(ctx context.Context) bool {
 	value, _ := ctx.Value(videoTaskKey{}).(*videoTaskContext)
 	if value == nil {
@@ -524,6 +610,9 @@ func (s *server) generateComfy(ctx context.Context, provider, config, input, ref
 		return nil, fail(409, "ComfyUI 连接已变化；保留原任务，不能向其他连接恢复查询")
 	}
 	kind := str(input["mediaType"])
+	var progress atomic.Int64
+	progress.Store(-1)
+	go connection.watchProgress(ctx, str(job["id"]), &progress)
 	for {
 		if s.mediaCancelRequested(ctx) && job["status"] != "completed" {
 			return nil, connection.cancel(ctx, job)
@@ -571,6 +660,9 @@ func (s *server) generateComfy(ctx context.Context, provider, config, input, ref
 			return results, nil
 		}
 		job["status"] = state
+		if value := progress.Load(); value >= 0 {
+			job["progress"] = float64(value)
+		}
 		if err := updateVideoJob(ctx, job); err != nil {
 			return nil, err
 		}

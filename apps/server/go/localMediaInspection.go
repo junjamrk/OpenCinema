@@ -93,7 +93,7 @@ func (s *server) inspectComfyWorkflows(result, nodes object) {
 	ready := true
 	for _, raw := range s.providers() {
 		provider := asObject(raw)
-		if videoProtocol(provider) != "comfyui" {
+		if str(provider["id"]) != "comfyui" {
 			continue
 		}
 		for _, rawModel := range array(provider["models"]) {
