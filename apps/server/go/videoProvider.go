@@ -27,9 +27,9 @@ type videoRequestRejected struct {
 
 func (e *videoRequestRejected) Error() string {
 	if e.code != "" {
-		return fmt.Sprintf("视频供应商拒绝请求（HTTP %d，%s）；未接受生成", e.status, e.code)
+		return fmt.Sprintf("媒体供应商拒绝请求（HTTP %d，%s）；未接受生成", e.status, e.code)
 	}
-	return fmt.Sprintf("视频供应商拒绝请求（HTTP %d）；未接受生成", e.status)
+	return fmt.Sprintf("媒体供应商拒绝请求（HTTP %d）；未接受生成", e.status)
 }
 
 func builtinMediaProviders() []any {
@@ -104,15 +104,16 @@ func validateVideoProvider(provider object) error {
 		if err := validateModelParameters(model); err != nil {
 			return err
 		}
+		kind := str(model["type"])
 		if protocol == "comfyui" {
 			if err := validateComfyModel(model); err != nil {
 				return err
 			}
-			if str(model["type"]) != "video" {
+			if kind != "video" {
 				continue
 			}
-		} else if str(model["type"]) != "video" {
-			return fail(400, "视频协议供应商只能声明 video 模型")
+		} else if kind != "video" && (!protocolCoversAllMedia(protocol) || (kind != "image" && kind != "audio")) {
+			return fail(400, protocol+" 协议只能声明 video 模型；图片和音频须用 fal 或 replicate")
 		}
 		if audio := model["audio"]; audio != nil && audio != "optional" {
 			if _, ok := audio.(bool); !ok {
@@ -205,6 +206,24 @@ func validateVideoProvider(provider object) error {
 				}
 			}
 		}
+		for key, value := range asObject(options["defaults"]) {
+			if !regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9_]{0,95}$").MatchString(key) || key == "model" || key == "prompt" {
+				return fail(400, "视频默认参数字段无效")
+			}
+			switch value.(type) {
+			case string, bool, float64:
+			default:
+				return fail(400, "视频默认参数仅支持文本、布尔和数字")
+			}
+		}
+		for _, field := range array(options["stringFields"]) {
+			if !videoInputField(str(field)) {
+				return fail(400, "视频 stringFields 无效")
+			}
+		}
+		if kind != "video" {
+			continue
+		}
 		for _, rawMode := range array(model["mode"]) {
 			valid := false
 			if mode, ok := rawMode.(string); ok {
@@ -219,21 +238,6 @@ func validateVideoProvider(provider object) error {
 			}
 			if !valid {
 				return fail(400, "视频模型 mode 声明无效")
-			}
-		}
-		for key, value := range asObject(options["defaults"]) {
-			if !regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9_]{0,95}$").MatchString(key) || key == "model" || key == "prompt" {
-				return fail(400, "视频默认参数字段无效")
-			}
-			switch value.(type) {
-			case string, bool, float64:
-			default:
-				return fail(400, "视频默认参数仅支持文本、布尔和数字")
-			}
-		}
-		for _, field := range array(options["stringFields"]) {
-			if !videoInputField(str(field)) {
-				return fail(400, "视频 stringFields 无效")
 			}
 		}
 		if len(array(model["mode"])) == 0 {
@@ -267,13 +271,42 @@ func videoBaseBody(model, input object) object {
 	return body
 }
 
+// 这些协议的任务接口与媒体类型无关；openaiVideo 和 ark 的合同只覆盖视频。
+func protocolCoversAllMedia(protocol string) bool {
+	return protocol == "fal" || protocol == "replicate"
+}
+
+var mediaInputFields = map[string][]string{
+	"image": {"prompt", "ratio", "size", "images"},
+	"video": {"prompt", "duration", "ratio", "resolution", "generateAudio", "images", "videos", "audios", "firstFrame", "lastFrame"},
+	"audio": {"prompt", "voice", "speed", "volume", "pitch", "language", "format", "sampleRate", "images", "audios"},
+}
+
 func videoInputField(key string) bool {
-	for _, field := range []string{"prompt", "duration", "ratio", "resolution", "generateAudio", "images", "videos", "audios", "firstFrame", "lastFrame"} {
-		if key == field {
-			return true
+	for _, fields := range mediaInputFields {
+		for _, field := range fields {
+			if key == field {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// 节点总会带上 size、ratio、language 等默认值。图片和音频模型没声明这项能力时不发占位值；
+// 声明了能力却没有映射，就和未映射的参考素材一样明确拒绝。
+func undeclaredMediaDefault(model object, field string) bool {
+	switch field {
+	case "prompt", "images", "videos", "audios":
+		return false
+	case "ratio":
+		return len(array(model["imageRatios"])) == 0
+	case "size":
+		return len(array(model["imageSizes"])) == 0
+	case "voice":
+		return len(array(model["voices"])) == 0
+	}
+	return true
 }
 
 func validateVideoInputs(model, input object) error {
@@ -380,7 +413,7 @@ func validateVideoInputs(model, input object) error {
 func videoEndpoint(base, relative string) (*url.URL, error) {
 	u, err := url.Parse(base)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return nil, fail(400, "视频供应商地址无效")
+		return nil, fail(400, "媒体供应商地址无效")
 	}
 	r, err := url.Parse(relative)
 	if err != nil || r.IsAbs() || r.Host != "" || r.RawQuery != "" || r.Fragment != "" || strings.ContainsAny(relative, "\\\x00") {
@@ -448,7 +481,7 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 	}
 	key := strings.TrimSpace(strings.TrimPrefix(str(config["apiKey"]), "Bearer "))
 	if key == "" && str(provider["transport"]) != "local" {
-		return nil, fail(400, "请先配置视频供应商 API Key")
+		return nil, fail(400, "请先配置媒体供应商 API Key")
 	}
 	if key != "" {
 		prefix := "Bearer "
@@ -462,7 +495,7 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 	}
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("视频供应商连接失败: %w", err)
+		return nil, fmt.Errorf("媒体供应商连接失败: %w", err)
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		code := ""
@@ -480,7 +513,7 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 		case 400, 401, 403, 404, 405, 422:
 			return nil, &videoRequestRejected{status: response.StatusCode, code: code}
 		}
-		return nil, fail(502, fmt.Sprintf("视频供应商 HTTP %d；未读取可能包含凭据的错误正文", response.StatusCode))
+		return nil, fail(502, fmt.Sprintf("媒体供应商 HTTP %d；未读取可能包含凭据的错误正文", response.StatusCode))
 	}
 	return response, nil
 }
@@ -510,11 +543,11 @@ func videoJSON(ctx context.Context, provider, config object, method, relative st
 		return nil, err
 	}
 	if len(data) > 2*1024*1024 {
-		return nil, fail(502, "视频任务响应超过2MiB")
+		return nil, fail(502, "媒体任务响应超过2MiB")
 	}
 	var result object
 	if json.Unmarshal(data, &result) != nil || result == nil {
-		return nil, fail(502, "视频任务响应须为 JSON 对象")
+		return nil, fail(502, "媒体任务响应须为 JSON 对象")
 	}
 	return result, nil
 }
@@ -527,9 +560,13 @@ func videoBody(model, input, refs object, protocol string) (object, error) {
 	body := videoBaseBody(model, input)
 	mapping := asObject(options["inputMap"])
 	targets := videoFieldTargets(model, protocol)
-	for _, field := range []string{"prompt", "duration", "ratio", "resolution", "generateAudio", "images", "videos", "audios", "firstFrame", "lastFrame"} {
+	kind := str(model["type"])
+	for _, field := range mediaInputFields[kind] {
 		value := input[field]
 		if protocol == "openaiVideo" && field == "generateAudio" && mapping[field] == nil && model["audio"] != "optional" {
+			continue
+		}
+		if kind != "video" && mapping[field] == nil && undeclaredMediaDefault(model, field) {
 			continue
 		}
 		if field == "images" || field == "videos" || field == "audios" || field == "firstFrame" || field == "lastFrame" {
@@ -746,7 +783,7 @@ func submitVideo(ctx context.Context, provider, config, input, refs object) (obj
 		id = str(response["request_id"])
 	}
 	if !regexp.MustCompile("^[a-zA-Z0-9_-]{1,256}$").MatchString(id) {
-		return nil, nil, fail(502, "供应商未返回有效视频任务 ID；禁止自动重新提交")
+		return nil, nil, fail(502, "供应商未返回有效媒体任务 ID；禁止自动重新提交")
 	}
 	job["id"] = id
 	switch protocol {
@@ -792,16 +829,16 @@ func videoResponsePath(base, value string) (string, error) {
 	}
 	u, err := url.Parse(value)
 	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return "", fail(502, "视频任务地址无效")
+		return "", fail(502, "媒体任务地址无效")
 	}
 	u = b.ResolveReference(u)
 	if u.Scheme != b.Scheme || u.Host != b.Host || !strings.HasPrefix(u.Path, b.Path) {
-		return "", fail(502, "视频任务地址不能改变供应商来源或路径边界")
+		return "", fail(502, "媒体任务地址不能改变供应商来源或路径边界")
 	}
 	return strings.TrimPrefix(u.Path, b.Path), nil
 }
 
-func videoOutputURLs(result object, protocol string) []string {
+func videoOutputURLs(result object, protocol, kind string) []string {
 	values := []string{}
 	var collect func(any)
 	collect = func(raw any) {
@@ -823,8 +860,8 @@ func videoOutputURLs(result object, protocol string) []string {
 	} else if protocol == "replicate" {
 		collect(result["output"])
 	} else {
-		collect(result["video"])
-		collect(result["videos"])
+		collect(result[kind])
+		collect(result[kind+"s"])
 	}
 	return values
 }

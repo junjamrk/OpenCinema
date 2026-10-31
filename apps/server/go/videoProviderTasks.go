@@ -98,39 +98,46 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 			return nil, err
 		}
 	} else if job["providerRevision"] != provider["revision"] || job["configRevision"] != videoConfigRevision(config) {
-		return nil, fail(409, "视频供应商配置或模型声明已变化；保留原任务，不能向其他连接恢复查询")
+		return nil, fail(409, "媒体供应商配置或模型声明已变化；保留原任务，不能向其他连接恢复查询")
 	}
 	defer func() {
-		if ctx.Err() == nil {
-			return
-		}
-		value, _ := ctx.Value(videoTaskKey{}).(*videoTaskContext)
-		if value == nil {
-			return
-		}
-		s.tasksMu.Lock()
-		requested := value.task.cancelRequested
-		s.tasksMu.Unlock()
-		if !requested || job["cancelMode"] != "request" {
+		status := job["status"]
+		if !s.mediaCancelRequested(ctx) || job["cancelMode"] != "request" || status == "completed" || status == "failed" || status == "cancelled" {
 			return
 		}
 		deadline, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_, err := videoJSON(deadline, provider, config, str(job["cancelMethod"]), str(job["cancelPath"]), nil)
-		if err != nil {
+		if err := cancelRemoteJob(deadline, provider, config, job); err != nil {
 			return
 		}
-		result, err := videoJSON(deadline, provider, config, http.MethodGet, str(job["statusPath"]), nil)
-		if err != nil {
-			return
-		}
-		state := videoRemoteState(result)
-		if state == "cancelled" || state == "failed" {
-			job["status"] = state
-			_ = settleVideoRemote(ctx, job)
+		for {
+			result, err := videoJSON(deadline, provider, config, http.MethodGet, str(job["statusPath"]), nil)
+			if err != nil {
+				return
+			}
+			state := videoRemoteState(result)
+			if state == "cancelled" || state == "failed" {
+				job["status"] = state
+				_ = settleVideoRemote(ctx, job)
+				return
+			}
+			select {
+			case <-deadline.Done():
+				return
+			case <-time.After(500 * time.Millisecond):
+			}
 		}
 	}()
+	// 远端确认完成但结果无效，重试下载也拿不到产物，直接落成失败终态。
+	failCompleted := func(message string) ([]string, error) {
+		job["status"] = "failed"
+		return nil, errors.Join(settleVideoRemote(ctx, job), fail(502, message))
+	}
 	for {
+		// 恢复的任务由这里发起远端取消：取消上下文的话，它还没走到这里就退出了。
+		if s.mediaCancelRequested(ctx) && job["status"] != "completed" {
+			return nil, context.Canceled
+		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -155,9 +162,9 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 				return nil, err
 			}
 			if state == "cancelled" {
-				return nil, fail(499, "视频供应商已确认任务取消")
+				return nil, fail(499, "媒体供应商已确认任务取消")
 			}
-			return nil, fail(502, "视频供应商已确认生成失败；保留远端任务 ID")
+			return nil, fail(502, "媒体供应商已确认生成失败；保留远端任务 ID")
 		case "completed":
 			if err := settleVideoRemote(ctx, job); err != nil {
 				return nil, err
@@ -185,12 +192,12 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 					return nil, err
 				}
 				if response["error"] != nil {
-					return nil, fail(502, "fal 已完成任务但返回生成错误")
+					return failCompleted("fal 已完成任务但返回生成错误")
 				}
 			}
-			urls := videoOutputURLs(response, protocol)
+			urls := videoOutputURLs(response, protocol, str(input["mediaType"]))
 			if len(urls) == 0 {
-				return nil, fail(502, "视频任务结束但未返回视频产物")
+				return failCompleted("媒体任务结束但未返回产物")
 			}
 			return urls, nil
 		}
@@ -199,6 +206,15 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 			return nil, err
 		}
 	}
+}
+
+// 取消接口常回空正文，这里只看状态码；是否真的终止由取消后的状态查询确认。
+func cancelRemoteJob(ctx context.Context, provider, config, job object) error {
+	response, err := videoRequest(ctx, provider, config, str(job["cancelMethod"]), str(job["cancelPath"]), nil, "application/json")
+	if err != nil {
+		return err
+	}
+	return response.Body.Close()
 }
 
 func (s *server) runMediaTask(ctx context.Context, id string, task *mediaTask) {
@@ -251,7 +267,8 @@ func (s *server) resumeVideoTask(id string, task *mediaTask) error {
 	if task.job["status"] == "missing" && !task.cancelRequested {
 		return nil
 	}
-	retryDownload := !task.settled.IsZero() && task.job["status"] == "completed" && number(task.result["code"]) != 200
+	// ACT: 产物下载失败最多再试 3 次，否则每次状态查询都会把永久失败的任务拉回运行中。
+	retryDownload := !task.settled.IsZero() && task.job["status"] == "completed" && number(task.result["code"]) != 200 && number(task.job["downloadRetries"]) < 3
 	retryReferences := task.unknown && task.job["phase"] == "preparingReferences" && task.job["protocol"] == nil
 	if retryReferences && task.cancelRequested && str(task.job["id"]) == "" {
 		task.submitted.Store(false)
@@ -270,6 +287,9 @@ func (s *server) resumeVideoTask(id string, task *mediaTask) error {
 	}
 	if retryReferences {
 		task.submitted.Store(false)
+	}
+	if retryDownload {
+		task.job["downloadRetries"] = number(task.job["downloadRetries"]) + 1
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	task.done, task.cancel, task.settled, task.result, task.unknown = make(chan struct{}), cancel, time.Time{}, nil, false
