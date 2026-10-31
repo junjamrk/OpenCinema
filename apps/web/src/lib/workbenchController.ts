@@ -1583,7 +1583,7 @@ export function createWorkbenchController() {
       for (const file of files) {
         const { kind } = inferMediaFileType(file);
         if (!kind) throw new Error(`暂不支持此文件类型：${file.name}`);
-        if (!file.size || file.size > 100 * 1024 ** 2) throw new Error(`文件为空或超过当前工作区100MiB写入上限：${file.name}`);
+        if (!file.size || file.size > (kind === "video" ? 2 * 1024 : 100) * 1024 ** 2) throw new Error(`文件为空或超过${kind === "video" ? "2 GiB" : "100 MiB"}导入上限：${file.name}`);
         if (kind === "text" && file.size > 1000000) throw new Error("文本文件最多 1 MB");
       }
       await controller.asOneHistoryStep(async () => { for (const [index, file] of files.entries()) {

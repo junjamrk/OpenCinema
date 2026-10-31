@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { uploadNodeFile } from "@toonflow/nodes-scaffold/nodeFiles";
-import { errorText, listMediaHistory, mediaLabels, readMedia, useMediaUrl, type MediaType, type NodeViewProps } from "../reactNode";
+import { errorText, listMediaHistory, mediaAccept, mediaByteLimit, mediaFileType, mediaLabels, readMedia, useMediaUrl, type MediaType, type NodeViewProps } from "../reactNode";
 import type { NodeMediaValue } from "@toonflow/nodes-scaffold/values";
 import MediaDialog from "./reactMediaDialog";
 import AudioPlayer from "./reactAudioPlayer";
@@ -24,7 +24,7 @@ function HistoryPreview({ value, mediaType, controller, disabled, onClose, onSel
 export default function MediaNode(props: NodeViewProps & { mediaType: MediaType; children?: ReactNode; disabled?: boolean; compact?: boolean; toolbarAction?: ReactNode; stageOverlay?: ReactNode; emptyAction?: ReactNode; fallbackPreview?: NodeMediaValue; fallbackCaption?: string; onVideoReady?(video: HTMLVideoElement): void; onAudioReady?(audio: HTMLAudioElement): void }) {
   const { node, controller, readOnly, mediaType, children, onVideoReady } = props;
   const value = readMedia(node.data, mediaType);
-  const { url, error: previewError } = useMediaUrl(controller, value ?? props.fallbackPreview);
+  const { url, error: previewError, retry } = useMediaUrl(controller, value ?? props.fallbackPreview);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<NodeMediaValue[] | undefined>();
@@ -75,22 +75,23 @@ export default function MediaNode(props: NodeViewProps & { mediaType: MediaType;
     {!history.length && <span>暂无媒体历史</span>}
   </div>;
   return <div className={`nodeControls nodeMediaControls nodrag nopan nowheel${url ? " nodeMediaHasPreview" : ""}`} data-media-type={mediaType} onDoubleClick={event => event.stopPropagation()}>
-    <input ref={input} className="nodeFileInput" type="file" accept={`${mediaType}/*`} aria-label={`选择${title}`} disabled={disabled}
+    <input ref={input} className="nodeFileInput" type="file" accept={mediaAccept(mediaType)} aria-label={`选择${title}`} disabled={disabled}
       onChange={event => {
         const file = event.target.files?.[0]; event.target.value = "";
         if (!file) return;
         void perform(async () => {
-          if (!file.type.startsWith(`${mediaType}/`)) throw new Error(`请选择${title}文件`);
-          if (!file.size || file.size > 100 * 1024 ** 2) throw new Error("文件须为 100 MiB 以内的非空文件");
+          const mimeType = mediaFileType(file, mediaType);
+          if (!mimeType) throw new Error(`请选择${title}文件`);
+          if (!file.size || file.size > mediaByteLimit(mediaType)) throw new Error(`文件须为 ${mediaType === "video" ? "2 GiB" : "100 MiB"} 以内的非空文件`);
           const path = await uploadNodeFile(controller.getNodeService(node.id).files, node.id, file);
-          await select({ url: path, mimeType: file.type });
+          await select({ url: path, mimeType });
         });
       }} />
     <div className="nodeMediaFrame"><div className={`nodeMediaStage${props.stageOverlay ? " nodeMediaStageGenerating" : ""}`} aria-busy={!!props.stageOverlay || !!(value || props.fallbackPreview) && !url && !previewError}>
       {url && mediaType === "image" && <img className="nodeMedia" src={url} alt={String(node.data?.label ?? title)} draggable={false} onError={() => setError("浏览器无法解码此图片，原文件保留")} />}
       {url && mediaType === "video" && <VideoPreview key={url} url={url} label={String(node.data?.label ?? title)} playerRef={player} onReady={video => { setError(""); readyPlayer(video); onVideoReady?.(video); }} onError={setError} />}
       {url && mediaType === "audio" && <AudioPlayer url={url} label={String(node.data?.label ?? title)} onReady={element => { readyPlayer(element); props.onAudioReady?.(element); }} onError={() => setError("浏览器无法预览此音频格式，仍可尝试本地 FFmpeg 处理")} />}
-      {!url && (value || props.fallbackPreview) && !props.stageOverlay && <div className="nodeComposerEmpty" role="status"><NodeIcon name={previewError ? "info" : mediaType === "video" ? "movie" : mediaType === "audio" ? "volume" : "camera"} /><span>{previewError ? `${title}暂无法读取` : `正在读取${title}…`}</span></div>}
+      {!url && (value || props.fallbackPreview) && !props.stageOverlay && <div className="nodeComposerEmpty" role="status"><NodeIcon name={previewError ? "info" : mediaType === "video" ? "movie" : mediaType === "audio" ? "volume" : "camera"} /><span>{previewError ? `${title}暂无法读取` : `正在读取${title}…`}</span>{previewError && <div className="nodeActions"><button type="button" disabled={disabled} onClick={() => input.current?.click()}>重新选择</button><button type="button" onClick={retry}>重试</button></div>}</div>}
       {!value && !props.fallbackPreview && !props.stageOverlay && (props.emptyAction ?? <button className="nodeUploadArea" type="button" disabled={disabled} onClick={() => input.current?.click()}><NodeIcon name="upload" size={20} />选择{title}</button>)}
       {props.stageOverlay}
     </div>{props.toolbarMount ? createPortal(toolbar, props.toolbarMount) : toolbar}</div>

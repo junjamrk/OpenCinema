@@ -6,6 +6,7 @@ import { productionPlanSchema, type ProductionPlan } from "@toonflow/node-shared
 // 编辑中的空标题、未选层及尚未协调的时间范围是草稿；采用时再校验正式配置。
 export const motionPlanDraftSchema = z.strictObject({ ...productionPlanSchema.shape, shotTitle: z.string().max(120), layers: productionPlanSchema.shape.layers.unwrap().array().max(10) });
 export const motionSettingsDraftSchema = z.strictObject({ start: z.number().finite(), end: z.number().finite(), sampleFps: z.number().finite(), pose: z.boolean().optional(), depth: z.boolean().optional() });
+export const motionOutputLabels: Record<string, string> = { analysis: "分析报告", summary: "分析摘要", video: "RGB 片段", openPose: "OpenPose 数据", poseControl: "OpenPose 姿态", depth: "相对深度", exportManifest: "导出清单", cameraMotion: "Camera 二维运动", edges: "边缘", lineart: "线稿", contactSheet: "Contact sheet", frameDifferenceMask: "运动差分遮罩", normalsProxy: "亮度梯度代理", combinedReview: "三路审阅", productionPack: "生产包", shotPlan: "镜头计划" };
 export function defaultProductionPlan(label = "镜头计划"): ProductionPlan {
   return { shotTitle: label.trim().slice(0, 120) || "镜头计划", description: "", cameraIntent: "", visualStyle: "", referenceMode: "fullScene", layers: ["rgb"] };
 }

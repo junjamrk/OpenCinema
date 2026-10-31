@@ -48,19 +48,20 @@ var depthTasks = map[string]*depthTask{}
 
 func depthModel() object { var model object; _ = json.Unmarshal(depthModelBytes, &model); return model }
 func (s *server) depthModelPath(ctx context.Context) (string, error) {
+	missing := fail(424, "尚未准备 Video Depth Anything 模型，请到设置的媒体服务中准备")
 	root, err := workspacePath(s.dataDirectory, ".models/videoDepthAnythingSmall", false)
 	if err != nil {
-		return "", err
+		return "", missing
 	}
 	for _, value := range array(depthModel()["files"]) {
 		entry := asObject(value)
 		path, pathErr := workspacePath(root, str(entry["name"]), false)
 		if pathErr != nil {
-			return "", pathErr
+			return "", missing
 		}
 		info, statErr := os.Stat(path)
 		if statErr != nil {
-			return "", statErr
+			return "", missing
 		}
 		if info.Size() != int64(number(entry["size"])) || !info.Mode().IsRegular() {
 			return "", fail(424, "Video Depth Anything 固定模型或源码大小不匹配")

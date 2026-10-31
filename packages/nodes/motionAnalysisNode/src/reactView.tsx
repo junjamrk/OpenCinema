@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import NodeIcon from "@toonflow/node-shared/reactIcon";
+import NodeError from "@toonflow/node-shared/reactNodeNotice";
 import { errorText, type NodeViewProps } from "@toonflow/node-shared/reactNode";
 import {
   exportLayers,
@@ -10,7 +11,7 @@ import {
 import { analysisSettingsSchema, type AnalysisSettings } from "./reactEngine";
 import type { MotionService } from "./reactService";
 import MotionPreview from "./reactMotionPreview";
-import { motionView, readProductionPlan } from "./editorView";
+import { motionOutputLabels, motionView, readProductionPlan } from "./editorView";
 import { useEditorSession } from "@toonflow/node-shared/editorSession";
 import "./reactStyles.scss";
 
@@ -36,7 +37,7 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
         readProductionPlan(node.data?.productionPlan, node.data?.label as string | undefined),
     ),
     [status, setStatus] = useState<ReturnType<MotionService["getStatus"]>>(),
-    [error, setError] = useState(""),
+    [error, setError] = useState<unknown>(""),
     [saving, setSaving] = useState(false);
   const settingsBaseline = useRef(
     cachedDraft?.settingsBaseline ?? {
@@ -142,7 +143,7 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
       if (name === "getMotionStatus" && value) setStatus(value as typeof status);
       return value;
     } catch (failure) {
-      setError(errorText(failure));
+      setError(failure);
     } finally {
       setSaving(false);
     }
@@ -187,10 +188,10 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
       {tab === "analysis" && (
         <>
           <div className="motionInput">
-            <span>VIDEO</span>
+            <span>参考视频</span>
             <small>
               {references.length === 1
-                ? ((references[0]!.value as any)?.url ?? "未产出")
+                ? ((references[0]!.value as any)?.url?.split("/").at(-1) ?? "未产出")
                 : references.length
                   ? `${references.length} 路输入，须明确保留一路`
                   : "未连接参考视频"}
@@ -377,7 +378,7 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
                 <button
                   key={name}
                   onClick={() => void download(output.value.url, output.value.mimeType)}>
-                  <span>{name}</span>
+                  <span>{motionOutputLabels[name] ?? name}</span>
                   <small>{output.value.url.split("/").at(-1)}</small>
                   <NodeIcon name="download" />
                 </button>
@@ -400,8 +401,8 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
       {status?.operationId && (
         <>
           <small>
-            Depth {status.operationId} · {status.backendRegistered ? "已登记" : "本地准备"} ·{" "}
-            {status.executionSettled ? "执行已收尾" : "执行未确认收尾"}
+            深度任务 · {status.backendRegistered ? "已提交" : "本地准备"} ·{" "}
+            {status.executionSettled ? "已结束" : "未确认结束"}
           </small>
           {!status.running && (
             <div className="motionActions">
@@ -416,11 +417,7 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
           )}
         </>
       )}
-      {(error || status?.error) && (
-        <p className="motionError" role="alert">
-          {error || status?.error}
-        </p>
-      )}
+      <NodeError className="motionError" error={error || status?.error} />
       {status?.state === "succeeded" && !status.running && (
         <small className="motionSuccess">任务完成，产物已保存</small>
       )}

@@ -1,3 +1,4 @@
+.openCinemaWorkbench .nodeErrorAction { display: block; margin-top: 6px; }
 .openCinemaWorkbench .nodeControls {
   display: grid;
   gap: 10px;
@@ -58,7 +59,7 @@
   }
   audio.nodeMedia { min-height: 44px; }
   .nodeUploadArea { min-height: 120px; width: 100%; border-style: dashed; color: var(--textSecondary, #9da4ae); &:hover:not(:disabled) { border-color: var(--selectionAccent); background: var(--surfaceSelected); color: var(--textPrimary); } }
-  .nodeComposerEmpty { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 120px; color: var(--textMuted); font-size: var(--fontSizeSmall); }
+  .nodeComposerEmpty { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 120px; color: var(--textMuted); font-size: var(--fontSizeSmall); }
   button.nodeComposerEmpty { height: 100%; border: 0; background: transparent; cursor: pointer; transition: color var(--motionFast) var(--easeStandard); &:hover:not(:disabled) { color: var(--textPrimary); } }
   .nodeComposerAction { display: inline-flex; align-items: center; justify-self: start; gap: 6px; padding: 4px 6px; border-color: transparent; background: transparent; color: var(--textSecondary); &:hover:not(:disabled) { color: var(--selectionAccent); } }
   .nodeMediaHistory { display: grid; gap: 4px; max-height: 180px; overflow: auto; }
@@ -70,7 +71,10 @@
   .nodeActions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .nodePrimary { background: var(--actionPrimary); border-color: var(--actionPrimary); color: var(--textOnPrimary); font-weight: var(--fontWeightMedium); &:hover:not(:disabled) { background: var(--actionPrimaryHover); border-color: var(--actionPrimaryHover); } &:active:not(:disabled) { background: var(--actionPrimaryPressed); border-color: var(--actionPrimaryPressed); } }
   .nodePrompt { width: 100%; min-height: 90px; resize: vertical; line-height: 1.6; }
-  .nodeError { margin: 0; color: var(--statusError); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .nodeError { margin: 0; max-height: 120px; overflow: auto; color: var(--statusError); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .nodeNotice { display: grid; gap: 8px; justify-items: start; padding: 8px; border: 1px solid var(--statusWarning); border-radius: var(--radiusControl); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall);
+    p { margin: 0; color: var(--textSecondary); overflow-wrap: anywhere; }
+  }
   .nodeStatus { color: var(--textSecondary, #9da4ae); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); font-variant-numeric: tabular-nums; &[data-state="completed"] { color: var(--statusSuccess); } &[data-state="failed"] { color: var(--statusError); } &[data-state="unknown"], &[data-state="interrupted"], &[data-state="cancelRequested"] { color: var(--statusWarning); } }
   .nodeReferenceList { display: grid; gap: 4px; max-height: 100px; overflow: auto; color: var(--textSecondary, #9da4ae); }
   .nodeReferenceList span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
