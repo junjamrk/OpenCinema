@@ -123,7 +123,7 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		return s.nodePackage(w, r)
 	}
 	if operation == "capabilities" {
-		success(w, object{"workspaceReadRange": 1, "collaboration": 1, "pluginApiVersion": 1, "renderer": "react", "runtime": "go"})
+		success(w, object{"workspaceReadRange": 1, "collaboration": 1, "pluginApiVersion": 1, "renderer": "react", "runtime": "go", "hostVersion": hostVersion})
 		return nil
 	}
 	if operation == "get" {

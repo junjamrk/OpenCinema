@@ -62,6 +62,9 @@ type server struct {
 	referenceBindingURLs   map[string]string
 }
 
+// 工作台对外的版本号，/api/hello、MCP serverInfo 和插件 minHost 比较共用这一处；发版时与 package.json 一起改。
+const hostVersion = "0.4.0"
+
 func main() {
 	address := flag.String("listen", "127.0.0.1:47920", "HTTP listen address")
 	data := flag.String("dataDirectory", "data", "Persistent configuration directory")
@@ -554,7 +557,7 @@ func (s *server) route(w http.ResponseWriter, r *http.Request) error {
 		success(w, object{"aiModels": []any{}})
 		return nil
 	case p == "/api/hello":
-		success(w, object{"runtime": "go", "version": "0.3.0"})
+		success(w, object{"runtime": "go", "version": hostVersion})
 		return nil
 	}
 	return fail(404, "接口不存在: "+p)

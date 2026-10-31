@@ -304,7 +304,7 @@ func (s *server) mcp(w http.ResponseWriter, r *http.Request) {
 		if version != "2025-03-26" && version != "2025-06-18" && version != "2025-11-25" {
 			version = "2025-11-25"
 		}
-		result = object{"protocolVersion": version, "capabilities": object{"tools": object{"listChanged": false}, "resources": object{"listChanged": false}}, "serverInfo": object{"name": "openCinema", "version": "0.4.0"}, "instructions": "先调用 getAppState 固定工程和连接，同一connection串行调用画布及插件工具。renderOpenCinema 打开已有工程；画布与节点需要同一React provider。扩展操作用 getWorkbenchTools 的 query 或 names 按需发现，再通过 workbenchTools 调用并带回 catalogRevision；节点和工作区插件先 getNodeTools/getWorkspaceTools 发现真实Schema。发现时保存documentRevision和toolCatalogVersion，写入按schema提供修订及operationId；未知结果调用getOperation，不重复派发。工具completed不等于专业task产物或保存完成。本服务不声明MCP Tasks扩展。"}
+		result = object{"protocolVersion": version, "capabilities": object{"tools": object{"listChanged": false}, "resources": object{"listChanged": false}}, "serverInfo": object{"name": "openCinema", "version": hostVersion}, "instructions": "先调用 getAppState 固定工程和连接，同一connection串行调用画布及插件工具。renderOpenCinema 打开已有工程；画布与节点需要同一React provider。扩展操作用 getWorkbenchTools 的 query 或 names 按需发现，再通过 workbenchTools 调用并带回 catalogRevision；节点和工作区插件先 getNodeTools/getWorkspaceTools 发现真实Schema。发现时保存documentRevision和toolCatalogVersion，写入按schema提供修订及operationId；未知结果调用getOperation，不重复派发。工具completed不等于专业task产物或保存完成。本服务不声明MCP Tasks扩展。"}
 	case "ping":
 		result = object{}
 	case "tools/list":
