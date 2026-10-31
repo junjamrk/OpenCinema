@@ -112,7 +112,7 @@
       > button { justify-self: start; }
     }
 
-    .pluginSettingsCard .pluginSetting { padding: 0; border: 0; }
+    .pluginSettingsCard .pluginSetting { display: flex; padding: 0; border: 0; }
     .pluginSettingsCard[data-focused="true"] { border-color: var(--borderSelected); box-shadow: 0 0 0 1px var(--borderSelected); }
     .pluginDescription, .pluginFocusNotice { margin: 0; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); }
     .pluginPackageReview {
