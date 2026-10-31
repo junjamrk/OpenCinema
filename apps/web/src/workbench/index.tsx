@@ -37,7 +37,7 @@ import "./styles.scss";
 
 const nodeTypes = { workbenchNode: NodeView };
 // 适应视图时避开顶栏、右侧工具栏和底部输入框。
-const fitPadding = { top: "80px", right: "88px", bottom: "128px", left: "40px" } as const;
+const fitOptions = { padding: { top: "80px", right: "88px", bottom: "128px", left: "40px" }, maxZoom: 1 } as const;
 const starterFlow = [["textNode", "text"], ["imageGenerationNode", "image"], ["videoGenerationNode", "video"]] as const;
 function flowShortcutKeys(binding: string) { const keys = getShortcutBindings(binding).filter(value => value !== "None").map(value => value.replace(/\bCtrl\b/g, "Control")); return keys.length ? keys : null; }
 
@@ -320,7 +320,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
   }, [controller, snapshot.selectedIds.join("|"), snapshot.plugins]);
 
   useEffect(() => controller.attachCanvasView({
-    async fit(ids) { await flow.fitView({ ...(ids ? { nodes: ids.map(id => ({ id })) } : {}), padding: fitPadding, duration: 0 }); return flow.getViewport(); },
+    async fit(ids) { await flow.fitView({ ...(ids ? { nodes: ids.map(id => ({ id })) } : {}), ...fitOptions, duration: 0 }); return flow.getViewport(); },
     measure(id) { const node = flow.getNode(id); const width = node?.measured?.width, height = node?.measured?.height; return width && height ? { width, height } : undefined; },
     getOptions() { return viewRef.current; },
     setOptions(options) { const next = { ...viewRef.current, ...options }; viewRef.current = next; setLocalView(next); },
@@ -371,7 +371,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
     controller.select([created[0]!]);
     // fitView 只计入已测量的节点，提前调用会把最后一个节点留在视图外。
     for (let attempt = 0; attempt < 40 && !created.every(id => flow.getNode(id)?.measured?.width); attempt++) await new Promise(resolve => setTimeout(resolve, 50));
-    await moveViewport(() => flow.fitView({ padding: fitPadding, duration: reducedMotion ? 0 : 220 }));
+    await moveViewport(() => flow.fitView({ ...fitOptions, duration: reducedMotion ? 0 : 220 }));
   }
 
   function showContextMenu(event: { preventDefault(): void; clientX: number; clientY: number }) {
@@ -866,7 +866,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
       if (shortcutMatches(event, shortcuts.handTool)) { event.preventDefault(); setTool("pan"); return; }
       if (shortcutMatches(event, shortcuts.arrange) && !editingLocked) { event.preventDefault(); void run(() => controller.execute("arrangeCanvas", {})); return; }
       if (shortcutMatches(event, shortcuts.zoomIn) || shortcutMatches(event, shortcuts.zoomOut) || shortcutMatches(event, shortcuts.fitView)) {
-        event.preventDefault(); void run(() => moveViewport(() => shortcutMatches(event, shortcuts.fitView) ? flow.fitView({ padding: fitPadding, duration: reducedMotion ? 0 : 220 }) : shortcutMatches(event, shortcuts.zoomIn) ? flow.zoomIn({ duration: reducedMotion ? 0 : 160 }) : flow.zoomOut({ duration: reducedMotion ? 0 : 160 }))); return;
+        event.preventDefault(); void run(() => moveViewport(() => shortcutMatches(event, shortcuts.fitView) ? flow.fitView({ ...fitOptions, duration: reducedMotion ? 0 : 220 }) : shortcutMatches(event, shortcuts.zoomIn) ? flow.zoomIn({ duration: reducedMotion ? 0 : 160 }) : flow.zoomOut({ duration: reducedMotion ? 0 : 160 }))); return;
       }
       if (shortcutMatches(event, shortcuts.mergeGroup) && snapshot.selectedIds.length && !editingLocked) { event.preventDefault(); runCommand("mergeGroups", { nodeIds: selectedGroups }); return; }
       if (shortcutMatches(event, shortcuts.copy) && snapshot.selectedIds.length) {
@@ -1056,7 +1056,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
           <label className="zoomValue"><input type="number" min={15} max={800} step={1} aria-label="画布缩放百分比" value={zoomInput ?? Math.round(zoom * 100)} onChange={event => setZoomInput(event.target.value)} onBlur={applyZoom} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } if (event.key === "Escape") { cancelZoomRef.current = true; event.currentTarget.blur(); } }} /><span aria-hidden="true">%</span></label>
           <button type="button" onClick={() => void run(() => moveViewport(() => flow.zoomOut({ duration: reducedMotion ? 0 : 160 })))} title="缩小" aria-label="缩小"><IconZoomOut aria-hidden="true" focusable="false" size={16} /></button>
           <span className="toolDivider" />
-          <button type="button" disabled={!nodes.length} onClick={() => void run(() => moveViewport(() => flow.fitView({ padding: fitPadding, duration: reducedMotion ? 0 : 220 })))} title="适应视图" aria-label="适应视图"><IconFocusCentered aria-hidden="true" focusable="false" size={16} /></button>
+          <button type="button" disabled={!nodes.length} onClick={() => void run(() => moveViewport(() => flow.fitView({ ...fitOptions, duration: reducedMotion ? 0 : 220 })))} title="适应视图" aria-label="适应视图"><IconFocusCentered aria-hidden="true" focusable="false" size={16} /></button>
         </div>}
 
       <AnimatePresence>{managementPanel && <MotionLayer key={managementPanel} kind="backdrop" className={`panelBackdrop managementBackdrop${managementPanel === "assets" ? " assetLibraryBackdrop" : ""}`} onKeyDownCapture={managementPanel === "canvas" ? trapOverlayFocus : undefined}>
