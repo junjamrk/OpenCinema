@@ -4,15 +4,17 @@ OpenCinema 仅提供 Go 服务端与 React Web 工作台。脚手架负责插件
 
 ## 插件入口
 
-每个节点以 src/reactPlugin.ts 导出 NodePluginDefinition。插件声明稳定的 id、apiVersion: 1、renderer: "react"、version、view 与 activate；工作区扩展声明 scope: "workspace"。activate 通过 getService 获取文档、文件、宿主等已有服务，registerTool 发布带 Zod 参数校验的真实工具，onDispose 释放资源。
+每个节点以 src/reactPlugin.ts 导出 NodePluginDefinition。插件声明稳定的 id、apiVersion: 1、renderer: "react"、version、view 与 activate；工作区扩展声明 scope: "workspace"。activate 通过 getService 获取文档、文件、宿主等已有服务，只能取到 requires 声明过的服务，未声明时报错；这是权限裁剪，不是沙箱。registerTool 发布带 Zod 参数校验的真实工具，onDispose 释放资源。
 
 React 组件使用 @toonflow/nodes-scaffold/react 的 ReactNodeViewProps；框架无关合同由 contracts、pluginRuntime、hostAdapter、workspaceDocuments、workbenchServices、values、connection 等公开子路径导出。运行时拒绝不兼容的 renderer 或能力版本，不把视图跨框架挂载。
 
 ## 构建
 
-vite.config.ts 或 viteConfig.ts 调用 createNodeConfig（等同 createReactNodeConfig），传入 name、displayName、author、github、requires，可选 description、license、homepage、tags、scope、configRules、resources 与 outDir。执行包内已有 build 脚本生成 index.js、manifest.json、样式和 install.json；仓库内默认输出到 build/nodes/<id>，第三方插件用 outDir 指定自己的目录。插件目录下的 readme.md 进入 manifest.readme，agent.md（写给 Agent 的操作指南，≤ 16 KiB）进入 manifest.agentGuide。安装包与市场目录的 JSON Schema 在 schema/ 目录。
+插件身份写在 package.json 的 openCinema 块：id、name，可选 scope、category、description、order、icon、requires。没有 order 的插件不进内置清单。vite.config.ts 或 viteConfig.ts 调用 createNodeConfig（等同 createReactNodeConfig），传入 author、github，可选 license/homepage/tags/outDir/configRules/resources/providers。默认输出到插件项目的 dist，内置节点显式设置 outDir 写入 build/nodes/<id>，市场插件写入 build/market/<id>。产物包括 index.js、manifest.json、样式和 install.json。插件目录下的 agent.md 随 manifest 发行，Agent 通过 getPluginConfiguration 读取。
 
-新建插件：`bun packages/nodeScaffold/scripts/createNode.ts <pluginId> "<显示名>"` 生成可直接编译、安装的骨架；约定与发布流程见 [docs/pluginDevelopment.md](../../docs/pluginDevelopment.md)。
+仓库内新建插件：`bun packages/nodeScaffold/scripts/createNode.ts <pluginId> "<显示名>"` 生成可直接编译、安装的骨架；约定与发布流程见 [docs/pluginDevelopment.md](../../docs/pluginDevelopment.md)。仓库外开发用 createOpenCinemaPlugin 生成骨架。仓库内节点从 @toonflow/nodes-scaffold/reactBuild 导入构建配置，此子路径依赖工作区包，不在 tarball 中使用；第三方从包根导入。
+
+providers 与 /api/providers/media/add 的 HTTP JSON 清单同格式，安装时由服务端按同一规则校验。插件提供的供应商是只读的，要改动须停用或卸载插件。
 
 插件通过宿主 /pluginSdk.js 共用 React 与 Zod；第三方专业库按真实依赖打包。manifest 与安装资产包含版本、资源 MIME、SHA256 和大小，构建检查单项与总量边界。资源从本地依赖或插件目录解析，运行时不自动换模型。
 

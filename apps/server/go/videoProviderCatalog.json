@@ -23,7 +23,8 @@
         "mode": ["text", "singleImage", "endFrameOptional", "startEndRequired", ["imageReference:9", "videoReference:3"]],
         "imageRatios": ["16:9", "9:16", "4:3", "3:4", "1:1", "21:9"],
         "audio": "optional",
-        "durationResolutionMap": [{ "duration": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "resolution": ["480p", "720p", "1080p"] }]
+        "durationResolutionMap": [{ "duration": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "resolution": ["480p", "720p", "1080p"] }],
+        "parameters": {"type": "object", "properties": {"priority": {"type": "integer", "title": "队列优先级（越大越靠前）", "minimum": 0, "maximum": 9}}}
       }
     ]
   },
@@ -54,6 +55,16 @@
     ]
   },
   {
+    "id": "comfyui",
+    "label": "ComfyUI 工作流",
+    "version": "1.0.0",
+    "videoProtocol": "comfyui",
+    "transport": "local",
+    "apiUrl": "http://127.0.0.1:8188",
+    "cancelMode": "request",
+    "models": []
+  },
+  {
     "id": "fal",
     "label": "fal",
     "version": "1.0.0",
@@ -69,7 +80,22 @@
         "imageRatios": ["16:9", "9:16", "1:1"],
         "audio": "optional",
         "durationResolutionMap": [{ "duration": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "resolution": [] }],
-        "video": { "stringFields": ["duration"] }
+        "video": { "stringFields": ["duration"] },
+        "parameters": {"type": "object", "properties": {"negative_prompt": {"type": "string", "title": "反向提示词"}, "cfg_scale": {"type": "number", "title": "提示词强度（CFG）"}}}
+      },
+      {
+        "id": "fal-ai/flux-pro/v1.1-ultra",
+        "label": "FLUX 1.1 Pro Ultra · 文生图",
+        "type": "image",
+        "imageRatios": ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "21:9", "9:21"],
+        "parameters": {"type": "object", "properties": {"seed": {"type": "integer", "title": "随机种子"}, "output_format": {"type": "string", "title": "输出格式", "enum": ["jpeg", "png"]}, "raw": {"type": "boolean", "title": "原始风格"}}}
+      },
+      {
+        "id": "fal-ai/elevenlabs/tts/multilingual-v2",
+        "label": "ElevenLabs Multilingual v2 · 语音合成",
+        "type": "audio",
+        "video": { "inputMap": { "prompt": "text", "voice": "voice", "speed": "speed" } },
+        "parameters": {"type": "object", "properties": {"stability": {"type": "number", "title": "稳定性", "minimum": 0, "maximum": 1}, "similarity_boost": {"type": "number", "title": "音色相似度", "minimum": 0, "maximum": 1}, "style": {"type": "number", "title": "风格强度", "minimum": 0, "maximum": 1}}}
       }
     ]
   },
@@ -89,7 +115,22 @@
         "imageRatios": ["16:9", "9:16"],
         "audio": "optional",
         "durationResolutionMap": [{ "duration": [8], "resolution": ["720p", "1080p"] }],
-        "video": { "inputMap": { "firstFrame": "image", "lastFrame": "last_frame" } }
+        "video": { "inputMap": { "firstFrame": "image", "lastFrame": "last_frame" } },
+        "parameters": {"type": "object", "properties": {"negative_prompt": {"type": "string", "title": "反向提示词"}, "seed": {"type": "integer", "title": "随机种子"}}}
+      },
+      {
+        "id": "black-forest-labs/flux-1.1-pro",
+        "label": "FLUX 1.1 Pro · 文生图",
+        "type": "image",
+        "imageRatios": ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4"],
+        "parameters": {"type": "object", "properties": {"seed": {"type": "integer", "title": "随机种子"}, "output_quality": {"type": "integer", "title": "输出质量", "minimum": 0, "maximum": 100}, "safety_tolerance": {"type": "integer", "title": "安全容忍度（越大越宽松）", "minimum": 1, "maximum": 6}, "prompt_upsampling": {"type": "boolean", "title": "自动扩写提示词"}}}
+      },
+      {
+        "id": "minimax/speech-02-hd",
+        "label": "MiniMax Speech-02 HD · 语音合成",
+        "type": "audio",
+        "video": { "inputMap": { "prompt": "text", "voice": "voice_id", "speed": "speed", "volume": "volume", "pitch": "pitch", "format": "audio_format", "sampleRate": "sample_rate" } },
+        "parameters": {"type": "object", "properties": {"emotion": {"type": "string", "title": "情绪", "enum": ["auto", "happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent", "neutral"]}, "channel": {"type": "string", "title": "声道", "enum": ["mono", "stereo"]}, "english_normalization": {"type": "boolean", "title": "英文文本规范化"}}}
       }
     ]
   }

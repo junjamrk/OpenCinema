@@ -35,9 +35,9 @@ cd packages/nodes/depthSliceNode && bun run typecheck && bun run build
 
 ```
 packages/nodes/depthSliceNode/
-├── package.json        依赖 @toonflow/nodes-scaffold、@toonflow/node-shared、zod
+├── package.json        openCinema 块声明 id、显示名、描述、能力要求；依赖 @toonflow/nodes-scaffold、@toonflow/node-shared、zod
 ├── tsconfig.json
-├── viteConfig.ts       createNodeConfig(...)：id、显示名、描述、许可、标签、能力要求、输出目录
+├── viteConfig.ts       createNodeConfig(...)：作者、许可、标签、输出目录
 ├── readme.md           给人看的说明；进入 manifest.readme
 ├── agent.md            给 Agent 看的指南；进入 manifest.agentGuide（≤ 16 KiB）
 └── src/
@@ -45,7 +45,7 @@ packages/nodes/depthSliceNode/
     └── reactView.tsx   节点内的 React 视图
 ```
 
-`--out <目录>` 可以把插件放在仓库之外；此时依赖以 `file:` 指向本仓库的 `packages/nodeScaffold` 与 `packages/nodeShared`，构建产物写到 `./dist`。
+这个脚手架用于仓库内开发。仓库外开发用 `createOpenCinemaPlugin`，步骤见 [README](../readmeZh.md)。
 
 ## 插件定义
 
@@ -104,18 +104,28 @@ React、react-dom 与 zod 由宿主通过 `/pluginSdk.js` 提供，不会打进�
 
 ## manifest 与安装包
 
+插件身份写在 `package.json` 的 `openCinema` 块：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 插件 ID，小驼峰；也是节点类型 |
+| `name` | 显示名 |
+| `description` | 一句话说明；进入节点菜单、市场与 Agent 的 `availableNodeTypes` |
+| `category`、`icon` | 节点菜单的分类与图标 |
+| `requires` | 需要的宿主服务与能力版本，例如 `{ document: 1, workbench: 1, workspaceFiles: 1, ffmpeg: 1, worker: 1 }`；`getService` 只能取到这里声明过的服务 |
+| `scope` | `node`（默认）或 `workspace` |
+| `order` | 只有内置节点声明；没有 `order` 的插件不进内置清单 |
+
 `createNodeConfig` 接收：
 
 | 字段 | 说明 |
 | --- | --- |
-| `name` | 插件 ID，小驼峰；也是节点类型 |
-| `displayName`、`author`、`github` | 基本信息 |
-| `description` | 一句话说明；进入节点菜单、市场与 Agent 的 `availableNodeTypes` |
-| `license`、`homepage`、`tags` | SPDX 许可、主页、小写标签（`3d`、`analysis`、`generation` 等会影响节点菜单分类） |
-| `requires` | 需要的宿主能力版本，例如 `{ workspaceFiles: 1, ffmpeg: 1, worker: 1 }` |
+| `author`、`github` | 基本信息 |
+| `license`、`homepage`、`tags` | SPDX 许可、主页、小写标签，供市场筛选 |
 | `configRules` | 用户配置字段；Agent 通过 `getPluginConfiguration` / `setPluginConfiguration` 读写非秘密字段 |
+| `providers` | 插件提供的生成服务，格式同供应商清单 |
 | `resources` | 随包发行的大文件（模型、WASM），带 SHA-256 |
-| `outDir` | 输出目录；仓库内默认 `build/nodes/<id>`，第三方插件请自行指定 |
+| `outDir` | 输出目录；默认是插件目录下的 `dist`，市场插件写到 `build/market/<id>` |
 
 构建输出 `index.js`、`manifest.json` 与 `install.json`。`install.json` 是安装包：`{ manifest, source, assets[] }`，每个资产带 SHA-256，JSON Schema 见 [installPackage.schema.json](../packages/nodeScaffold/schema/installPackage.schema.json)。安装入口：
 

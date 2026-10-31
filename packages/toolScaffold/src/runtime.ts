@@ -37,6 +37,17 @@ export interface CanvasContext extends CanvasInfo {
   call(request: CanvasToolCall, signal?: AbortSignal): Promise<unknown>;
 }
 
+export type ModelParameterValue = string | number | boolean;
+
+export interface ModelParameter {
+  type?: "string" | "number" | "integer" | "boolean";
+  title?: string;
+  default?: ModelParameterValue;
+  minimum?: number;
+  maximum?: number;
+  enum?: ModelParameterValue[];
+}
+
 export interface MediaModel {
   supportsPrice?: boolean;
   providerId: string;
@@ -52,6 +63,7 @@ export interface MediaModel {
   voices?: { title: string; voice: string }[];
   video?: { inputMap?: Record<string, string>; defaults?: Record<string, string | number | boolean>; stringFields?: string[] };
   execution?: { protocol: string; location: "local" | "remote" | "platform"; cancelMode: "none" | "request" };
+  parameters?: { type: "object"; properties: Record<string, ModelParameter> };
 }
 
 export interface MediaReference {
@@ -81,6 +93,7 @@ export interface MediaGenerationRequest {
   language?: string;
   format?: string;
   sampleRate?: number;
+  parameters?: Record<string, ModelParameterValue>;
   mode?: "singleImage" | "startEndRequired" | "endFrameOptional" | "startFrameOptional" | "text"
     | (`${"image" | "video" | "audio"}Reference:${number}`)[];
 }

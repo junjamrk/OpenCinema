@@ -1,7 +1,7 @@
 {
   "schema": "openCinema-pluginMarket-v1",
   "name": "OpenCinema Plugin Market",
-  "generatedAt": "2026-10-31T13:10:29.719Z",
+  "generatedAt": "2026-10-31T19:29:46.262Z",
   "plugins": [
     {
       "id": "gaussianSplatNode",
@@ -10,7 +10,7 @@
         "en": "Gaussian Splat",
         "zh-CN": "Gaussian Splat"
       },
-      "version": "1.0.0",
+      "version": "1.0.1",
       "description": {
         "en": "View 3D Gaussian Splatting scans (PLY, SPLAT, KSPLAT, SPZ) on the canvas, set a camera, and render stills and turntable videos as references for downstream nodes.",
         "zh-CN": "在画布中查看 3D Gaussian Splatting 扫描（PLY / SPLAT / KSPLAT / SPZ），设定机位，渲染静帧与环绕视频，作为下游节点的参考。"
@@ -28,15 +28,17 @@
       ],
       "scope": "node",
       "requires": {
+        "document": 1,
+        "workbench": 1,
         "workspaceFiles": 1,
         "workspaceReadRange": 1,
         "nodeHistory": 1,
         "ffmpeg": 1,
         "worker": 1
       },
-      "url": "plugins/gaussianSplatNode/1.0.0/install.json",
-      "sha256": "87cd8c91c5254e9925af3d2a55e1da67e211ce9e994f6d4962453773fd8e4390",
-      "size": 1083364,
+      "url": "plugins/gaussianSplatNode/1.0.1/install.json",
+      "sha256": "d261744956e50b60315613608f002e286dc406cd0df0579997e8d135e9fe9c87",
+      "size": 1083691,
       "publishedAt": "2026-10-31T00:00:00Z",
       "minHost": "0.4.0",
       "agentGuide": true

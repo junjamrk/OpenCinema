@@ -1,5 +1,5 @@
-import { createNodeConfig } from "@toonflow/nodes-scaffold";
+import { createNodeConfig } from "@toonflow/nodes-scaffold/reactBuild";
 
 export default createNodeConfig({
-  name: "blockoutNode", displayName: "3D Blockout", author: "Toonflow", github: "https://github.com/HBAI-Ltd/Toonflow-app",
+  author: "Toonflow", github: "https://github.com/HBAI-Ltd/Toonflow-app", outDir: "../../../build/nodes/blockoutNode",
 }, import.meta.url);

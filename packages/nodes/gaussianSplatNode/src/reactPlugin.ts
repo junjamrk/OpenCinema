@@ -44,7 +44,7 @@ function encode(command: BrowserFfmpegCommand, signal: AbortSignal) {
 const ignoreExisting = (error: { response?: { data?: { data?: { code?: string } } } }) => { if (error.response?.data?.data?.code !== "EEXIST") throw error; };
 
 const plugin: NodePluginDefinition<typeof GaussianSplatNodeView> = {
-  apiVersion: 1, id: "gaussianSplatNode", name: "Gaussian Splat", version: "1.0.0", renderer: "react", icon: "spatial", view: GaussianSplatNodeView,
+  apiVersion: 1, id: "gaussianSplatNode", name: "Gaussian Splat", version: "1.0.1", renderer: "react", icon: "spatial", view: GaussianSplatNodeView,
   createData: () => ({
     label: "Gaussian Splat",
     handles: [

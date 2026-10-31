@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeAtomic } from "@toonflow/file";
+import { mkdir, readFile, readFileSync, writeAtomic } from "@toonflow/file";
 import { createHash } from "node:crypto";
 import { basename, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,30 +6,22 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import * as React from "react";
 import { z } from "zod";
-import { nodeRequirementsSchema } from "./nodeCapabilities.ts";
+import { nodeMetadataSchema } from "./nodeCapabilities.ts";
 import { nodeResourceManifestSchema, type NodeResource } from "./nodeResources.ts";
 
+// 插件身份、名称与 requires 只声明在 package.json 的 openCinema 块；这里只放构建相关配置。
 export interface NodeConfig {
-  /** 小驼峰插件 ID，与 src/reactPlugin.ts 导出的 id 一致。 */
-  name: string;
-  displayName: string;
   author: string;
   github: string;
-  /** 一句话说明节点做什么；进入 manifest，供插件市场、节点菜单与 Agent 发现使用。 */
-  description?: string;
   /** SPDX 许可标识，例如 "MIT"。 */
   license?: string;
   homepage?: string;
   /** 小写短横线标签，最多 12 个，供市场筛选与 Agent 匹配能力。 */
   tags?: string[];
-  /**
-   * 发行包输出目录。默认写到仓库 build/nodes/<id>；仓库外的第三方插件应显式指定，
-   * 相对路径按插件目录解析。
-   */
   outDir?: string;
   configRules?: Record<string, unknown>[];
-  scope?: "canvas" | "workspace";
-  requires?: Record<string, number>;
+  // 格式同 /api/providers/media/add 的 HTTP JSON 清单，安装时由服务端按同一规则校验。
+  providers?: Record<string, unknown>[];
   resources?: Record<string, Omit<NodeResource, "size"> & { path: string }>;
 }
 
@@ -59,14 +51,12 @@ function sdkBridge(): Plugin {
 const mimeTypes: Record<string, string> = { ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".webp": "image/webp", ".woff2": "font/woff2", ".json": "application/json", ".txt": "text/plain" };
 
 export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
-  nodeRequirementsSchema.parse(config.requires ?? {});
   z.array(z.record(z.string(), z.json())).max(100).parse(config.configRules ?? []);
-  if (!config.displayName.trim()) throw new Error("插件显示名不能为空");
+  z.array(z.record(z.string(), z.json())).max(32).parse(config.providers ?? []);
   if (config.github) {
     const github = new URL(config.github);
     if (github.origin !== "https://github.com" || github.username || github.password) throw new Error("GitHub 地址必须是 https://github.com 下的地址");
   }
-  if (config.description !== undefined && (!config.description.trim() || config.description.length > 500)) throw new Error("插件描述须为 1 到 500 个字符");
   if (config.license !== undefined && !/^[A-Za-z0-9.+-]{1,64}(?: (?:OR|AND|WITH) [A-Za-z0-9.+-]{1,64})*$/.test(config.license)) throw new Error("许可须为 SPDX 标识，例如 MIT");
   if (config.homepage) {
     const homepage = new URL(config.homepage);
@@ -74,9 +64,14 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
   }
   tagSchema.parse(config.tags ?? []);
   const root = fileURLToPath(new URL(".", configUrl));
-  const id = config.name;
-  if (!/^[a-z][a-zA-Z0-9]*$/.test(id)) throw new Error("React 插件 ID 须使用小驼峰");
-  const output = config.outDir ? resolve(root, config.outDir) : fileURLToPath(new URL(`../../../build/nodes/${id}`, import.meta.url));
+  const info = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+  if (typeof info.version !== "string" || !info.version.trim()) throw new Error("插件 package.json 缺少版本");
+  const metadata = nodeMetadataSchema.parse(info.openCinema);
+  const { id, requires = {}, category, description, icon } = metadata;
+  const scope = metadata.scope ?? "node";
+  // 未声明的字段不写入发行物，运行时才能回退到插件源码自己的声明。
+  const display = JSON.parse(JSON.stringify({ category, description, icon }));
+  const output = resolve(root, config.outDir ?? "dist");
   const sourceEntry = resolve(root, "src/reactPlugin.ts");
   const entryName = "virtual:openCinemaReactEntry";
   const entryId = "\0openCinemaReactEntry";
@@ -110,13 +105,9 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
         resolveId(id) { if (id === entryName) return entryId; },
         async load(value) {
           if (value !== entryId) return;
-          const path = resolve(root, "package.json"); this.addWatchFile(path);
-          const info = JSON.parse(await readFile(path, "utf8"));
-          return `import plugin from ${JSON.stringify(sourceEntry)}; if (plugin.id !== ${JSON.stringify(config.name)} || plugin.renderer !== "react" || plugin.apiVersion !== 1) throw new Error("插件源码合同与发行入口不一致"); export default { ...plugin, version: ${JSON.stringify(info.version)}, name: ${JSON.stringify(config.displayName)}, scope: ${JSON.stringify(config.scope === "workspace" ? "workspace" : "node")}, requires: { ...${JSON.stringify(config.requires ?? {})}, ...plugin.requires } };`;
+          return `import plugin from ${JSON.stringify(sourceEntry)}; if (plugin.id !== ${JSON.stringify(id)} || plugin.renderer !== "react" || plugin.apiVersion !== 1) throw new Error("插件源码合同与发行入口不一致"); export default { ...plugin, version: ${JSON.stringify(info.version)}, name: ${JSON.stringify(metadata.name)}, ...${JSON.stringify(display)}, scope: ${JSON.stringify(scope)}, requires: { ...${JSON.stringify(requires)}, ...plugin.requires } };`;
         },
         async generateBundle(_options, bundle) {
-          const info = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
-          if (typeof info.version !== "string" || !info.version.trim()) throw new Error("插件 package.json 缺少版本");
           const optionalText = (name: string) => readFile(resolve(root, name), "utf8").catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return ""; throw error; });
           const readme = await optionalText("readme.md");
           // agent.md 是写给 Agent 的操作指南：先调用什么、如何确认结果、哪些限制；随 manifest 发行，宿主按需提供给 Agent。
@@ -129,10 +120,10 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
             const { path: _path, ...metadata } = resource; resources[name] = { ...metadata, size: content.length };
           }
           nodeResourceManifestSchema.parse(resources);
-          if (Object.keys(resources).length && !config.requires?.pluginResources) throw new Error("包含资源的插件须声明 pluginResources 宿主能力");
-          manifest = { apiVersion: 1, id, renderer: "react", scope: config.scope === "workspace" ? "workspace" : "node", name: config.displayName, displayName: config.displayName, version: info.version, author: config.author, github: config.github,
-            ...(config.description ? { description: config.description.trim() } : {}), ...(config.license ? { license: config.license } : {}), ...(config.homepage ? { homepage: config.homepage } : {}), ...(config.tags?.length ? { tags: config.tags } : {}),
-            requires: config.requires ?? {}, configRules: config.configRules ?? [], readme, ...(agentGuide ? { agentGuide } : {}), resources };
+          if (Object.keys(resources).length && !requires.pluginResources) throw new Error("包含资源的插件须声明 pluginResources 宿主能力");
+          manifest = { apiVersion: 1, id, renderer: "react", scope, name: metadata.name, displayName: metadata.name, ...display, version: info.version, author: config.author, github: config.github,
+            ...(config.license ? { license: config.license } : {}), ...(config.homepage ? { homepage: config.homepage } : {}), ...(config.tags?.length ? { tags: config.tags } : {}),
+            requires, configRules: config.configRules ?? [], readme, ...(agentGuide ? { agentGuide } : {}), resources, ...(config.providers ? { providers: config.providers } : {}) };
           const module = bundle["index.js"];
           if (!module || module.type !== "chunk") throw new Error("未生成 React ESM 插件入口");
           const styles = Object.values(bundle).filter(asset => asset.type === "asset" && asset.fileName.endsWith(".css"));
@@ -169,3 +160,5 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
     worker: { format: "iife" },
   });
 }
+
+export { createReactNodeConfig as createNodeConfig };

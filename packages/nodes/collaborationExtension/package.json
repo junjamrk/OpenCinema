@@ -3,6 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "openCinema": {
+    "id": "collaborationExtension",
+    "name": "多人协作",
+    "order": 13,
+    "scope": "workspace",
+    "requires": {
+      "workspaceDocuments": 1,
+      "state": 1,
+      "files": 1,
+      "workspaceExtensions": 1,
+      "collaboration": 1
+    }
+  },
   "exports": {
     "./react": "./src/reactView.tsx",
     "./reactPlugin": "./src/reactPlugin.ts"

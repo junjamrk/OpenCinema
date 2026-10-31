@@ -51,21 +51,21 @@ func parseHTTPProvider(source string) (object, error) {
 	if providerManifestHasSecret(provider) {
 		return nil, fail(403, "供应商清单不能包含凭据或非空秘密默认值；请在工作台连接配置中填写")
 	}
+	for _, field := range catalogFields {
+		delete(provider, field)
+	}
 	id := str(provider["id"])
 	if !providerID.MatchString(id) || strings.TrimSpace(str(provider["label"])) == "" || len(str(provider["label"])) > 200 {
 		return nil, fail(400, "供应商 ID 或名称无效")
 	}
 	if str(provider["transport"]) == "local" {
-		if videoProtocol(provider) != "openaiVideo" {
-			return nil, fail(400, "本地供应商须使用 openaiVideo 协议")
-		}
 		if _, err := localMediaEndpoint(str(provider["apiUrl"])); err != nil {
 			return nil, err
 		}
 	}
 	for _, key := range []string{"apiUrl", "modelsUrl"} {
 		value := str(provider[key])
-		if key == "modelsUrl" && value == "" {
+		if value == "" && (key == "modelsUrl" || videoProtocol(provider) == "adapter") {
 			continue
 		}
 		u, err := url.Parse(value)
@@ -81,7 +81,8 @@ func parseHTTPProvider(source string) (object, error) {
 		}
 	}
 	models, valid := provider["models"].([]any)
-	if !valid || len(models) == 0 || len(models) > 2000 {
+	// ComfyUI 的模型是用户随后导入的工作流，新建连接时可以为空。
+	if !valid || len(models) == 0 && videoProtocol(provider) != "comfyui" || len(models) > 2000 {
 		return nil, fail(400, "供应商须声明1至2000个媒体模型")
 	}
 	seen := map[string]bool{}

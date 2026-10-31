@@ -1,3 +1,3 @@
-import { createNodeConfig } from "@toonflow/nodes-scaffold";
+import { createNodeConfig } from "@toonflow/nodes-scaffold/reactBuild";
 
-export default createNodeConfig({ name: "videoDepthNode", displayName: "视频深度白模", author: "OpenCinema", github: "" }, import.meta.url);
+export default createNodeConfig({ author: "OpenCinema", github: "", outDir: "../../../build/nodes/videoDepthNode" }, import.meta.url);

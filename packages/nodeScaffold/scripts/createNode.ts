@@ -1,5 +1,5 @@
-// Scaffold a new OpenCinema node plugin.
-//   bun packages/nodeScaffold/scripts/createNode.ts <pluginId> "<显示名>" [--description "..."] [--author "..."] [--github https://github.com/...] [--out <dir>]
+// Scaffold a new OpenCinema node plugin inside this repository; outside it, use createOpenCinemaPlugin.
+//   bun packages/nodeScaffold/scripts/createNode.ts <pluginId> "<显示名>" [--description "..."] [--author "..."] [--github https://github.com/...]
 // The result compiles and installs as-is: one node, one responsibility, a couple of small verb tools.
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -10,39 +10,35 @@ const positional = args.filter((value, index) => !value.startsWith("--") && !arg
 const option = (name: string) => { const index = args.indexOf(`--${name}`); return index >= 0 ? args[index + 1] : undefined; };
 const [id, displayName] = positional;
 if (!id || !displayName) {
-  console.error('用法：bun packages/nodeScaffold/scripts/createNode.ts <pluginId> "<显示名>" [--description "..."] [--author "..."] [--github <url>] [--out <dir>]');
+  console.error('用法：bun packages/nodeScaffold/scripts/createNode.ts <pluginId> "<显示名>" [--description "..."] [--author "..."] [--github <url>]');
   process.exit(2);
 }
 if (!/^[a-z][a-zA-Z0-9]{0,95}$/.test(id)) throw new Error("pluginId 须为小驼峰，例如 depthSliceNode");
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
-const target = resolve(option("out") ?? resolve(repositoryRoot, "packages/nodes", id));
+const target = resolve(repositoryRoot, "packages/nodes", id);
 if (existsSync(target)) throw new Error(`目录已存在：${target}`);
-const insideRepository = !relative(repositoryRoot, target).startsWith("..");
 const description = option("description") ?? `${displayName}：说明这个节点做的一件事。`;
 const author = option("author") ?? "OpenCinema community";
 const github = option("github") ?? "https://github.com/junjamrk/OpenCinema";
 const packageName = `@opencinema/node-${id.replace(/([A-Z])/g, "-$1").toLowerCase()}`;
-const workspaceDependency = (name: string) => insideRepository ? "workspace:*" : `file:${relative(target, resolve(repositoryRoot, "packages", name)).replaceAll("\\", "/")}`;
 
 const files: Record<string, string> = {
   "package.json": `${JSON.stringify({
     name: packageName, version: "0.1.0", private: true, type: "module",
+    openCinema: { id, name: displayName, description, requires: { document: 1, workbench: 1, workspaceFiles: 1, nodeHistory: 1 } },
     scripts: { build: "vite build --config viteConfig.ts", dev: "vite build --watch --config viteConfig.ts", typecheck: "tsc --noEmit" },
     exports: { "./react": "./src/reactView.tsx", "./reactPlugin": "./src/reactPlugin.ts" },
-    dependencies: { "@toonflow/node-shared": workspaceDependency("nodeShared"), "@toonflow/nodes-scaffold": workspaceDependency("nodeScaffold"), zod: "^4.6.2" },
+    dependencies: { "@toonflow/node-shared": "workspace:*", "@toonflow/nodes-scaffold": "workspace:*", zod: "^4.6.2" },
     devDependencies: { "@types/react": "^19.0.0", typescript: "~6.0.3", vite: "^8.2.2" },
     peerDependencies: { react: "^19.0.0" },
   }, null, 2)}\n`,
-  "tsconfig.json": `${JSON.stringify({ extends: insideRepository ? "../../../tsconfig.base.json" : `${relative(target, resolve(repositoryRoot, "tsconfig.base.json")).replaceAll("\\", "/")}`, compilerOptions: { lib: ["ESNext", "DOM", "DOM.Iterable"], types: ["vite/client"], jsx: "react-jsx" }, include: ["src", "viteConfig.ts"] }, null, 2)}\n`,
-  "viteConfig.ts": `import { createNodeConfig } from "@toonflow/nodes-scaffold";
+  "tsconfig.json": `${JSON.stringify({ extends: "../../../tsconfig.base.json", compilerOptions: { lib: ["ESNext", "DOM", "DOM.Iterable"], types: ["vite/client"], jsx: "react-jsx" }, include: ["src", "viteConfig.ts"] }, null, 2)}\n`,
+  "viteConfig.ts": `import { createNodeConfig } from "@toonflow/nodes-scaffold/reactBuild";
 
 export default createNodeConfig({
-  name: ${JSON.stringify(id)}, displayName: ${JSON.stringify(displayName)}, author: ${JSON.stringify(author)}, github: ${JSON.stringify(github)},
-  description: ${JSON.stringify(description)},
+  author: ${JSON.stringify(author)}, github: ${JSON.stringify(github)},
   license: "MIT", tags: ["example"],
-  // 仓库内插件默认输出到 build/nodes/<id>；第三方插件请指定自己的目录。
-  ${insideRepository ? `outDir: "../../../build/market/${id}",` : 'outDir: "./dist",'}
-  requires: { workspaceFiles: 1, nodeHistory: 1 },
+  outDir: "../../../build/market/${id}",
 }, import.meta.url);
 `,
   "src/reactPlugin.ts": `import { z } from "zod";

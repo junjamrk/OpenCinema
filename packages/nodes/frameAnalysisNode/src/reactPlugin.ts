@@ -1,3 +1,4 @@
+import { openCinema, version } from "../package.json";
 import { z } from "zod";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import { getTargetValues } from "@toonflow/nodes-scaffold/nodePortValues";
@@ -15,13 +16,13 @@ const resultSummarySchema = z.strictObject({ manifest: relativePathSchema, scene
 
 const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
   cloneData: cloneMediaNodeData,
-  apiVersion: 1, id: "frameAnalysisNode", name: "逐帧拉片", version: "2.0.0", renderer: "react", view: FrameAnalysisNodeView,
+  ...openCinema, version, apiVersion: 1, renderer: "react", view: FrameAnalysisNodeView,
   composer: { label: "分析镜头", placeholder: "描述希望重点分析的镜头语言、叙事或剪辑节奏…", tool: "analyzeScenes", maxLength: 2000 },
   canConnect(connection, context) {
     const edges = context.edges.filter(edge => edge.source !== connection.source || edge.sourceHandle !== connection.sourceHandle || edge.target !== connection.target || edge.targetHandle !== connection.targetHandle);
     return getTargetValues(connection.target, "in", context.nodes, [...edges, connection]).length <= 1;
   },
-  createData: () => ({ label: "逐帧拉片", handles: [{ id: "in", type: "target", dataType: "VIDEO", label: "视频素材" }], frameAnalysis: { ...defaults }, outputs: {} }),
+  createData: () => ({ label: openCinema.name, handles: [{ id: "in", type: "target", dataType: "VIDEO", label: "视频素材" }], frameAnalysis: { ...defaults }, outputs: {} }),
   activate(context) {
     const { id, document, workbench } = pluginServices(context);
     let task: { controller: AbortController; promise: Promise<void>; state: string; percent: number; label: string; hostPending: boolean; error?: string } | undefined;
@@ -39,7 +40,7 @@ const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
     const config = () => { const saved = state() as Record<string, unknown>; return settingsOutputSchema.parse({ ...Object.fromEntries(Object.keys(defaults).map(key => [key, saved[key]])), ...(saved.source ? { source: saved.source } : {}) }); };
     const source = () => {
       const inputs = workbench.getInputs("in");
-      if (inputs.length > 1) throw nodePreconditionError(workbench, id, "逐帧拉片只接受一路视频，请明确选择一路输入", "mediaSourceAmbiguous");
+      if (inputs.length > 1) throw nodePreconditionError(workbench, id, "视频分析只接受一路视频，请明确选择一路输入", "mediaSourceAmbiguous");
       const value = inputs.length ? inputs[0]?.value : (state() as Record<string, unknown>).source;
       const parsed = mediaValueSchema.safeParse(value);
       if (!parsed.success || !parsed.data.mimeType.startsWith("video/")) throw nodePreconditionError(workbench, id, "请连接或选择有效视频素材");
@@ -84,7 +85,7 @@ const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
       return { manifest: path, scenes: annotated.scenes.length, overview: !!annotated.overview, updatedNodes: updates.length, revision: document.getRevision() };
     }
     async function requestAnalysis(input: z.output<typeof mediaValueSchema>, result: AnalysisResult, settings: ReturnType<typeof state>, signal: AbortSignal) {
-      const response = await workbench.hostRequest({ kind: "edit", prompt: `请分析逐帧拉片节点 ${id} 的真实视频、关键帧与镜头片段，逐镜头观察景别、角度、运动与画面内容，并归纳叙事、节奏与剪辑。分析重点：${settings.focus || "完整分析"}。结果清单位于 ${result.manifest}。请先发现该节点setAnalysisReport工具的schema，再用它保存结构化镜头分析与整段归纳，manifest须填写 ${result.manifest}；已有逐镜头分析时可只补整段归纳。也可以返回完整正文报告。保留原素材。证据不足的运动与声音推断须明确说明。`, references: [{ dataType: "VIDEO", value: input }, ...result.scenes.flatMap(scene => scene.image ? [{ dataType: "IMAGE", value: { url: scene.image, mimeType: "image/jpeg" } }] : [])], metadata: { nodeId: id, manifest: result.manifest, operation: "analyzeScenes" } }, signal);
+      const response = await workbench.hostRequest({ kind: "edit", prompt: `请分析视频分析节点 ${id} 的真实视频、关键帧与镜头片段，逐镜头观察景别、角度、运动与画面内容，并归纳叙事、节奏与剪辑。分析重点：${settings.focus || "完整分析"}。结果清单位于 ${result.manifest}。请先发现该节点setAnalysisReport工具的schema，再用它保存结构化镜头分析与整段归纳，manifest须填写 ${result.manifest}；已有逐镜头分析时可只补整段归纳。也可以返回完整正文报告。保留原素材。证据不足的运动与声音推断须明确说明。`, references: [{ dataType: "VIDEO", value: input }, ...result.scenes.flatMap(scene => scene.image ? [{ dataType: "IMAGE", value: { url: scene.image, mimeType: "image/jpeg" } }] : [])], metadata: { nodeId: id, manifest: result.manifest, operation: "analyzeScenes" } }, signal);
       signal.throwIfAborted();
       if ((state() as { lastResult?: AnalysisResult }).lastResult?.manifest !== result.manifest) return "completed";
       if (response.status !== "completed") return "delegated";

@@ -1,8 +1,6 @@
-import { createNodeConfig } from "@toonflow/nodes-scaffold";
+import { createNodeConfig } from "@toonflow/nodes-scaffold/reactBuild";
 
 export default createNodeConfig({
-  name: "frameAnalysisNode",
-  displayName: "逐帧拉片",
   author: "Toonflow",
-  github: "https://github.com/HBAI-Ltd/Toonflow-app",
+  github: "https://github.com/HBAI-Ltd/Toonflow-app", outDir: "../../../build/nodes/frameAnalysisNode",
 }, import.meta.url);

@@ -44,7 +44,9 @@ type mediaTask struct {
 	result           object
 	request          object
 	job              object
+	cost             object
 	remoteSettled    bool
+	warning          string
 }
 
 type mediaSubmissionKey struct{}
@@ -72,7 +74,7 @@ func mediaTaskState(id string, task *mediaTask) object {
 		status = "unknown"
 	}
 	sideEffectMayContinue := task.submitted.Load() && !task.remoteSettled && settled && status != "completed"
-	item := object{"taskId": id, "status": status, "executionSettled": settled, "sideEffectMayContinue": sideEffectMayContinue}
+	item := object{"taskId": id, "status": status, "executionSettled": settled, "sideEffectMayContinue": sideEffectMayContinue, "cost": object{"estimate": task.cost["estimate"], "actual": task.cost["actual"]}}
 	if len(task.job) > 0 {
 		for destination, source := range map[string]string{"providerId": "providerId", "modelId": "modelId", "protocol": "protocol", "providerJobId": "id", "phase": "status", "cancelMode": "cancelMode"} {
 			if value := str(task.job[source]); value != "" {
@@ -82,6 +84,9 @@ func mediaTaskState(id string, task *mediaTask) object {
 		if task.job["progress"] != nil {
 			item["progress"] = task.job["progress"]
 		}
+	}
+	if task.warning != "" && status == "running" {
+		item["warning"] = task.warning
 	}
 	if task.result != nil {
 		item["result"] = task.result
@@ -144,7 +149,7 @@ func (s *server) providers() []any {
 			if value == nil {
 				continue
 			}
-			provider = asObject(value)
+			provider = savedBuiltinProvider(asObject(value), provider)
 		}
 		result = append(result, providerSnapshot(provider))
 	}
@@ -160,14 +165,14 @@ func (s *server) providers() []any {
 			result = append(result, providerSnapshot(provider))
 		}
 	}
-	return result
+	return s.withPluginProviders(result)
 }
 func providerSnapshot(value object) object {
 	provider := asObject(clone(value))
 	delete(provider, "revision")
 	delete(provider, "credentialConfigured")
 	provider["fileName"] = str(provider["id"]) + ".json"
-	provider["supportsPrice"] = str(provider["id"]) == "tfRouter"
+	provider["supportsPrice"] = boolean(provider["supportsPrice"])
 	for _, raw := range array(provider["models"]) {
 		model := asObject(raw)
 		if strings.TrimSpace(str(model["label"])) == "" {
@@ -182,27 +187,28 @@ func (s *server) mediaModels() []any {
 	models := []any{}
 	for _, raw := range s.providers() {
 		p := asObject(raw)
+		if videoProtocol(p) == "comfyui" && !s.comfyEnabled(p) {
+			continue
+		}
 		for _, rawModel := range array(p["models"]) {
 			model := asObject(clone(rawModel))
+			delete(model, "comfy")
 			model["providerId"] = p["id"]
 			model["providerLabel"] = p["label"]
 			model["modelId"] = model["id"]
 			model["supportsPrice"] = p["supportsPrice"]
 			if model["type"] == "video" {
-				protocol, location, cancelMode := videoProtocol(p), "platform", "none"
+				protocol, location := videoProtocol(p), "platform"
 				if protocol == "" {
 					protocol = "builtin"
 				}
-				if protocol == "openaiVideo" {
+				if protocol == "openaiVideo" || protocol == "httpTask" || protocol == "adapter" {
 					location = "remote"
 				}
 				if p["transport"] == "local" {
 					location = "local"
 				}
-				if protocol == "fal" || protocol == "replicate" || p["cancelMode"] == "request" {
-					cancelMode = "request"
-				}
-				model["execution"] = object{"protocol": protocol, "location": location, "cancelMode": cancelMode}
+				model["execution"] = object{"protocol": protocol, "location": location, "cancelMode": providerCancelMode(p, "video")}
 			}
 			models = append(models, model)
 		}
@@ -220,6 +226,9 @@ func (s *server) provider(id string) (object, object, error) {
 			}
 			for k, v := range asObject(asObject(s.settings()["mediaProviderConfigs"])[id]) {
 				config[k] = v
+			}
+			if str(p["id"]) == "comfyui" {
+				config["apiUrl"] = asObject(localMediaConnectionState(s.settings())["config"])["endpoint"]
 			}
 			return p, config, nil
 		}
@@ -345,17 +354,25 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 			}
 			if task := s.tasks[str(raw)]; task != nil && task.directory == directory {
 				task.touched = now
+				cancelling := strings.HasSuffix(p, "cancel")
+				resumingRemote := task.unknown && task.job["cancelMode"] == "request"
+				if cancelling && resumingRemote {
+					task.cancelRequested = true
+				}
 				if err := s.resumeVideoTask(str(raw), task); err != nil {
 					s.tasksMu.Unlock()
 					return err
 				}
-				if strings.HasSuffix(p, "cancel") && task.settled.IsZero() {
+				if cancelling && task.settled.IsZero() {
 					task.cancelRequested = true
 					if err := s.saveMediaTask(str(raw), task, false); err != nil {
 						s.tasksMu.Unlock()
 						return err
 					}
-					task.cancel()
+					// 恢复的任务由查询循环发出取消；这里取消上下文，它连不上远端就退出了。
+					if !resumingRemote {
+						task.cancel()
+					}
 					waiting = append(waiting, task.done)
 				}
 			}
@@ -402,33 +419,19 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		if str(provider["id"]) != "tfRouter" {
-			success(w, nil)
-			return nil
-		}
-		body, err := s.priceRequest(r.Context(), directory, v)
+		price, err := s.mediaPrice(r.Context(), directory, provider, config, v)
 		if err != nil {
 			return err
-		}
-		body["type"] = v["mediaType"]
-		body["model"] = v["modelId"]
-		result, err := providerJSON(r.Context(), providerBase(provider, config), "price", config, body)
-		if err != nil {
-			return err
-		}
-		price := result["data"]
-		if item, ok := price.(map[string]any); ok {
-			if item["price"] == nil && item["amount"] != nil {
-				price = object{"price": fmt.Sprint(item["amount"]) + " " + str(item["unit"]), "tips": "以实际扣费为准"}
-			}
 		}
 		success(w, price)
 		return nil
 	}
 	if p == "/api/ai/media/balance" {
 		id := str(v["providerId"])
-		if id == "" {
-			id = "tfRouter"
+		for _, raw := range s.providers() {
+			if item := asObject(raw); id == "" && boolean(item["supportsBalance"]) {
+				id = str(item["id"])
+			}
 		}
 		provider, config, err := s.provider(id)
 		if err != nil {
@@ -512,6 +515,28 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 	}
 	success(w, files)
 	return nil
+}
+func (s *server) mediaPrice(ctx context.Context, directory string, provider, config, input object) (any, error) {
+	if !boolean(provider["supportsPrice"]) {
+		return nil, nil
+	}
+	body, err := s.priceRequest(ctx, directory, input)
+	if err != nil {
+		return nil, err
+	}
+	body["type"] = input["mediaType"]
+	body["model"] = input["modelId"]
+	result, err := providerJSON(ctx, providerBase(provider, config), "price", config, body)
+	if err != nil {
+		return nil, err
+	}
+	price := result["data"]
+	if item, ok := price.(map[string]any); ok {
+		if item["price"] == nil && item["amount"] != nil {
+			price = object{"price": fmt.Sprint(item["amount"]) + " " + str(item["unit"]), "tips": "以实际扣费为准"}
+		}
+	}
+	return price, nil
 }
 func (s *server) priceRequest(ctx context.Context, directory string, input object) (object, error) {
 	body := object{}
@@ -631,7 +656,7 @@ func (s *server) validateMedia(v object, allowEmptyPrompt bool) error {
 	if !promptValid || (!allowEmptyPrompt && strings.TrimSpace(prompt) == "") || len(prompt) > 100000 {
 		return fail(400, "生成提示词为空或过长")
 	}
-	allowed := map[string]bool{"directory": true, "mediaType": true, "taskId": true, "providerId": true, "modelId": true, "prompt": true, "outputDirectory": true, "images": true}
+	allowed := map[string]bool{"directory": true, "mediaType": true, "taskId": true, "providerId": true, "modelId": true, "prompt": true, "outputDirectory": true, "images": true, "parameters": true}
 	keys := map[string][]string{"image": {"ratio", "size"}, "video": {"ratio", "videos", "audios", "firstFrame", "lastFrame", "resolution", "duration", "generateAudio", "mode"}, "audio": {"audios", "voice", "speed", "volume", "pitch", "language", "format", "sampleRate"}}
 	for _, key := range keys[kind] {
 		allowed[key] = true
@@ -735,28 +760,40 @@ func (s *server) validateMedia(v object, allowEmptyPrompt bool) error {
 	for _, raw := range array(p["models"]) {
 		m := asObject(raw)
 		if str(m["id"]) == str(v["modelId"]) && str(m["type"]) == kind {
+			if err := validateMediaParameters(p, m, v); err != nil {
+				return err
+			}
 			if kind == "video" {
 				if err := validateVideoInputs(m, v); err != nil {
 					return err
 				}
-				if videoProtocol(p) != "" {
-					if !allowEmptyPrompt && !uuidValue.MatchString(str(v["taskId"])) {
-						return fail(400, "视频生成须提供 UUID operationId 或 taskId，以防重复提交")
-					}
-					_, config, err := s.provider(str(v["providerId"]))
-					if err != nil {
+			}
+			if videoProtocol(p) == "comfyui" && !s.comfyEnabled(p) {
+				return fail(400, "请先在 设置 → 媒体服务 → ComfyUI 工作流 中启用连接")
+			}
+			if videoProtocol(p) != "" {
+				if !allowEmptyPrompt && !uuidValue.MatchString(str(v["taskId"])) {
+					return fail(400, "此生成须提供 UUID operationId 或 taskId，以防重复提交")
+				}
+				_, config, err := s.provider(str(v["providerId"]))
+				if err != nil {
+					return err
+				}
+				if videoProtocol(p) == "adapter" {
+					if _, err := s.adapterExecutable(p); err != nil {
 						return err
 					}
+				} else {
 					if _, err := videoClient(p, config); err != nil {
 						return err
 					}
 					if str(p["transport"]) != "local" && strings.TrimSpace(str(config["apiKey"])) == "" {
-						return fail(400, "请先配置视频供应商 API Key")
+						return fail(400, "请先配置媒体供应商 API Key")
 					}
-					if !allowEmptyPrompt {
-						if _, err := s.toolPath("ffprobe"); err != nil {
-							return fail(400, "视频生成需要先准备 FFmpeg，以核验实际产物")
-						}
+				}
+				if !allowEmptyPrompt && kind == "video" {
+					if _, err := s.toolPath("ffprobe"); err != nil {
+						return fail(400, "视频生成需要先准备 FFmpeg，以核验实际产物")
 					}
 				}
 			}
@@ -772,22 +809,18 @@ func providerBase(p, config object) string {
 	if custom := str(config["baseUrl"]); custom != "" {
 		return strings.TrimRight(custom, "/")
 	}
-	switch str(p["id"]) {
-	case "tfRouter":
-		return "https://api.toonflow.net/v1"
-	case "apiMart":
-		if str(config["isOverseas"]) == "2" {
-			return "https://api.apimart.ai/v1"
-		}
-		return "https://api.apib.ai/v1"
-	case "metaso":
-		return "https://metaso.cn/api/minimax"
-	case "compshare":
-		return "https://api.modelverse.cn"
+	region := asObject(p["regionUrls"])
+	if regional := str(asObject(region["urls"])[str(config[str(region["field"])])]); regional != "" {
+		return strings.TrimRight(regional, "/")
 	}
 	return strings.TrimRight(str(p["apiUrl"]), "/")
 }
 func providerJSON(ctx context.Context, base, path string, config object, body any) (object, error) {
+	return providerClientJSON(ctx, nil, base, path, config, body)
+}
+
+// client 为 nil 时走公网客户端且必须有 API Key；非 nil 只来自 localProviderClient，本地服务可以不设认证。
+func providerClientJSON(ctx context.Context, client *http.Client, base, path string, config object, body any) (object, error) {
 	baseURL, baseErr := url.Parse(base)
 	if baseErr != nil || baseURL.RawQuery != "" || baseURL.Fragment != "" || baseURL.User != nil {
 		return nil, fail(400, "供应商地址不能包含账号、查询凭据或锚点")
@@ -811,15 +844,20 @@ func providerJSON(ctx context.Context, base, path string, config object, body an
 		return nil, err
 	}
 	key := strings.TrimSpace(strings.TrimPrefix(str(config["apiKey"]), "Bearer "))
-	if key == "" {
+	if key == "" && client == nil {
 		return nil, fail(400, "请先配置媒体供应商 API Key")
 	}
-	request.Header.Set("Authorization", "Bearer "+key)
+	if key != "" {
+		request.Header.Set("Authorization", "Bearer "+key)
+	}
 	request.Header.Set("Content-Type", "application/json")
 	if method == "POST" {
 		markMediaSubmitted(ctx)
 	}
-	response, err := safeClient().Do(request)
+	if client == nil {
+		client = safeClient()
+	}
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -828,8 +866,14 @@ func providerJSON(ctx context.Context, base, path string, config object, body an
 	if err != nil {
 		return nil, err
 	}
+	redact := func(message string) string {
+		if key == "" {
+			return message
+		}
+		return strings.ReplaceAll(message, key, "[REDACTED]")
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		message := strings.ReplaceAll(string(data), key, "[REDACTED]")
+		message := redact(string(data))
 		if len(message) > 2000 {
 			message = message[:2000]
 		}
@@ -847,7 +891,7 @@ func providerJSON(ctx context.Context, base, path string, config object, body an
 		if message == "" {
 			message = "供应商拒绝请求"
 		}
-		message = strings.ReplaceAll(message, key, "[REDACTED]")
+		message = redact(message)
 		if len(message) > 2000 {
 			message = message[:2000]
 		}
@@ -922,7 +966,7 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 		return nil, err
 	}
 	var referenceBytes int64
-	resumingVideo := str(v["mediaType"]) == "video" && str(currentVideoJob(ctx)["id"]) != ""
+	resumingVideo := str(currentVideoJob(ctx)["id"]) != ""
 	for _, key := range []string{"images", "videos", "audios", "firstFrame", "lastFrame"} {
 		if resumingVideo {
 			continue
@@ -984,10 +1028,12 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 		}
 	}
 	var results []string
-	if kind == "video" && videoProtocol(provider) != "" {
+	if videoProtocol(provider) == "comfyui" {
+		results, err = s.generateComfy(ctx, provider, config, v, refs)
+	} else if videoProtocol(provider) != "" {
 		results, err = s.generateVideoProvider(ctx, provider, config, v, refs)
 	} else {
-		switch str(provider["id"]) {
+		switch str(provider["generator"]) {
 		case "tfRouter":
 			results, err = generateTfRouter(ctx, base, config, v, refs)
 		case "apiMart":
@@ -1038,11 +1084,15 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 			mimeType = strings.TrimSuffix(strings.TrimPrefix(parts[0], "data:"), ";base64")
 			data, err = base64.StdEncoding.DecodeString(parts[1])
 		} else {
-			request, e := http.NewRequestWithContext(ctx, "GET", result, nil)
+			client, target, e := resultClient(provider, config, result)
 			if e != nil {
 				return nil, e
 			}
-			response, e := safeClient().Do(request)
+			request, e := http.NewRequestWithContext(ctx, "GET", target, nil)
+			if e != nil {
+				return nil, e
+			}
+			response, e := client.Do(request)
 			if e != nil {
 				return nil, e
 			}
@@ -1066,7 +1116,7 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 		if !strings.HasPrefix(mimeType, kind+"/") {
 			return nil, fail(415, "生成结果媒体类型不正确")
 		}
-		ext := map[string]string{"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "audio/wav": "wav", "audio/x-wav": "wav", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/flac": "flac", "audio/mp4": "m4a"}[mimeType]
+		ext := map[string]string{"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "audio/wav": "wav", "audio/wave": "wav", "audio/x-wav": "wav", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/flac": "flac", "audio/mp4": "m4a"}[mimeType]
 		if ext == "" {
 			return nil, fail(415, "生成媒体格式不受支持")
 		}
@@ -1245,6 +1295,7 @@ func generateTfRouter(ctx context.Context, base string, config, v, refs object) 
 			status = strings.ToLower(str(data["status"]))
 		}
 		if status == "success" || status == "completed" {
+			recordVendorCost(ctx, data)
 			url := str(data["data"])
 			if url == "" {
 				return nil, fail(502, "TF-router 未返回媒体结果")
@@ -1452,7 +1503,7 @@ func generateCompshare(ctx context.Context, base string, config, v, refs object)
 		if strings.Contains(strings.ToLower(str(v["modelId"])), "gpt-image") {
 			return generateGptImage(ctx, base, config, v, refs)
 		}
-		return generateOpenAIImage(ctx, base, config, v, refs)
+		return generateOpenAIImage(ctx, nil, base, config, v, refs)
 	}
 	if strings.Contains(strings.ToLower(str(v["modelId"])), "minimax-h3") {
 		h3 := asObject(clone(config))
@@ -1516,7 +1567,7 @@ func extractURLs(value any) []string {
 	}
 	return urls
 }
-func generateOpenAIImage(ctx context.Context, base string, config, v, refs object) ([]string, error) {
+func generateOpenAIImage(ctx context.Context, client *http.Client, base string, config, v, refs object) ([]string, error) {
 	size, err := resolveProviderImageSize(str(v["modelId"]), str(v["size"]), str(v["ratio"]))
 	if err != nil {
 		return nil, err
@@ -1532,16 +1583,20 @@ func generateOpenAIImage(ctx context.Context, base string, config, v, refs objec
 	if strings.HasSuffix(base, "/v1") {
 		endpoint = "images/generations"
 	}
-	result, err := providerJSON(ctx, base, endpoint, config, body)
+	result, err := providerClientJSON(ctx, client, base, endpoint, config, body)
 	if err != nil {
 		return nil, err
 	}
 	return imageResultURLs(result), nil
 }
 func generateHttpProvider(ctx context.Context, base string, p, config, v, refs object) ([]string, error) {
+	client, base, err := localProviderClient(p, base)
+	if err != nil {
+		return nil, err
+	}
 	protocol := str(p["protocol"])
 	if protocol == "openai" && str(v["mediaType"]) == "image" {
-		return generateOpenAIImage(ctx, base, config, v, refs)
+		return generateOpenAIImage(ctx, client, base, config, v, refs)
 	}
 	endpoint := str(asObject(p["endpoints"])[str(v["mediaType"])])
 	if endpoint == "" {
@@ -1554,7 +1609,7 @@ func generateHttpProvider(ctx context.Context, base string, p, config, v, refs o
 	for key, value := range refs {
 		body[key] = value
 	}
-	result, err := providerJSON(ctx, base, endpoint, config, body)
+	result, err := providerClientJSON(ctx, client, base, endpoint, config, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1618,6 +1673,9 @@ func (s *server) providerRoute(w http.ResponseWriter, r *http.Request, v object)
 	if err != nil {
 		return err
 	}
+	if owner := str(provider["pluginId"]); owner != "" {
+		return fail(409, "供应商由插件 "+owner+" 提供，请在插件设置中停用或卸载")
+	}
 	if str(v["revision"]) == "" {
 		return toolFailure("revisionRequired", "供应商修改须携带读取到的 revision", "validation", "notDispatched", object{}, "readState")
 	}
@@ -1633,8 +1691,11 @@ func (s *server) providerRoute(w http.ResponseWriter, r *http.Request, v object)
 		if err != nil {
 			return err
 		}
-		base := u.Scheme + "://" + u.Host
-		result, err := providerJSON(r.Context(), base, u.RequestURI(), config, nil)
+		client, base, err := localProviderClient(provider, u.Scheme+"://"+u.Host)
+		if err != nil {
+			return err
+		}
+		result, err := providerClientJSON(r.Context(), client, base, u.RequestURI(), config, nil)
 		if err != nil {
 			return err
 		}

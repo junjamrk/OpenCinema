@@ -13,7 +13,7 @@ func (s *server) saveMediaTask(id string, task *mediaTask, exclusive bool) error
 		return err
 	}
 	input := object{"directory": task.directory, "inputHash": task.inputHash, "submitted": task.submitted.Load(), "unknown": task.unknown, "result": task.result, "settledAt": task.settled.UnixMilli(), "createdAt": task.touched.UnixMilli()}
-	input["request"], input["job"], input["remoteSettled"], input["cancelRequested"] = task.request, task.job, task.remoteSettled, task.cancelRequested
+	input["request"], input["job"], input["remoteSettled"], input["cancelRequested"], input["cost"] = task.request, task.job, task.remoteSettled, task.cancelRequested, task.cost
 	if task.settled.IsZero() {
 		input["settledAt"] = 0
 	}
@@ -42,7 +42,7 @@ func (s *server) loadMediaTask(id string) error {
 		return fail(409, "任务记录损坏，禁止重放可能已经提交的生成请求")
 	}
 	task := &mediaTask{directory: str(input["directory"]), inputHash: str(input["inputHash"]), done: make(chan struct{}), cancel: func() {}, touched: time.Now(), result: asObject(input["result"])}
-	task.request, task.job, task.remoteSettled, task.cancelRequested = asObject(input["request"]), asObject(input["job"]), boolean(input["remoteSettled"]), boolean(input["cancelRequested"])
+	task.request, task.job, task.remoteSettled, task.cancelRequested, task.cost = asObject(input["request"]), asObject(input["job"]), boolean(input["remoteSettled"]), boolean(input["cancelRequested"]), asObject(input["cost"])
 	if number(input["settledAt"]) > 0 {
 		task.settled = time.UnixMilli(int64(number(input["settledAt"])))
 		task.submitted.Store(boolean(input["submitted"]))

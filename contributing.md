@@ -4,7 +4,7 @@
 
 ## 开始开发
 
-先阅读 [readme.md](readme.md) 和 [插件说明](packages/openCinema/readme.md)。以 `package.json`、`apps/server/go.mod`、`bun.lock` 中的实际版本和命令为准。
+先阅读 [readmeZh.md](readmeZh.md) 和 [插件说明](packages/openCinema/readme.md)。以 `package.json`、`apps/server/go.mod`、`bun.lock` 中的实际版本和命令为准。
 
 在仓库根目录分别执行：
 

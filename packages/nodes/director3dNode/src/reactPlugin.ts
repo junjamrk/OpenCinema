@@ -1,11 +1,11 @@
+import { openCinema, version } from "../package.json";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import DirectorNodeView from "./reactView";
 import { createDirectorService } from "./reactService";
 export default {
+  ...openCinema,
+  version,
   apiVersion: 1,
-  id: "director3dNode",
-  name: "3D 导演台",
-  version: "3.0.0",
   renderer: "react",
   view: DirectorNodeView,
   composer: { label: "创作导演方案", placeholder: "描述这个场景的摄影与表演意图…", tool: "requestDirectorPlan" },
@@ -14,7 +14,7 @@ export default {
     return structuredClone(copy);
   },
   createData: () => ({
-    label: "3D 导演台",
+    label: openCinema.name,
     handles: [
       { id: "in", type: "target", dataType: ["STRING", "IMAGE", "VIDEO"], label: "参考输入" },
       { id: "image", type: "source", dataType: "IMAGE", label: "关键帧" },

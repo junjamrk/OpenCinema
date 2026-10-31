@@ -35,9 +35,9 @@ The scaffold produces:
 
 ```
 packages/nodes/depthSliceNode/
-├── package.json        depends on @toonflow/nodes-scaffold, @toonflow/node-shared, zod
+├── package.json        openCinema block with id, display name, description and requirements; depends on @toonflow/nodes-scaffold, @toonflow/node-shared, zod
 ├── tsconfig.json
-├── viteConfig.ts       createNodeConfig(...): id, display name, description, license, tags, capabilities, output directory
+├── viteConfig.ts       createNodeConfig(...): author, license, tags, output directory
 ├── readme.md           for people; becomes manifest.readme
 ├── agent.md            for agents; becomes manifest.agentGuide (≤ 16 KiB)
 └── src/
@@ -45,7 +45,7 @@ packages/nodes/depthSliceNode/
     └── reactView.tsx   the React view rendered inside the node
 ```
 
-`--out <dir>` places the plugin outside the repository; dependencies then point at this repository's `packages/nodeScaffold` and `packages/nodeShared` with `file:` paths and the build goes to `./dist`.
+This scaffold is for development inside the repository. To work outside it, use `createOpenCinemaPlugin`, as described in the [README](../readme.md).
 
 ## The plugin definition
 
@@ -104,18 +104,28 @@ React, react-dom and zod come from the host through `/pluginSdk.js` and are not 
 
 ## Manifest and install package
 
-`createNodeConfig` accepts:
+Plugin identity lives in the `openCinema` block of `package.json`:
 
 | Field | Meaning |
 | --- | --- |
-| `name` | plugin id, lower camel case; also the node type |
-| `displayName`, `author`, `github` | basic information |
-| `description` | one sentence; shown in the node menu, the market and the agent's `availableNodeTypes` |
-| `license`, `homepage`, `tags` | SPDX license, homepage, lowercase tags (`3d`, `analysis`, `generation` also drive the node menu category) |
-| `requires` | host capability versions, e.g. `{ workspaceFiles: 1, ffmpeg: 1, worker: 1 }` |
-| `configRules` | user settings; agents read and write non-secret fields through `getPluginConfiguration` / `setPluginConfiguration` |
-| `resources` | large files shipped with the package (models, WASM) with SHA-256 |
-| `outDir` | output directory; in-repo default is `build/nodes/<id>`, third-party plugins set their own |
+| `id` | Plugin ID in lowerCamelCase; also the node type |
+| `name` | Display name |
+| `description` | One sentence; shown in the node menu, the market and the agent's `availableNodeTypes` |
+| `category`, `icon` | Node menu category and icon |
+| `requires` | Host services and capability versions, for example `{ document: 1, workbench: 1, workspaceFiles: 1, ffmpeg: 1, worker: 1 }`. `getService` only returns services declared here |
+| `scope` | `node` (default) or `workspace` |
+| `order` | Built-in nodes only; a plugin without `order` stays out of the built-in list |
+
+`createNodeConfig` takes:
+
+| Field | Meaning |
+| --- | --- |
+| `author`, `github` | Basic information |
+| `license`, `homepage`, `tags` | SPDX license, homepage and lowercase tags for market filtering |
+| `configRules` | User configuration fields; agents read and write non-secret fields through `getPluginConfiguration` / `setPluginConfiguration` |
+| `providers` | Generation services the plugin provides, in the provider manifest format |
+| `resources` | Large files shipped with the package (models, WASM), each with a SHA-256 |
+| `outDir` | Output directory. The default is `dist` in the plugin folder; market plugins write to `build/market/<id>` |
 
 The build writes `index.js`, `manifest.json` and `install.json`. `install.json` is the install package, `{ manifest, source, assets[] }` with a SHA-256 per asset; the JSON Schema is [installPackage.schema.json](../packages/nodeScaffold/schema/installPackage.schema.json). Install paths:
 

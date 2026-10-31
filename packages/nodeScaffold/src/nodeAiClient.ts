@@ -1,4 +1,5 @@
-import type { MediaGenerationRequest, MediaModel } from "@toonflow/tools-scaffold/runtime";
+// @ts-ignore ACT: tarball 不含工作区包，仓库外这些类型退化为 any；要精确类型须把它们移进脚手架。
+import type { MediaGenerationRequest, MediaModel, ModelParameter } from "@toonflow/tools-scaffold/runtime";
 
 export type NodeAiModel = {
   providerId: string;
@@ -12,6 +13,7 @@ export type NodeAiModel = {
 export type NodeMediaModel = Omit<MediaModel, "mode"> & {
   mode?: (string | string[])[];
 };
+export type NodeModelParameter = ModelParameter;
 export type NodeImageRequest = {
   directory: string;
   providerId: string;
@@ -21,13 +23,15 @@ export type NodeImageRequest = {
   images?: { path: string; mimeType: string }[];
   ratio?: string;
   size?: string;
+  parameters?: MediaGenerationRequest["parameters"];
 };
 export type NodeImageResult = { path: string; mimeType: string; mediaType: "image" };
-export type NodeVideoRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "videos" | "audios" | "firstFrame" | "lastFrame" | "ratio" | "resolution" | "duration" | "generateAudio" | "mode"> & { directory: string; outputDirectory: string; operationId?: string };
+export type NodeVideoRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "videos" | "audios" | "firstFrame" | "lastFrame" | "ratio" | "resolution" | "duration" | "generateAudio" | "mode" | "parameters"> & { directory: string; outputDirectory: string; operationId?: string };
 export type NodeVideoResult = { path: string; mimeType: string; mediaType: "video" };
 export type NodeMediaPriceRequest = (NodeImageRequest & { mediaType: "image" }) | (NodeVideoRequest & { mediaType: "video" }) | (NodeAudioRequest & { mediaType: "audio" });
 export type NodeMediaPrice = { price: string; tips: string };
-export type NodeAudioRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "audios" | "voice" | "speed" | "volume" | "pitch" | "language" | "format" | "sampleRate"> & { directory: string; outputDirectory: string };
+export type NodeMediaCost = { estimate: NodeMediaPrice | null; actual: { amount: number; unit: string; source: "vendor" | "balanceDelta" } | null };
+export type NodeAudioRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "audios" | "voice" | "speed" | "volume" | "pitch" | "language" | "format" | "sampleRate" | "parameters"> & { directory: string; outputDirectory: string };
 export type NodeAudioResult = { path: string; mimeType: string; mediaType: "audio" };
 export type NodeAiTool = {
   name: string;
@@ -59,6 +63,7 @@ const mediaPriceCache = mediaPriceCacheHost[mediaPriceCacheKey] ??= (() => {
     const invalidate = (event: Event) => {
       if (event.type === "toonflow:plugin-installed" && (event as CustomEvent<{ type?: string }>).detail?.type !== "provider") return;
       cache.prices.clear();
+      modelCache.delete("/api/ai/media/models");
     };
     window.addEventListener("toonflow:provider-config-changed", invalidate);
     window.addEventListener("toonflow:plugin-installed", invalidate);
@@ -67,7 +72,7 @@ const mediaPriceCache = mediaPriceCacheHost[mediaPriceCacheKey] ??= (() => {
 })();
 
 type MediaTaskResult = { code: number; data: (NodeImageResult | NodeVideoResult | NodeAudioResult)[] | null; message: string };
-export type NodeMediaTask = { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean; result?: MediaTaskResult; providerId?: string; modelId?: string; providerJobId?: string; phase?: string; progress?: number; cancelMode?: string };
+export type NodeMediaTask = { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean; result?: MediaTaskResult; providerId?: string; modelId?: string; providerJobId?: string; phase?: string; progress?: number; cancelMode?: string; cost?: NodeMediaCost; warning?: string };
 type PendingMediaTask = { directory: string; failedAt?: number; finish: (result: MediaTaskResult) => void; fail: (error: unknown) => void };
 const mediaTasksKey = Symbol.for("toonflow.nodeMediaTasks");
 const mediaTasksHost = globalThis as typeof globalThis & { [mediaTasksKey]?: ReturnType<typeof createMediaTasks> };
@@ -89,7 +94,7 @@ function createMediaTasks() {
       const response = await fetch("/api/ai/media/tasks/cancel", {
         method: "POST", headers: { "Content-Type": "application/json", "x-toonflow-workspace": "1" },
         body: JSON.stringify({ directory, taskIds: [taskId] }), signal: AbortSignal.timeout(30000),
-      }).then(readResult<{ tasks: { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean }[] }>);
+      }).then(readResult<{ tasks: { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean; cost?: NodeMediaCost }[] }>);
       const task = response.tasks?.find(task => task.taskId === taskId);
       if (!task || !task.executionSettled || task.sideEffectMayContinue || !["cancelled", "completed", "failed"].includes(task.status)) throw new Error("服务端尚未确认生成任务及其外部副作用终止");
       return task;

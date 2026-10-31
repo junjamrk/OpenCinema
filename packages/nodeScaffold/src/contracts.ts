@@ -69,6 +69,8 @@ export type NodePluginDefinition<View = unknown> = {
   name: string;
   version: string;
   icon?: string;
+  category?: string;
+  description?: string;
   composer?: {
     label: string; placeholder: string; tool: string; maxLength?: number; defaultAction?: boolean;
     getState?(data: Readonly<Record<string, unknown>>): { requiresHost?: boolean; disabledReason?: string };

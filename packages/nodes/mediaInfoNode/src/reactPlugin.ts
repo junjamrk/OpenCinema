@@ -1,3 +1,4 @@
+import { openCinema, version } from "../package.json";
 import { z } from "zod";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import { uploadNodeFile } from "@toonflow/nodes-scaffold/nodeFiles";
@@ -7,8 +8,8 @@ import MediaInfoNodeView from "./reactView";
 
 const plugin: NodePluginDefinition<typeof MediaInfoNodeView> = {
   cloneData: cloneMediaNodeData,
-  apiVersion: 1, id: "mediaInfoNode", name: "媒体信息检查", version: "2.0.0", renderer: "react", view: MediaInfoNodeView,
-  createData: () => ({ label: "媒体信息检查", handles: [{ id: "input", type: "target", dataType: ["VIDEO", "AUDIO", "IMAGE", "FILE"], label: "媒体素材" }, { id: "report", type: "source", dataType: "FILE", label: "媒体信息报告 JSON" }, { id: "summary", type: "source", dataType: "STRING", label: "摘要" }], outputs: {} }),
+  ...openCinema, version, apiVersion: 1, renderer: "react", view: MediaInfoNodeView,
+  createData: () => ({ label: openCinema.name, handles: [{ id: "input", type: "target", dataType: ["VIDEO", "AUDIO", "IMAGE", "FILE"], label: "媒体素材" }, { id: "report", type: "source", dataType: "FILE", label: "媒体信息报告 JSON" }, { id: "summary", type: "source", dataType: "STRING", label: "摘要" }], outputs: {} }),
   activate(context) {
     const { id, document, workbench } = pluginServices(context);
     const analyzer = createMediaInfoService(workbench.files, context.signal);
