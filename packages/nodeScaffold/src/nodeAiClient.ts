@@ -313,11 +313,10 @@ export function createMediaAiClient(lifetime: AbortSignal = new AbortController(
         if (httpStatus >= 400 && httpStatus < 500 && httpStatus !== 409) throw failure;
         unreachable = failure instanceof TypeError;
       }
-      const notDelivered = new Error("连不上 OpenCinema 服务，生成请求没有送达。请确认服务已启动后重试");
-      // ACT: fetch 的 TypeError 不区分连接被拒和响应丢失。提交和取消都连不上时按未送达处理；
-      // 上限是服务恰好在受理后崩溃，节点显示失败但保留 taskId，重新核对仍能找回。
-      const settled = await mediaTasks.cancel(input.directory, taskId).catch((failure: { cause?: unknown }) => { throw unreachable && failure.cause instanceof TypeError ? notDelivered : failure; });
-      throw unreachable && settled.status === "cancelled" ? notDelivered : error;
+      // fetch 的 TypeError 不区分连接被拒和响应丢失，只有服务答复这个任务已取消才能断定没有送达；
+      // 取消也连不上时保留未确认，否则服务恰好在受理后崩溃，用户重试会重复付费。
+      const settled = await mediaTasks.cancel(input.directory, taskId);
+      throw unreachable && settled.status === "cancelled" ? new Error("生成请求没有送达 OpenCinema 服务，请重试") : error;
     } finally {
       waitingSignal.removeEventListener("abort", abort);
     }
