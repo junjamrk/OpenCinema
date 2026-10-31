@@ -161,7 +161,7 @@ func (s *server) providers() []any {
 			result = append(result, providerSnapshot(provider))
 		}
 	}
-	return result
+	return s.withPluginProviders(result)
 }
 func providerSnapshot(value object) object {
 	provider := asObject(clone(value))
@@ -1648,6 +1648,9 @@ func (s *server) providerRoute(w http.ResponseWriter, r *http.Request, v object)
 	provider, config, err := s.provider(id)
 	if err != nil {
 		return err
+	}
+	if owner := str(provider["pluginId"]); owner != "" {
+		return fail(409, "供应商由插件 "+owner+" 提供，请在插件设置中停用或卸载")
 	}
 	if str(v["revision"]) == "" {
 		return toolFailure("revisionRequired", "供应商修改须携带读取到的 revision", "validation", "notDispatched", object{}, "readState")

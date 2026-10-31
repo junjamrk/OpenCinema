@@ -73,7 +73,7 @@ func (s *server) providerConfiguration(w http.ResponseWriter, r *http.Request) e
 	s.configMu.Lock()
 	defer s.configMu.Unlock()
 	settings := asObject(s.config["settings"])
-	provider, err := configuredProvider(settings, id)
+	provider, err := s.configurableProvider(settings, id)
 	if err != nil {
 		return err
 	}

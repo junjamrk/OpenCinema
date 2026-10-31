@@ -248,6 +248,20 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		if !strings.Contains(source, "export") {
 			return fail(400, "插件必须是 ESM 模块")
 		}
+		providers, err := parsePluginProviders(manifest)
+		if err != nil {
+			return err
+		}
+		pluginProviderChange.Lock()
+		defer pluginProviderChange.Unlock()
+		if err = s.checkPluginProviders(name, providers); err != nil {
+			return err
+		}
+		if boolean(v["force"]) {
+			if err = s.forgetProviderConfigs(staleProviderIDs(s.pluginOwnProviders(name), providers)); err != nil {
+				return err
+			}
+		}
 		installed, err := s.installNodeModule(name, source, manifest, v)
 		if err != nil {
 			return err
@@ -265,6 +279,11 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		}
 		marker := filepath.Join(directory, name+".disabled")
 		if boolean(v["enabled"]) {
+			pluginProviderChange.Lock()
+			defer pluginProviderChange.Unlock()
+			if err = s.checkPluginProviders(name, s.pluginOwnProviders(name)); err != nil {
+				return err
+			}
 			if err = os.Remove(marker); err != nil && !os.IsNotExist(err) {
 				return err
 			}
@@ -313,6 +332,11 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 					return fail(403, "恢复内置版本需明确 restoreBuiltin:true，不能删除内置能力")
 				}
 			}
+		}
+		pluginProviderChange.Lock()
+		defer pluginProviderChange.Unlock()
+		if err = s.forgetProviderConfigs(staleProviderIDs(s.pluginOwnProviders(name), nil)); err != nil {
+			return err
 		}
 		for _, suffix := range []string{".js", ".json", ".disabled"} {
 			if err = os.Remove(filepath.Join(directory, name+suffix)); err != nil && !os.IsNotExist(err) {
