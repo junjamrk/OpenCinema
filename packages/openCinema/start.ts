@@ -55,7 +55,9 @@ async function managedRuntime(directory: string, bundle: Awaited<ReturnType<type
   }
   catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   let childError: Error | undefined;
-  if (!locked) {
+  let started = false;
+  async function startServer() {
+    started = true;
     const log = await open(join(directory, "runtime.log"), constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0), 0o600);
     try {
       const logInfo = await log.stat();
@@ -68,12 +70,20 @@ async function managedRuntime(directory: string, bundle: Awaited<ReturnType<type
       child.unref();
     } finally { await log.close(); }
   }
+  if (!locked) await startServer();
   const deadline = Date.now() + 25_000;
   while (Date.now() < deadline) {
     if (childError) throw new Error("OpenCinema Go 服务无法启动：" + childError.message);
-    try { return { runtime: await currentRuntime(), runtimePath }; }
+    try {
+      const runtime = await currentRuntime();
+      return { runtime, runtimePath, id: await lease(runtime, "attach") };
+    }
     catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      const code = (error as NodeJS.ErrnoException).code;
+      // ACT: 残锁只由 Go 判定与回收：持有者 PID 已消失、属于他人（EPERM）或连接被拒（fetch 抛 TypeError）时拉起 Go，存活实例会被 Go 拒绝。
+      const unreachable = code === "ESRCH" || code === "EPERM" || error instanceof TypeError;
+      if (code !== "ENOENT" && !unreachable) throw error;
+      if (unreachable && !started) await startServer();
     }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
@@ -94,7 +104,7 @@ async function main() {
     const directory = dataDirectory();
     const bundle = await prepareRuntimeBundle(join(pluginRoot, "runtime"), join(directory, "runtimeBuilds"));
     const ready = await managedRuntime(directory, bundle);
-    managed = { runtime: ready.runtime, id: await lease(ready.runtime, "attach") };
+    managed = { runtime: ready.runtime, id: ready.id };
     runtimePath = ready.runtimePath;
     entry = join(bundle.directory, "stdio.js");
     widgetPath = join(bundle.directory, "widgetResource.json");
