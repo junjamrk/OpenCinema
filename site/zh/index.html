@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN" class="noJs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenCinema — 你的 Agent。你的画布。你的影片。</title>
+<meta name="description" content="本机运行的开源视频创作工作台，由你的 Agent 操作。Codex、Claude Code 或任何 MCP Agent 负责规划，OpenCinema 提供节点画布、图像与视频工具、3D 预演、审片与最终剪辑。">
+<link rel="canonical" href="https://opencinema.site/zh/">
+<link rel="alternate" hreflang="en" href="https://opencinema.site/">
+<link rel="alternate" hreflang="zh-CN" href="https://opencinema.site/zh/">
+<link rel="alternate" hreflang="x-default" href="https://opencinema.site/">
+<meta name="theme-color" content="#F7F7F4">
+<meta name="color-scheme" content="light">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenCinema">
+<meta property="og:title" content="OpenCinema — 你的 Agent。你的画布。你的影片。">
+<meta property="og:description" content="本机运行的开源视频创作工作台，由你的 Agent 操作。Codex、Claude Code 或任何 MCP Agent 负责规划，OpenCinema 提供节点画布、图像与视频工具、3D 预演、审片与最终剪辑。">
+<meta property="og:url" content="https://opencinema.site/zh/">
+<meta property="og:image" content="https://opencinema.site/assets/img/og.png?v=4cfbf3c429">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="zh_CN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OpenCinema — 你的 Agent。你的画布。你的影片。">
+<meta name="twitter:description" content="本机运行的开源视频创作工作台，由你的 Agent 操作。Codex、Claude Code 或任何 MCP Agent 负责规划，OpenCinema 提供节点画布、图像与视频工具、3D 预演、审片与最终剪辑。">
+<meta name="twitter:image" content="https://opencinema.site/assets/img/og.png?v=4cfbf3c429">
+<link rel="icon" href="/assets/img/mark.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/img/icon32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/assets/img/icon180.png">
+<link rel="preload" href="/assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/img/canvas.webp?v=4cfbf3c429" as="image" type="image/webp">
+<link rel="stylesheet" href="/assets/site.css?v=4cfbf3c429">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OpenCinema","applicationCategory":"MultimediaApplication","operatingSystem":"macOS, Linux","license":"https://github.com/junjamrk/OpenCinema/blob/main/LICENSE","url":"https://opencinema.site","codeRepository":"https://github.com/junjamrk/OpenCinema","description":"本机运行的开源视频创作工作台，由你的 Agent 操作。Codex、Claude Code 或任何 MCP Agent 负责规划，OpenCinema 提供节点画布、图像与视频工具、3D 预演、审片与最终剪辑。","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav" id="nav">
+  <div class="wrap navRow">
+    <a class="brand" href="/zh/" aria-label="OpenCinema"><img src="/assets/img/logo.svg" alt="OpenCinema" width="151" height="40"></a>
+    <nav class="navLinks" aria-label="Primary">
+      <a href="#features">功能</a>
+      <a href="#how">工作方式</a>
+      <a href="#film">影片</a>
+      <a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">文档</a>
+    </nav>
+    <div class="navActions">
+      <a class="lang" href="/" lang="en" hreflang="en">English</a>
+      <a class="iconLink" href="https://github.com/junjamrk/OpenCinema" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="stars" data-stars hidden></span></a>
+      <a class="btn btnInk btnSm" href="#start">开始使用</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="wrap heroText">
+      <p class="eyebrow mono reveal">开源 · MIT · 0.4.0 开发中</p>
+      <h1 class="heroTitle reveal"><span class="line" style="--i:0">你的 Agent。</span><span class="line" style="--i:1">你的画布。</span><span class="line" style="--i:2">你的影片。</span></h1>
+      <p class="lede reveal">本机运行的视频创作工作台，由你的 Agent 操作。Codex、Claude Code 或任何 MCP Agent 负责规划，OpenCinema 为它提供节点画布、图像与视频工具、3D 预演、审片和最终剪辑，而每一个镜头都由你拍板。</p>
+      <div class="ctaRow reveal">
+        <a class="btn btnInk" href="https://github.com/junjamrk/OpenCinema" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span>在 GitHub 上 Star</span><span class="stars" data-stars hidden></span></a>
+        <button class="btn btnGhost" type="button" data-open-film><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l11-6.5z" fill="currentColor"/></svg><span>观看 30 秒发布影片</span></button>
+      </div>
+      <ul class="trust mono reveal"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>运行在你的电脑上</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>你的模型，你的密钥</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>未经审片，什么都不会被采用</li></ul>
+    </div>
+    <div class="wrap wrapWide">
+      <figure class="window heroShot reveal">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i><span class="mono">opencinema · harbor chase · 画布1</span></div>
+        <img class="" src="/assets/img/canvas.webp?v=4cfbf3c429" width="1600" height="900" alt="OpenCinema 画布：分镜文本、参考图、参考片段与音频床接入 Blockout 预演、图片生成与视频生成节点。" fetchpriority="high" decoding="async" sizes="(min-width: 1280px) 1200px, 100vw">
+      </figure>
+    </div>
+  </section>
+
+  <section class="works">
+    <div class="wrap worksRow reveal">
+      <p class="mono worksLabel">和你已经在用的 Agent 一起工作</p>
+      <ul class="worksList"><li>Codex</li><li>Claude Code</li><li>任何 MCP 客户端</li></ul>
+      <p class="worksNote">标准 MCP。不绑定任何私有 Agent。</p>
+    </div>
+  </section>
+
+  <section class="how" id="how">
+    <div class="wrap">
+      <p class="label mono reveal">工作方式</p>
+      <h2 class="h2 reveal">指挥。看见。完成。</h2>
+      <ol class="steps">
+        <li class="step reveal">
+          <div class="stepMedia"><img class="" src="/assets/img/composerScope.webp?v=4cfbf3c429" width="1400" height="320" alt="底部输入的作用范围是一个视频生成节点和五条参考。" loading="lazy" decoding="async" sizes="(min-width: 900px) 360px, 100vw"></div>
+          <p class="mono stepN">01</p>
+          <h3>指挥</h3>
+          <p>选中一个节点、一组镜头，或者什么都不选。在底部输入里描述要改什么。范围由你划定。</p>
+        </li><li class="step reveal">
+          <div class="stepMedia"><img class="" src="/assets/img/imageEditor.webp?v=4cfbf3c429" width="1520" height="978" alt="图片编辑台：局部重绘、裁剪、宫格、打光、机位、全景。" loading="lazy" decoding="async" sizes="(min-width: 900px) 360px, 100vw"></div>
+          <p class="mono stepN">02</p>
+          <h3>看见</h3>
+          <p>Agent 操作的就是你眼前这张画布。打开编辑台、画一块选区、换一条参考、保留一个满意的版本。</p>
+        </li><li class="step reveal">
+          <div class="stepMedia"><img class="" src="/assets/img/mediaEditing.webp?v=4cfbf3c429" width="400" height="675" alt="视频节点的媒体编辑工具：截取、取帧、音频、逐帧拉片、审阅、变速、转写。" loading="lazy" decoding="async" sizes="(min-width: 900px) 360px, 100vw"></div>
+          <p class="mono stepN">03</p>
+          <h3>完成</h3>
+          <p>按六项检查审阅每个候选。只替换出问题的那一镜。连同音轨渲染完整成片。</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="wrap">
+      <p class="label mono reveal">功能</p>
+      <h2 class="h2 reveal">一张画布，把影片从想法带到成片。</h2>
+    </div>
+    <div class="wrap wrapWide"><article class="feature  reveal">
+      <div class="featureText">
+        <p class="kicker mono">画布</p>
+        <h3>每一份素材、每一个步骤，都是节点。</h3>
+        <p>分镜、图片、片段、音频、预演、生成、审片和剪辑计划都在一张画布上，连线就是参考关系。内置 13 个节点插件，从文本与媒体到分析与生成，外加一个协作扩展。</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>拖入文件即生成节点</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>分组、整理、批量连线、撤销</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Agent 的每一步都是看得见的状态变化</li></ul>
+      </div>
+      <figure class="featureMedia window ">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/canvas.webp?v=4cfbf3c429" width="1600" height="900" alt="连成一张图的文本、媒体、预演与生成节点。" loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div><div class="wrap wrapWide"><article class="feature featureFlip reveal">
+      <div class="featureText">
+        <p class="kicker mono">范围</p>
+        <h3>Agent 能动什么，由你决定。</h3>
+        <p>底部输入只作用于你的选择：一个节点、框选的一组节点，或整张画布。生成节点可以在「生成」和「让 Agent 调整节点本身」之间切换。参考带序号，你知道模型会收到什么。</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>一个节点、N 个节点，或整张画布</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>参考显示为带序号的标签</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>手工与 Agent 共用同一条撤销历史</li></ul>
+      </div>
+      <figure class="featureMedia window ">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/composerScope.webp?v=4cfbf3c429" width="1400" height="320" alt="底部输入显示范围：Shot 02 候选，五条参考。" loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div><div class="wrap wrapWide"><article class="feature  reveal">
+      <div class="featureText">
+        <p class="kicker mono">编辑台</p>
+        <h3>只改需要改的地方。</h3>
+        <p>画一块选区，就只有这块区域会变。裁剪变换、宫格切分、重新打光、换机位、拍全景。截取片段、提取音轨、分离音视频、变速、转写，全部通过本机 FFmpeg 完成。</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>图片：局部重绘、裁剪、宫格、打光、机位、全景</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>视频：截取、取帧、音频、变速、逐帧拉片</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>结果成为新节点，原素材不动</li></ul>
+      </div>
+      <figure class="featureMedia window ">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/imageEditor.webp?v=4cfbf3c429" width="1520" height="978" alt="打开在雨夜码头剧照上的图片编辑台。" loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div><div class="wrap wrapWide"><article class="feature featureFlip reveal">
+      <div class="featureText">
+        <p class="kicker mono">预演</p>
+        <h3>先看清镜头，再去生成。</h3>
+        <p>在白模舞台上编排走位与相机。按镜头导出 RGB、深度与法线层，固定为生成用的参考节点。预演与深度是构图和节奏的参考，不是运动锁定。</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>人物、布景、相机走位、Take</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>每镜导出 RGB、深度、法线</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>对真实素材做逐帧拉片、姿态追踪与相对深度</li></ul>
+      </div>
+      <figure class="featureMedia window ">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/blockout.webp?v=4cfbf3c429" width="1600" height="900" alt="Blockout 预演编辑器：白模舞台上的人偶。" loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div><div class="wrap wrapWide"><article class="feature  reveal">
+      <div class="featureText">
+        <p class="kicker mono">你的模型</p>
+        <h3>你的供应商，你的密钥，你的电脑。</h3>
+        <p>接入火山方舟 Seedance、fal、Replicate 或任何 OpenAI 兼容的视频服务，也可以用 JSON manifest 导入自定义供应商。凭据只保存在本机设置里，Agent 只能看到是否已配置。</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>供应商 manifest，无需改代码</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>FFmpeg 与深度模型显式准备，按哈希固定</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Go 服务只监听回环地址</li></ul>
+      </div>
+      <figure class="featureMedia window windowFit">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/providers.webp?v=4cfbf3c429" width="540" height="550" alt="媒体服务设置面板。" loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div>
+  </section>
+
+  <section class="review">
+    <div class="wrap">
+      <p class="label mono reveal">计划、审片、剪辑</p>
+      <h2 class="h2 reveal">模型提议，你来决定。</h2>
+      <div class="cards"><article class="card reveal"><p class="mono cardN">01</p><h3>先看计划</h3><p>在付费之前，生成计划会显示最终提示词、真实模型参数和每条参考的职责：instruction、identity、composition、motion 或 exclude。</p></article><article class="card reveal"><p class="mono cardN">02</p><h3>六项检查，你说了算</h3><p>方向、动作、身份、空间连续、意外切镜、形变与品牌。只有你逐项标记并写下观察，候选才会被批准。被拒绝的候选留在工程里。</p></article><article class="card reveal"><p class="mono cardN">03</p><h3>只换一镜，其余不动</h3><p>剪辑计划保存 2 到 16 镜、入出点、输出规格和一条音轨。换掉一镜，其他镜头原样保留。渲染生成新成片，旧成片仍在。</p></article></div>
+    </div>
+  </section>
+
+  <section class="film" id="film">
+    <div class="wrap">
+      <p class="label mono reveal">影片</p>
+      <h2 class="h2 reveal">三十秒。每一帧都由代码绘制。</h2>
+      <p class="sectionLede reveal">发布影片与产品共用同一套设计体系。没有素材库、没有生成镜头、没有截图：每一个界面元素都是逐帧渲染的真实状态。</p>
+    </div>
+    <div class="wrap wrapWide">
+      <figure class="filmFrame reveal">
+        <video id="filmVideo" controls preload="none" playsinline poster="/assets/media/launchPoster.jpg?v=4cfbf3c429" width="1280" height="720">
+          <source src="/assets/media/launch720.mp4?v=4cfbf3c429" type="video/mp4">
+        </video>
+      </figure>
+      <p class="filmLink reveal"><a class="textLink" href="https://github.com/junjamrk/OpenCinema/blob/main/docs/launchVideoStoryboard.md" rel="noopener">分镜与源码在 GitHub <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></p>
+    </div>
+  </section>
+
+  <section class="start" id="start">
+    <div class="wrap">
+      <p class="label mono reveal">开始使用</p>
+      <h2 class="h2 reveal">构建它，打开一个目录，连接你的 Agent。</h2>
+      <p class="sectionLede reveal">0.4.0 正在开发中。从源码构建需要 Bun 1.3.14+、Go 1.26+ 与 Node.js 22+；运行打包后的插件只需 Node.js 22+。</p>
+      <div class="codeGrid">
+        <div class="codeCard reveal">
+          <p class="mono codeTitle">从源码运行</p>
+          <pre><code>git clone https://github.com/junjamrk/OpenCinema.git
+cd OpenCinema
+bun install --frozen-lockfile
+bun run build
+bun start</code></pre>
+          <p class="codeNote">打开 http://127.0.0.1:47920，选择任意目录作为工程。</p>
+        </div>
+        <div class="codeCard reveal">
+          <p class="mono codeTitle">连接 Claude Code</p>
+          <pre><code>claude --plugin-dir ./build/openCinema
+# 然后
+/opencinema:opencinema</code></pre>
+          <p class="codeNote">Codex：codex plugin add opencinema@openCinemaStandalone。任何 MCP 客户端都可以从设置面板复制连接配置。</p>
+        </div>
+      </div>
+      <ul class="docLinks reveal"><li><a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">Readme <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" rel="noopener">架构 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" rel="noopener">写一个节点 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/videoProvider.md" rel="noopener">视频供应商 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/videoShotWorkflow.md" rel="noopener">镜头工作流 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" rel="noopener">参与贡献 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li></ul>
+    </div>
+  </section>
+
+  <section class="community">
+    <div class="wrap">
+      <p class="label mono reveal">开源</p>
+      <h2 class="h2 reveal">在公开中构建。</h2>
+      <p class="sectionLede reveal">MIT 许可。Go 服务、React 画布、框架无关的编辑会话和节点 SDK，都在同一个仓库里。欢迎 Issue、Pull Request 和节点插件。</p>
+      <div class="cards"><article class="card cardDark reveal"><h3>写一个节点</h3><p>节点是一个导出插件定义、用 Zod 注册工具的包。你的界面和 Agent 调用的是同一个实现。</p></article><article class="card cardDark reveal"><h3>接入一个供应商</h3><p>说同一种协议的服务只需要一个 JSON manifest。没有映射的参考会被明确拒绝，而不是悄悄丢掉。</p></article><article class="card cardDark reveal"><h3>打磨工具面</h3><p>每个工具都有实时 Schema、输出校验与标注。错误自带机器码和恢复动作。</p></article></div>
+      <p class="reveal"><a class="btn btnInk" href="https://github.com/junjamrk/OpenCinema/issues" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span>提一个 Issue</span></a></p>
+    </div>
+  </section>
+
+  <section class="honest">
+    <div class="wrap"><ul class="honestList mono"><li>0.4.0 正在开发中，尚未发布。</li><li>AI 生成使用你配置的供应商，可能计费。任何宿主订阅都不包含视频模型。</li><li>预演、白模与深度是参考。运动分析追踪姿态与 2D 相机运动，不是 3D 解算。</li><li>审片是由人做出并记录的决定。</li></ul></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footerGrid">
+    <div class="footerBrand">
+      <img src="/assets/img/logo.svg" alt="OpenCinema" width="151" height="40">
+      <p>本机运行、由你的 Agent 操作的视频创作工作台。</p>
+      <a class="lang" href="/" lang="en" hreflang="en">English</a>
+    </div>
+    <div class="footerCol"><p class="mono">项目</p><ul><li><a href="https://github.com/junjamrk/OpenCinema" rel="noopener">GitHub</a></li><li><a href="https://github.com/junjamrk/OpenCinema/issues" rel="noopener">问题反馈</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/changelog.md" rel="noopener">变更记录</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/security.md" rel="noopener">安全</a></li></ul></div><div class="footerCol"><p class="mono">文档</p><ul><li><a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">Readme</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" rel="noopener">架构</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/claudeSetup.md" rel="noopener">Claude 接入</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/releaseGuide.md" rel="noopener">发行指南</a></li></ul></div><div class="footerCol"><p class="mono">扩展</p><ul><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" rel="noopener">节点 SDK</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/mcp/README.md" rel="noopener">MCP SDK</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/openCinema/readme.md" rel="noopener">插件说明</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" rel="noopener">参与贡献</a></li></ul></div>
+  </div>
+  <div class="wrap footerLegal">
+    <p>MIT 许可。Blockout 与 Motion 改编自 Sam Wasserman 的同名工具（Apache-2.0）。字体：Inter 与 JetBrains Mono（OFL）。</p>
+    <p>© <span data-year></span> OpenCinema 贡献者</p>
+  </div>
+</footer>
+
+<dialog class="filmDialog" id="filmDialog" aria-label="OpenCinema 发布影片">
+  <button class="dialogClose" type="button" data-close-film aria-label="关闭"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  <video id="dialogVideo" controls playsinline preload="none" poster="/assets/media/launchPoster.jpg?v=4cfbf3c429" width="1280" height="720">
+    <source src="/assets/media/launch720.mp4?v=4cfbf3c429" type="video/mp4">
+  </video>
+</dialog>
+<script src="/assets/site.js?v=4cfbf3c429" defer></script>
+</body>
+</html>

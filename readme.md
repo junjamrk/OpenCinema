@@ -23,6 +23,7 @@
 
 <p align="center">
   <a href="readmeEn.md">English</a> ·
+  <a href="https://opencinema.site">opencinema.site</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
   <a href="#架构">架构</a> ·

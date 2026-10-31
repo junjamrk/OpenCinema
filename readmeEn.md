@@ -23,6 +23,7 @@
 
 <p align="center">
   <a href="readme.md">中文</a> ·
+  <a href="https://opencinema.site">opencinema.site</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#features">Features</a> ·
   <a href="#architecture">Architecture</a> ·

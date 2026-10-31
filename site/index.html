@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en" class="noJs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenCinema — Your agent. Your canvas. Your film.</title>
+<meta name="description" content="A local, open-source video workbench your agent operates. Codex, Claude Code or any MCP agent does the planning; OpenCinema provides the node canvas, image and video tools, 3D previs, shot review and the final edit.">
+<link rel="canonical" href="https://opencinema.site/">
+<link rel="alternate" hreflang="en" href="https://opencinema.site/">
+<link rel="alternate" hreflang="zh-CN" href="https://opencinema.site/zh/">
+<link rel="alternate" hreflang="x-default" href="https://opencinema.site/">
+<meta name="theme-color" content="#F7F7F4">
+<meta name="color-scheme" content="light">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenCinema">
+<meta property="og:title" content="OpenCinema — Your agent. Your canvas. Your film.">
+<meta property="og:description" content="A local, open-source video workbench your agent operates. Codex, Claude Code or any MCP agent does the planning; OpenCinema provides the node canvas, image and video tools, 3D previs, shot review and the final edit.">
+<meta property="og:url" content="https://opencinema.site/">
+<meta property="og:image" content="https://opencinema.site/assets/img/og.png?v=4cfbf3c429">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OpenCinema — Your agent. Your canvas. Your film.">
+<meta name="twitter:description" content="A local, open-source video workbench your agent operates. Codex, Claude Code or any MCP agent does the planning; OpenCinema provides the node canvas, image and video tools, 3D previs, shot review and the final edit.">
+<meta name="twitter:image" content="https://opencinema.site/assets/img/og.png?v=4cfbf3c429">
+<link rel="icon" href="/assets/img/mark.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/img/icon32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/assets/img/icon180.png">
+<link rel="preload" href="/assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/img/canvas.webp?v=4cfbf3c429" as="image" type="image/webp">
+<link rel="stylesheet" href="/assets/site.css?v=4cfbf3c429">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OpenCinema","applicationCategory":"MultimediaApplication","operatingSystem":"macOS, Linux","license":"https://github.com/junjamrk/OpenCinema/blob/main/LICENSE","url":"https://opencinema.site","codeRepository":"https://github.com/junjamrk/OpenCinema","description":"A local, open-source video workbench your agent operates. Codex, Claude Code or any MCP agent does the planning; OpenCinema provides the node canvas, image and video tools, 3D previs, shot review and the final edit.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav" id="nav">
+  <div class="wrap navRow">
+    <a class="brand" href="/" aria-label="OpenCinema"><img src="/assets/img/logo.svg" alt="OpenCinema" width="151" height="40"></a>
+    <nav class="navLinks" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#film">Film</a>
+      <a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">Docs</a>
+    </nav>
+    <div class="navActions">
+      <a class="lang" href="/zh/" lang="zh" hreflang="zh">中文</a>
+      <a class="iconLink" href="https://github.com/junjamrk/OpenCinema" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="stars" data-stars hidden></span></a>
+      <a class="btn btnInk btnSm" href="#start">Get started</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="wrap heroText">
+      <p class="eyebrow mono reveal">Open source · MIT · 0.4.0 in development</p>
+      <h1 class="heroTitle reveal"><span class="line" style="--i:0">Your agent.</span><span class="line" style="--i:1">Your canvas.</span><span class="line" style="--i:2">Your film.</span></h1>
+      <p class="lede reveal">A local video workbench your agent operates. Codex, Claude Code or any MCP agent does the planning. OpenCinema gives it a node canvas, image and video tools, 3D previs, shot review and the final cut, and keeps you in control of every shot.</p>
+      <div class="ctaRow reveal">
+        <a class="btn btnInk" href="https://github.com/junjamrk/OpenCinema" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span>Star on GitHub</span><span class="stars" data-stars hidden></span></a>
+        <button class="btn btnGhost" type="button" data-open-film><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l11-6.5z" fill="currentColor"/></svg><span>Watch the 30-second film</span></button>
+      </div>
+      <ul class="trust mono reveal"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Runs on your machine</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Your models and your keys</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Nothing is accepted without review</li></ul>
+    </div>
+    <div class="wrap wrapWide">
+      <figure class="window heroShot reveal">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i><span class="mono">opencinema · harbor chase · 画布1</span></div>
+        <img class="" src="/assets/img/canvas.webp?v=4cfbf3c429" width="1600" height="900" alt="The OpenCinema canvas: a brief, reference stills, a reference clip and an audio bed wired into a Blockout previs, an image generation node and a video generation node." fetchpriority="high" decoding="async" sizes="(min-width: 1280px) 1200px, 100vw">
+      </figure>
+    </div>
+  </section>
+
+  <section class="works">
+    <div class="wrap worksRow reveal">
+      <p class="mono worksLabel">Works with the agent you already use</p>
+      <ul class="worksList"><li>Codex</li><li>Claude Code</li><li>Any MCP client</li></ul>
+      <p class="worksNote">Plain MCP. No lock-in, no proprietary agent.</p>
+    </div>
+  </section>
+
+  <section class="how" id="how">
+    <div class="wrap">
+      <p class="label mono reveal">How it works</p>
+      <h2 class="h2 reveal">Direct. See. Finish.</h2>
+      <ol class="steps">
+        <li class="step reveal">
+          <div class="stepMedia"><img class="" src="/assets/img/composerScope.webp?v=4cfbf3c429" width="1400" height="320" alt="The composer with its scope set to one video generation node and five references." loading="lazy" decoding="async" sizes="(min-width: 900px) 360px, 100vw"></div>
+          <p class="mono stepN">01</p>
+          <h3>Direct</h3>
+          <p>Select one node, a group of shots, or nothing at all. Describe the change in the composer. The scope is yours to set.</p>
+        </li><li class="step reveal">
+          <div class="stepMedia"><img class="" src="/assets/img/imageEditor.webp?v=4cfbf3c429" width="1520" height="978" alt="The image editor with inpaint, crop, grid split, lighting, angle and panorama tools." loading="lazy" decoding="async" sizes="(min-width: 900px) 360px, 100vw"></div>
+          <p class="mono stepN">02</p>
+          <h3>See</h3>
+          <p>Your agent works on the same canvas you are looking at. Open an editor, paint a selection, adjust a reference, keep a take you like.</p>
+        </li><li class="step reveal">
+          <div class="stepMedia"><img class="" src="/assets/img/mediaEditing.webp?v=4cfbf3c429" width="400" height="675" alt="A video node with its media editing tools: trim, frames, audio, frame analysis, review, speed, transcription." loading="lazy" decoding="async" sizes="(min-width: 900px) 360px, 100vw"></div>
+          <p class="mono stepN">03</p>
+          <h3>Finish</h3>
+          <p>Review every candidate against six checks. Replace only the shot that failed. Render the full cut with its audio track.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="wrap">
+      <p class="label mono reveal">Features</p>
+      <h2 class="h2 reveal">One canvas takes a film from idea to final cut.</h2>
+    </div>
+    <div class="wrap wrapWide"><article class="feature  reveal">
+      <div class="featureText">
+        <p class="kicker mono">Canvas</p>
+        <h3>Every asset and every step is a node.</h3>
+        <p>Script, stills, clips, audio, previs, generation, review and the edit plan live on one canvas. Edges are reference relationships. Thirteen node plugins ship built in, from text and media to analysis and generation, plus a collaboration extension.</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Drop files to create nodes</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Group, arrange, batch connect, undo</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Everything the agent does is a visible state change</li></ul>
+      </div>
+      <figure class="featureMedia window ">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/canvas.webp?v=4cfbf3c429" width="1600" height="900" alt="A connected canvas with text, media, previs and generation nodes." loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div><div class="wrap wrapWide"><article class="feature featureFlip reveal">
+      <div class="featureText">
+        <p class="kicker mono">Scope</p>
+        <h3>You decide what the agent may touch.</h3>
+        <p>The composer acts on your selection: one node, a marquee of nodes, or the whole canvas. Generation nodes can switch between generating and letting the agent adjust the node itself. References are numbered so you can see what the model will receive.</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>One node, N nodes, or the canvas</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>References shown as numbered chips</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Manual and agent edits share one undo history</li></ul>
+      </div>
+      <figure class="featureMedia window ">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/composerScope.webp?v=4cfbf3c429" width="1400" height="320" alt="The composer showing the scope: Shot 02 candidates, five references." loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div><div class="wrap wrapWide"><article class="feature  reveal">
+      <div class="featureText">
+        <p class="kicker mono">Editors</p>
+        <h3>Change only what matters.</h3>
+        <p>Paint a selection and only that region changes. Crop and transform, split a grid, relight, change the angle, capture a panorama. Trim clips, extract audio, separate tracks, change speed and transcribe, all through local FFmpeg.</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Image: inpaint, crop, grid split, lighting, angle, panorama</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Video: trim, frames, audio, speed, frame analysis</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Results become new nodes; sources stay untouched</li></ul>
+      </div>
+      <figure class="featureMedia window ">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/imageEditor.webp?v=4cfbf3c429" width="1520" height="978" alt="The image editor open on a rainy harbor still." loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div><div class="wrap wrapWide"><article class="feature featureFlip reveal">
+      <div class="featureText">
+        <p class="kicker mono">Previs</p>
+        <h3>See the shot before you generate it.</h3>
+        <p>Block the action and the camera on a white-model stage. Export RGB, depth and normal layers per shot and freeze them as reference nodes for generation. Previs and depth are references for framing and rhythm, not a motion lock.</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Characters, set pieces, camera blocking, takes</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>RGB, depth and normal exports per shot</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Frame analysis, pose tracking and relative depth from real footage</li></ul>
+      </div>
+      <figure class="featureMedia window ">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/blockout.webp?v=4cfbf3c429" width="1600" height="900" alt="The Blockout previs editor with a mannequin on a white-model stage." loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div><div class="wrap wrapWide"><article class="feature  reveal">
+      <div class="featureText">
+        <p class="kicker mono">Your models</p>
+        <h3>Your providers. Your keys. Your machine.</h3>
+        <p>Connect Volcengine Ark Seedance, fal, Replicate or any OpenAI-compatible video service, or import a custom provider from a JSON manifest. Credentials live in local settings; agents only ever see whether one is configured.</p>
+        <ul class="points"><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Provider manifests, no code</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>FFmpeg and the depth model prepared explicitly and pinned by hash</li><li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Go server listens on loopback only</li></ul>
+      </div>
+      <figure class="featureMedia window windowFit">
+        <div class="windowBar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="" src="/assets/img/providers.webp?v=4cfbf3c429" width="540" height="550" alt="The media services settings panel." loading="lazy" decoding="async" sizes="(min-width: 1100px) 640px, 100vw">
+      </figure>
+    </article></div>
+  </section>
+
+  <section class="review">
+    <div class="wrap">
+      <p class="label mono reveal">Plan, review, edit</p>
+      <h2 class="h2 reveal">The model proposes. You decide.</h2>
+      <div class="cards"><article class="card reveal"><p class="mono cardN">01</p><h3>See the plan first</h3><p>Before anything is paid for, the generation plan shows the final prompt, the real model parameters and the role of every reference: instruction, identity, composition, motion or exclude.</p></article><article class="card reveal"><p class="mono cardN">02</p><h3>Six checks, your call</h3><p>Direction, action, identity, continuity, unexpected cuts, deformation and branding. A candidate is approved only when you mark every check and write what you saw. Rejected candidates stay in the project.</p></article><article class="card reveal"><p class="mono cardN">03</p><h3>Replace one shot, keep the rest</h3><p>The edit plan holds 2 to 16 shots, in and out points, output spec and one audio track. Swap a single shot; the others never move. Rendering creates a new cut and keeps the old one.</p></article></div>
+    </div>
+  </section>
+
+  <section class="film" id="film">
+    <div class="wrap">
+      <p class="label mono reveal">The film</p>
+      <h2 class="h2 reveal">Thirty seconds. Every frame drawn in code.</h2>
+      <p class="sectionLede reveal">The launch film is built from the same design system as the product. No stock, no generated footage, no screenshots: every interface element is live state rendered frame by frame.</p>
+    </div>
+    <div class="wrap wrapWide">
+      <figure class="filmFrame reveal">
+        <video id="filmVideo" controls preload="none" playsinline poster="/assets/media/launchPoster.jpg?v=4cfbf3c429" width="1280" height="720">
+          <source src="/assets/media/launch720.mp4?v=4cfbf3c429" type="video/mp4">
+        </video>
+      </figure>
+      <p class="filmLink reveal"><a class="textLink" href="https://github.com/junjamrk/OpenCinema/blob/main/docs/launchVideoStoryboard.md" rel="noopener">Storyboard and source on GitHub <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></p>
+    </div>
+  </section>
+
+  <section class="start" id="start">
+    <div class="wrap">
+      <p class="label mono reveal">Get started</p>
+      <h2 class="h2 reveal">Build it, open a folder, connect your agent.</h2>
+      <p class="sectionLede reveal">0.4.0 is in development. Source builds need Bun 1.3.14+, Go 1.26+ and Node.js 22+. Running a packaged plugin needs Node.js 22+ only.</p>
+      <div class="codeGrid">
+        <div class="codeCard reveal">
+          <p class="mono codeTitle">Run from source</p>
+          <pre><code>git clone https://github.com/junjamrk/OpenCinema.git
+cd OpenCinema
+bun install --frozen-lockfile
+bun run build
+bun start</code></pre>
+          <p class="codeNote">Open http://127.0.0.1:47920 and point it at any folder.</p>
+        </div>
+        <div class="codeCard reveal">
+          <p class="mono codeTitle">Connect Claude Code</p>
+          <pre><code>claude --plugin-dir ./build/openCinema
+# then
+/opencinema:opencinema</code></pre>
+          <p class="codeNote">Codex: codex plugin add opencinema@openCinemaStandalone. Any MCP client can copy the connection from the settings panel.</p>
+        </div>
+      </div>
+      <ul class="docLinks reveal"><li><a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">Readme <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" rel="noopener">Architecture <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" rel="noopener">Write a node <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/videoProvider.md" rel="noopener">Video providers <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/videoShotWorkflow.md" rel="noopener">Shot workflow <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" rel="noopener">Contributing <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li></ul>
+    </div>
+  </section>
+
+  <section class="community">
+    <div class="wrap">
+      <p class="label mono reveal">Open source</p>
+      <h2 class="h2 reveal">Built in the open.</h2>
+      <p class="sectionLede reveal">MIT licensed. A Go server, a React canvas, a framework-independent editing session and a node SDK, all in one repository. Issues, pull requests and node plugins are welcome.</p>
+      <div class="cards"><article class="card cardDark reveal"><h3>Write a node</h3><p>A node is a package that exports a plugin definition and registers Zod-typed tools. Your UI and the agent call the same implementation.</p></article><article class="card cardDark reveal"><h3>Add a provider</h3><p>A service that speaks an existing protocol needs only a JSON manifest. Unmapped references are refused, not dropped.</p></article><article class="card cardDark reveal"><h3>Shape the tools</h3><p>Every tool has a live schema, output validation and annotations. Errors carry a machine code and a recovery action.</p></article></div>
+      <p class="reveal"><a class="btn btnInk" href="https://github.com/junjamrk/OpenCinema/issues" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span>Open an issue</span></a></p>
+    </div>
+  </section>
+
+  <section class="honest">
+    <div class="wrap"><ul class="honestList mono"><li>0.4.0 is in development and unreleased.</li><li>AI generation uses providers you configure and may cost money. No host subscription includes a video model.</li><li>Previs, white model and depth are references. Motion analysis tracks pose and 2D camera motion, not a 3D solve.</li><li>Review is a recorded decision made by a person.</li></ul></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footerGrid">
+    <div class="footerBrand">
+      <img src="/assets/img/logo.svg" alt="OpenCinema" width="151" height="40">
+      <p>A local video workbench your agent operates.</p>
+      <a class="lang" href="/zh/" lang="zh" hreflang="zh">中文</a>
+    </div>
+    <div class="footerCol"><p class="mono">Project</p><ul><li><a href="https://github.com/junjamrk/OpenCinema" rel="noopener">GitHub</a></li><li><a href="https://github.com/junjamrk/OpenCinema/issues" rel="noopener">Issues</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/changelog.md" rel="noopener">Changelog</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/security.md" rel="noopener">Security</a></li></ul></div><div class="footerCol"><p class="mono">Docs</p><ul><li><a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">Readme</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" rel="noopener">Architecture</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/claudeSetup.md" rel="noopener">Claude setup</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/releaseGuide.md" rel="noopener">Release guide</a></li></ul></div><div class="footerCol"><p class="mono">Extend</p><ul><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" rel="noopener">Node SDK</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/mcp/README.md" rel="noopener">MCP SDK</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/openCinema/readme.md" rel="noopener">Plugin notes</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" rel="noopener">Contributing</a></li></ul></div>
+  </div>
+  <div class="wrap footerLegal">
+    <p>MIT License. Blockout and Motion adapted from Sam Wasserman&#39;s tools (Apache-2.0). Fonts: Inter and JetBrains Mono (OFL).</p>
+    <p>© <span data-year></span> OpenCinema contributors</p>
+  </div>
+</footer>
+
+<dialog class="filmDialog" id="filmDialog" aria-label="OpenCinema launch film">
+  <button class="dialogClose" type="button" data-close-film aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  <video id="dialogVideo" controls playsinline preload="none" poster="/assets/media/launchPoster.jpg?v=4cfbf3c429" width="1280" height="720">
+    <source src="/assets/media/launch720.mp4?v=4cfbf3c429" type="video/mp4">
+  </video>
+</dialog>
+<script src="/assets/site.js?v=4cfbf3c429" defer></script>
+</body>
+</html>
