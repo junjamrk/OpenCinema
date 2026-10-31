@@ -217,19 +217,17 @@ func (s *server) mediaModels() []any {
 			model["modelId"] = model["id"]
 			model["supportsPrice"] = p["supportsPrice"]
 			model["credentialMissing"] = credentialMissing
-			if model["type"] == "video" {
-				protocol, location := videoProtocol(p), "platform"
-				if protocol == "" {
-					protocol = "builtin"
-				}
-				if protocol == "openaiVideo" || protocol == "httpTask" || protocol == "adapter" {
-					location = "remote"
-				}
-				if p["transport"] == "local" {
-					location = "local"
-				}
-				model["execution"] = object{"protocol": protocol, "location": location, "cancelMode": providerCancelMode(p, "video")}
+			protocol, location := videoProtocol(p), "platform"
+			if protocol == "" {
+				protocol = "builtin"
 			}
+			if protocol == "openaiVideo" || protocol == "httpTask" || protocol == "adapter" {
+				location = "remote"
+			}
+			if p["transport"] == "local" {
+				location = "local"
+			}
+			model["execution"] = object{"protocol": protocol, "location": location, "cancelMode": providerCancelMode(p, str(model["type"]))}
 			models = append(models, model)
 		}
 	}

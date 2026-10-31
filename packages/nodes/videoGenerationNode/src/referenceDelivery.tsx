@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { errorText, mediaValueSchema, type NodeViewProps } from "@toonflow/node-shared/reactNode";
+import { errorText, isGenerationLocked, mediaValueSchema, type NodeViewProps } from "@toonflow/node-shared/reactNode";
 import { readReferences } from "@toonflow/node-shared/reactReferences";
 
 function localDateTime(value: Date) {
@@ -24,7 +24,7 @@ export default function ReferenceDelivery({ node, controller, readOnly }: NodeVi
   let usesArk = false;
   try { usesArk = JSON.parse(String(node.data?.model ?? "null"))?.[0] === "ark"; } catch { /* Model selection is read from saved node data. */ }
   if (!usesArk || !references.length) return null;
-  const disabled = readOnly || busy || ["running", "unknown", "cancelRequested", "delegated"].includes(String((node.data?.generation as { status?: string } | undefined)?.status));
+  const disabled = readOnly || busy || isGenerationLocked((node.data?.generation as { status?: string } | undefined)?.status);
 
   async function register() {
     if (!source || !link.current?.value) return;

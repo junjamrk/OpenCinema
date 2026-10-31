@@ -32,11 +32,11 @@ export function getGenerationComposerState(data: Readonly<Record<string, unknown
   const status = generation && typeof generation === "object" && "status" in generation ? String(generation.status) : "";
   const disabledReason = ({
     running: "此节点正在生成，请等待或取消当前任务",
-    delegated: "此节点已交给宿主，等待实际产物，请勿重复提交",
-    cancelRequested: "正在确认取消，请等待当前任务终止",
-    unknown: "当前任务尚未确认终止，请先在节点确认任务状态",
-    interrupted: "上次生成已中断，请先在节点确认任务终态",
-    resultReady: "原任务已完成，请先采用生成结果",
+    delegated: "此节点已交给 Agent，等待产物；不再等待可在节点放弃此任务",
+    cancelRequested: "正在取消，请等待服务确认",
+    unknown: "任务结果未确认，请在节点重新核对或放弃此任务",
+    interrupted: "上次生成已中断，请在节点重新核对或放弃此任务",
+    resultReady: "原任务已完成，请在节点采用结果或放弃此任务",
   } as Record<string, string>)[status];
   return { requiresHost: !data.model, ...(disabledReason ? { disabledReason } : {}) };
 }
@@ -162,8 +162,8 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
     const saved = readNodeData(document, id).generation as { status?: string } | undefined;
     if (saved?.status === "completed" && task && ["delegated", "unknown"].includes(task.state)) task.state = "completed";
     if (task?.state === "delegated" || saved?.status === "delegated") throw new Error("已交给宿主，等待实际产物，请勿重复提交");
-    if (task?.state === "unknown" || saved?.status === "unknown" || (!task && saved?.status === "running")) throw new Error("上次生成任务尚未确认终止，请先取消并确认终态");
-    if (task?.state === "resultReady" || saved?.status === "resultReady") throw new Error("原任务已完成，请先采用生成结果");
+    if (task?.state === "unknown" || saved?.status === "unknown" || (!task && saved?.status === "running")) throw new Error("上次生成任务结果未确认，请在节点重新核对或放弃此任务");
+    if (task?.state === "resultReady" || saved?.status === "resultReady") throw new Error("原任务已完成，请在节点采用结果或放弃此任务");
   }
   async function stop() {
     task?.controller.abort(new Error("节点即将变更")); await task?.promise;
