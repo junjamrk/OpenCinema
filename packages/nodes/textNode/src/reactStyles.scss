@@ -23,6 +23,7 @@
   }
   .nodeRichEditor { border: 1px solid var(--borderSubtle); border-radius: var(--radiusControl); padding: 8px; min-height: 72px; }
   .nodeRichEditor .tiptap { outline: none; min-height: 56px; }
+  .nodeRichEditor .tiptap > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before { content: "写下剧本、分镜或提示词…"; float: left; height: 0; color: var(--textMuted); pointer-events: none; }
   .nodeTextSource { display: block; width: 100%; min-width: 0; min-height: 96px; resize: vertical; font: 12px/1.6 var(--fontMono, monospace); }
   .nodeFrameSized .nodeContentMount:has(> .nodeTextView) { height: 100%; }
   .nodeFrameSized .nodeContentMount > .nodeTextView { height: 100%; min-height: 0;

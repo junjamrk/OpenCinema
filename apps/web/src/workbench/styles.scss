@@ -999,7 +999,7 @@
       backdrop-filter: none;
 
       > .capsuleDivider { display: none; }
-      > button:not(.exportAction) {
+      > button:not(.exportAction, .hostConnection) {
         width: 32px;
         height: 32px;
         padding: 0;
@@ -1024,6 +1024,7 @@
         box-shadow: 0 8px 24px -4px rgba(0, 0, 0, .6);
         color: var(--textSecondary);
         font: 500 10px/12px var(--fontMono);
+        &:hover { color: var(--selectionAccent); }
         svg {
           flex-shrink: 0;
           color: var(--textMuted);

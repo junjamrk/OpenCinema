@@ -12,7 +12,7 @@ import {
   IconArrowUp, IconArrowBackUp, IconArrowForwardUp, IconAt, IconCheck, IconChevronDown,
   IconCircleFilled, IconCopy, IconDeviceFloppy, IconDownload, IconFileText, IconFocusCentered, IconFolderOpen, IconFolderPlus,
   IconGridDots, IconHandStop, IconHistory, IconLayoutGrid, IconLoader2, IconLock,
-  IconPointer, IconPlus, IconPuzzle, IconSearch, IconSettings, IconTrash, IconUpload,
+  IconPointer, IconPlus, IconPuzzle, IconSearch, IconSettings, IconSitemap, IconTrash, IconUpload,
   IconX, IconZoomIn, IconZoomOut, IconSparkles,
   IconUsers, IconPencil, IconBoxMultiple, IconDeselect, IconClipboard, IconLink, IconLinkOff, IconMap, IconCircleDashed,
 } from "@tabler/icons-react";
@@ -36,6 +36,9 @@ import "@xyflow/react/dist/style.css";
 import "./styles.scss";
 
 const nodeTypes = { workbenchNode: NodeView };
+// 适应视图时避开顶栏、右侧工具栏和底部输入框。
+const fitPadding = { top: "80px", right: "88px", bottom: "128px", left: "40px" } as const;
+const starterFlow = [["textNode", "text"], ["imageGenerationNode", "image"], ["videoGenerationNode", "video"]] as const;
 function flowShortcutKeys(binding: string) { const keys = getShortcutBindings(binding).filter(value => value !== "None").map(value => value.replace(/\bCtrl\b/g, "Control")); return keys.length ? keys : null; }
 
 function composerDraftKey(directory: string | null, canvasId: string | null, action: { nodeId: string; tool: string } | null, nodeIds: readonly string[]) {
@@ -316,7 +319,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
   }, [controller, snapshot.selectedIds.join("|"), snapshot.plugins]);
 
   useEffect(() => controller.attachCanvasView({
-    async fit(ids) { await flow.fitView({ ...(ids ? { nodes: ids.map(id => ({ id })) } : {}), padding: 0.2, duration: 0 }); return flow.getViewport(); },
+    async fit(ids) { await flow.fitView({ ...(ids ? { nodes: ids.map(id => ({ id })) } : {}), padding: fitPadding, duration: 0 }); return flow.getViewport(); },
     measure(id) { const node = flow.getNode(id); const width = node?.measured?.width, height = node?.measured?.height; return width && height ? { width, height } : undefined; },
     getOptions() { return viewRef.current; },
     setOptions(options) { const next = { ...viewRef.current, ...options }; viewRef.current = next; setLocalView(next); },
@@ -349,6 +352,23 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
     const center = canvasCenter(), size = { width: 360, height: 220 };
     const occupied = flow.getNodes().filter(node => !node.hidden && !node.parentId).map(node => ({ ...node.position, width: node.measured?.width ?? node.width ?? 360, height: node.measured?.height ?? node.height ?? 180 }));
     return findOpenPosition({ x: center.x - size.width / 2, y: center.y - size.height / 2 }, occupied, size);
+  }
+
+  async function addStarterFlow() {
+    const center = canvasCenter();
+    const created: string[] = [];
+    for (const [index, [type, handleId]] of starterFlow.entries()) {
+      const position = { x: center.x - 580 + index * 420, y: center.y - 110 };
+      const previous = created.at(-1);
+      if (previous) await controller.addConnectedNode(type, position, { nodeId: previous, handleId: starterFlow[index - 1]![1], direction: "source" }); else await controller.addNode(type, position);
+      const nodeId = controller.getSnapshot().selectedIds[0];
+      if (!nodeId) throw new Error("示例流程创建中断，请重试");
+      created.push(nodeId);
+    }
+    controller.select([created[0]!]);
+    // fitView 只计入已测量的节点，提前调用会把最后一个节点留在视图外。
+    for (let attempt = 0; attempt < 40 && !created.every(id => flow.getNode(id)?.measured?.width); attempt++) await new Promise(resolve => setTimeout(resolve, 50));
+    await moveViewport(() => flow.fitView({ padding: fitPadding, duration: reducedMotion ? 0 : 220 }));
   }
 
   function showContextMenu(event: { preventDefault(): void; clientX: number; clientY: number }) {
@@ -843,7 +863,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
       if (shortcutMatches(event, shortcuts.handTool)) { event.preventDefault(); setTool("pan"); return; }
       if (shortcutMatches(event, shortcuts.arrange) && !editingLocked) { event.preventDefault(); void run(() => controller.execute("arrangeCanvas", {})); return; }
       if (shortcutMatches(event, shortcuts.zoomIn) || shortcutMatches(event, shortcuts.zoomOut) || shortcutMatches(event, shortcuts.fitView)) {
-        event.preventDefault(); void run(() => moveViewport(() => shortcutMatches(event, shortcuts.fitView) ? flow.fitView({ padding: .2, duration: reducedMotion ? 0 : 220 }) : shortcutMatches(event, shortcuts.zoomIn) ? flow.zoomIn({ duration: reducedMotion ? 0 : 160 }) : flow.zoomOut({ duration: reducedMotion ? 0 : 160 }))); return;
+        event.preventDefault(); void run(() => moveViewport(() => shortcutMatches(event, shortcuts.fitView) ? flow.fitView({ padding: fitPadding, duration: reducedMotion ? 0 : 220 }) : shortcutMatches(event, shortcuts.zoomIn) ? flow.zoomIn({ duration: reducedMotion ? 0 : 160 }) : flow.zoomOut({ duration: reducedMotion ? 0 : 160 }))); return;
       }
       if (shortcutMatches(event, shortcuts.mergeGroup) && snapshot.selectedIds.length && !editingLocked) { event.preventDefault(); runCommand("mergeGroups", { nodeIds: selectedGroups }); return; }
       if (shortcutMatches(event, shortcuts.copy) && snapshot.selectedIds.length) {
@@ -1003,7 +1023,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
       </div>
 
       <div className="workspaceActions">
-        <span className={`hostConnection${snapshot.host.connected ? " hostConnected" : ""}`} title={snapshot.host.connected ? "宿主已连接" : "尚未连接宿主"}><IconCircleFilled aria-hidden="true" focusable="false" size={8} /><span>{snapshot.host.name || "宿主未连接"}</span></span>
+        <button type="button" className={`hostConnection${snapshot.host.connected ? " hostConnected" : ""}`} title={snapshot.host.connected ? "Agent 已连接，查看连接设置" : "连接 Agent"} onClick={() => openSettings("host")}><IconCircleFilled aria-hidden="true" focusable="false" size={8} /><span>{snapshot.host.name || "宿主未连接"}</span></button>
         <span className="capsuleDivider" />
         <button type="button" disabled={!CollaborationPanel || !snapshot.directory || snapshot.transitioning} title="多人协作" aria-label="多人协作" aria-haspopup="dialog" onClick={() => setOpenPanel("collaboration")}><IconUsers aria-hidden="true" focusable="false" size={18} /></button>
         <button className="exportAction" type="button" title="下载工程包" aria-label="导出工程" disabled={!snapshot.directory || pending || snapshot.transitioning} onClick={() => void run(() => controller.exportProject())}><IconDownload aria-hidden="true" focusable="false" size={16} /><span>导出工程</span></button>
@@ -1033,7 +1053,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
           <label className="zoomValue"><input type="number" min={15} max={800} step={1} aria-label="画布缩放百分比" value={zoomInput ?? Math.round(zoom * 100)} onChange={event => setZoomInput(event.target.value)} onBlur={applyZoom} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } if (event.key === "Escape") { cancelZoomRef.current = true; event.currentTarget.blur(); } }} /><span aria-hidden="true">%</span></label>
           <button type="button" onClick={() => void run(() => moveViewport(() => flow.zoomOut({ duration: reducedMotion ? 0 : 160 })))} title="缩小" aria-label="缩小"><IconZoomOut aria-hidden="true" focusable="false" size={16} /></button>
           <span className="toolDivider" />
-          <button type="button" disabled={!nodes.length} onClick={() => void run(() => moveViewport(() => flow.fitView({ padding: 0.2, duration: reducedMotion ? 0 : 220 })))} title="适应视图" aria-label="适应视图"><IconFocusCentered aria-hidden="true" focusable="false" size={16} /></button>
+          <button type="button" disabled={!nodes.length} onClick={() => void run(() => moveViewport(() => flow.fitView({ padding: fitPadding, duration: reducedMotion ? 0 : 220 })))} title="适应视图" aria-label="适应视图"><IconFocusCentered aria-hidden="true" focusable="false" size={16} /></button>
         </div>}
 
       <AnimatePresence>{managementPanel && <MotionLayer key={managementPanel} kind="backdrop" className={`panelBackdrop managementBackdrop${managementPanel === "assets" ? " assetLibraryBackdrop" : ""}`} onKeyDownCapture={managementPanel === "canvas" ? trapOverlayFocus : undefined}>
@@ -1074,7 +1094,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
 
       {!snapshot.directory && <section className="projectWelcome" aria-label="开始使用"><strong>新建或打开一个工程</strong><p>工程就是本机的一个文件夹，画布和素材都保存在里面。</p><div className="welcomeActions"><button className="openProjectAction newProjectAction" type="button" disabled={snapshot.transitioning} onClick={() => showProjectPicker(true)}><IconFolderPlus aria-hidden="true" focusable="false" size={20} />新建工程</button><button className="openProjectAction" type="button" disabled={snapshot.transitioning} onClick={() => showProjectPicker()}><IconFolderOpen aria-hidden="true" focusable="false" size={20} />打开工程</button></div>{recentProjectList}</section>}
 
-      {snapshot.document && !snapshot.document.nodes.length && !editingLocked && !palette && <section className="canvasEmptyGuide" aria-label="开始创作"><strong>把素材拖到这里，或添加第一个节点</strong><p>支持图片、视频、音频和文本文件。也可以在下方直接告诉 Agent 你想做什么。</p><div><button type="button" onClick={() => showPalette("add", openCanvasPosition())}><IconPlus aria-hidden="true" focusable="false" size={16} />添加节点<kbd>Tab</kbd></button><button type="button" onClick={() => { mediaImportTarget.current = { directory: snapshot.directory, canvasId: snapshot.canvasId, position: openCanvasPosition() }; mediaImportRef.current?.click(); }}><IconUpload aria-hidden="true" focusable="false" size={16} />导入素材</button><button type="button" onClick={() => openSettings("models")}><IconSettings aria-hidden="true" focusable="false" size={16} />配置媒体服务</button></div></section>}
+      {snapshot.document && !snapshot.document.nodes.length && !editingLocked && !palette && <section className="canvasEmptyGuide" aria-label="开始创作"><strong>把素材拖到这里，或添加第一个节点</strong><p>支持图片、视频、音频和文本文件。也可以在下方直接告诉 Agent 你想做什么。</p><div><button type="button" onClick={() => showPalette("add", openCanvasPosition())}><IconPlus aria-hidden="true" focusable="false" size={16} />添加节点<kbd>Tab</kbd></button><button type="button" onClick={() => { mediaImportTarget.current = { directory: snapshot.directory, canvasId: snapshot.canvasId, position: openCanvasPosition() }; mediaImportRef.current?.click(); }}><IconUpload aria-hidden="true" focusable="false" size={16} />导入素材</button>{starterFlow.every(([type]) => snapshot.plugins.some(plugin => plugin.type.replace(/^remote-/, "") === type)) && <button type="button" title="文本 → 图片生成 → 视频生成" disabled={pending} onClick={() => void run(addStarterFlow)}><IconSitemap aria-hidden="true" focusable="false" size={16} />搭示例流程</button>}<button type="button" onClick={() => openSettings("models")}><IconSettings aria-hidden="true" focusable="false" size={16} />配置媒体服务</button></div></section>}
 
       {snapshot.directory && <button className="historyTrigger" type="button" title="历史记录" aria-label="历史记录" disabled={!snapshot.document || snapshot.transitioning} onClick={() => setOpenPanel("history")}><IconHistory aria-hidden="true" focusable="false" size={14} /><span>历史记录</span></button>}
 

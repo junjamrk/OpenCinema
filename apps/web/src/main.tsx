@@ -27,7 +27,11 @@ void controller.ready.then(async () => {
   const directory = connection.initialCanvas?.directory ?? parameters.get("directory");
   const canvasId = connection.initialCanvas?.canvasId ?? parameters.get("canvas");
   if (directory) {
-    await controller.openProject(directory, canvasId ?? undefined);
+    // 地址栏里的画布可能已被改名或删除，此时仍打开工程，不把用户退回首页。
+    await controller.openProject(directory, canvasId ?? undefined).catch(error => {
+      if (!canvasId || connection.initialCanvas) throw error;
+      return controller.openProject(directory);
+    });
   }
 }).catch(error => { console.error("工作台连接或工程打开失败", error); });
 
