@@ -8,6 +8,7 @@ import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { getObjectByThreeJsonId, type SceneRuntime } from "threejson/core";
 import { errorText, useMediaUrl, type NodeViewProps } from "@toonflow/node-shared/reactNode";
 import NodeError from "@toonflow/node-shared/reactNodeNotice";
+import { useDialogKeys } from "@toonflow/node-shared/useDialogKeys";
 import { createStage, captureCamera, disposeStage, type SceneDocument } from "./scene";
 import { prepareSceneAnimation } from "./sceneAnimation";
 import { applyCamera, prepareMotion, sampleMotion } from "./motion";
@@ -555,6 +556,12 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
       setBusy(false);
     }
   }
+  function close() {
+    if (busy || running) return;
+    setPlaying(false);
+    setOpen(false);
+  }
+  const { dialog, onEscape } = useDialogKeys(open && !!snapshot, close);
   function focusComposer(prompt?: string) {
     if (locked) return;
     try {
@@ -670,11 +677,16 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
         snapshot &&
         createPortal(
           <div
+            ref={dialog}
             className="openCinemaWorkbench directorReactDialog"
             role="dialog"
             aria-modal="true"
             aria-label="3D 导演台"
-            onKeyDown={(event) => event.stopPropagation()}>
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              onEscape(event);
+            }}>
             <header>
               <strong>3D 导演台</strong>
               <span>场景 · 相机 · 动画</span>
@@ -689,12 +701,7 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
                   取消任务
                 </button>
               )}
-              <button
-                disabled={busy || running}
-                onClick={() => {
-                  setPlaying(false);
-                  setOpen(false);
-                }}>
+              <button disabled={busy || running} onClick={close}>
                 关闭
               </button>
             </header>

@@ -28,6 +28,7 @@
     "./reactReferences": "./src/reactReferences.ts",
     "./reactReferencesView": "./src/components/reactReferences.tsx",
     "./reactNodeNotice": "./src/components/reactNodeNotice.tsx",
+    "./useDialogKeys": "./src/useDialogKeys.ts",
     "./reactMediaDialog": "./src/components/reactMediaDialog.tsx",
     "./reactHostRequest": "./src/reactHostRequest.ts",
     "./editorSession": "./src/editorSession.ts",
