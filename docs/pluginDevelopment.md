@@ -45,7 +45,17 @@ packages/nodes/depthSliceNode/
     └── reactView.tsx   节点内的 React 视图
 ```
 
-这个脚手架用于仓库内开发。仓库外开发用 `createOpenCinemaPlugin`，步骤见 [README](../readmeZh.md)。
+这个脚手架用于仓库内开发。仓库外开发用 `createOpenCinemaPlugin`，步骤见 [README](../readmeZh.md)。`@toonflow/nodes-scaffold` 还没发布到 npm，所以 `--scaffold` 是必填项，要指向 `npm pack` 生成的 tgz。生成的工程同样带 `readme.md` 和 `agent.md`。
+
+### 边改边装
+
+开两个终端。一个运行 `npm run dev` 监听构建，另一个把每次构建的 `install.json` 提交给本机工作台：
+
+```bash
+npm run devInstall -- --server http://127.0.0.1:47920
+```
+
+仓库内的插件没有这个脚本，直接运行 `bun packages/nodeScaffold/scripts/devInstall.ts <install.json 路径> --server <工作台地址>`。提交后在 **设置 → 插件** 点 **刷新目录**，工作台就加载新版本。
 
 ## 插件定义
 
@@ -112,7 +122,7 @@ React、react-dom 与 zod 由宿主通过 `/pluginSdk.js` 提供，不会打进�
 | `name` | 显示名 |
 | `description` | 一句话说明；进入节点菜单、市场与 Agent 的 `availableNodeTypes` |
 | `category`、`icon` | 节点菜单的分类与图标 |
-| `requires` | 需要的宿主服务与能力版本，例如 `{ document: 1, workbench: 1, workspaceFiles: 1, ffmpeg: 1, worker: 1 }`；`getService` 只能取到这里声明过的服务 |
+| `requires` | 需要的宿主服务与能力版本，例如 `{ document: 1, workbench: 1, workspaceFiles: 1, ffmpeg: 1, worker: 1 }`；`getService` 只能取到这里声明过的服务，完整清单见[宿主能力](#宿主能力) |
 | `scope` | `node`（默认）或 `workspace` |
 | `order` | 只有内置节点声明；没有 `order` 的插件不进内置清单 |
 
@@ -135,14 +145,45 @@ React、react-dom 与 zod 由宿主通过 `/pluginSdk.js` 提供，不会打进�
 
 安装后插件由本机 Go 服务按版本目录提供，Web 通过 import map 加载，React 与 zod 复用宿主实例。
 
+Go 服务在安装时校验 `version`、`requires`、`displayName`、`author`、`license`、`homepage`、`tags` 和 `configRules` 的类型，不合规的包直接拒绝。工作台安装后立即加载模块，并在每次进入插件页时探测已启用的已安装插件。加载失败的原因显示在插件卡片上，卡片提供 **重试加载** 按钮。已安装插件的清单损坏时，工程照常打开，这个插件在设置页标为损坏，用户可以卸载或重新下载。
+
+## 宿主能力
+
+`requires` 里的名字和最高版本来自 [hostCapabilities.json](../packages/nodeScaffold/src/hostCapabilities.json)。名字写错或版本过高时，`vite build`、`generate:nodes` 和 `site/build.mjs` 都会失败。
+
+| 能力 | 版本 | 用途 |
+| --- | --- | --- |
+| `document` | 1 | 读写当前节点的数据 |
+| `workbench` | 1 | 使用工作台服务（文件、FFmpeg、宿主 Agent） |
+| `files` | 1 | 读写工程文件 |
+| `inputs` | 1 | 读取上游节点的输入 |
+| `state` | 1 | 使用工程内共享的运行状态 |
+| `documentEditing` | 1 | 编辑节点文档 |
+| `workspaceFiles` | 1 | 读写工程文件 |
+| `workspaceReadRange` | 1 | 按范围读取工程内的大文件 |
+| `nodeHistory` | 1 | 写入画布历史 |
+| `workspaceDocuments` | 1 | 读写工程内的画布 |
+| `workspaceExtensions` | 1 | 扩展工程功能 |
+| `collaboration` | 1 | 参与多人协作 |
+| `pluginResources` | 1 | 加载随包发行的模型和资源 |
+| `ffmpeg` | 1 | 调用 FFmpeg 处理音视频 |
+| `webAssembly` | 1 | 运行 WebAssembly |
+| `worker` | 1 | 在后台线程运行任务 |
+
+`webAssembly` 和 `worker` 只在运行环境支持时提供。
+
+`requires` 是兼容性声明，不是沙箱。插件和工作台在同一个页面环境里运行，能直接发同源请求和操作 DOM，因此可以读写工程文件、读取已保存的 API Key、向外部地址发送数据。安装前的复核卡片会向用户说明这一点。
+
 ## 发布到插件市场
 
 市场是 [opencinema.site/market](https://opencinema.site/market/) 下的静态目录，目前仅支持安装、不支持上传。发布一个版本：
 
 1. 构建插件，确认 `install.json` 在你声明的 `outDir`。
-2. 在 `site/src/marketCatalog.json` 添加条目：`id`、`source`（install.json 相对仓库根目录的路径）、英文与中文 `description`、`homepage`、`repository`、`publishedAt`。
-3. 运行 `node site/build.mjs`。脚本把包复制到 `site/market/plugins/<id>/<version>/install.json`，计算 SHA-256 与大小，重写 `site/market/index.json` 与市场页面。同一版本不能用不同字节覆盖，改动请升级版本。
+2. 在 `site/src/marketCatalog.json` 添加条目：`id`、`source`（install.json 相对仓库根目录的路径）、英文与中文 `description`、`homepage`、`repository`、`publishedAt`。可选的 `minHost` 是能运行这个包的最低工作台版本，格式如 `0.4.0`，高于当前版本时界面禁用安装。
+3. 运行 `node site/build.mjs`。脚本把包复制到 `site/market/plugins/<id>/<version>/install.json`，计算 SHA-256 与大小，重写 `site/market/index.json` 与市场页面。同一版本不能用不同字节覆盖，改动请升级版本。`requires` 里有宿主不提供的能力时，脚本直接失败。
 4. 提交 Pull Request。目录格式见 [marketIndex.schema.json](../packages/nodeScaffold/schema/marketIndex.schema.json)。
+
+工作台逐条解析目录，一条无效记录只跳过它自己，设置页显示跳过的数量。版本按数字段比较，不处理预发布版本，`1.0.0-beta` 和 `1.0.0` 的先后不保证。
 
 ## 检查清单
 
