@@ -795,7 +795,11 @@ func (s *server) executeFfmpeg(w http.ResponseWriter, r *http.Request) error {
 	args = ordered
 	lockedPaths := append([]string{}, inputs...)
 	for _, output := range outputs {
-		lockedPaths = append(lockedPaths, filepath.Dir(output))
+		// ACT: 分段输出的调用方要边读边删已写完的分块，锁目录会让删除得到 EBUSY 并中断长视频拉片。
+		// 目录归本次任务私有；上限是外部删掉目录时 FFmpeg 写入失败，不波及其他文件。
+		if !strings.Contains(filepath.Base(output), "%") {
+			lockedPaths = append(lockedPaths, filepath.Dir(output))
+		}
 	}
 	release, lockErr := s.lockFiles(lockedPaths...)
 	if lockErr != nil {
