@@ -1603,19 +1603,19 @@ export function createWorkbenchController() {
       } });
       await saveSession(target);
     },
-    // ACT: 快照历史没法把插在中间的编辑单独留下，两步之间深度变过就放弃合并，用户多按一次撤销，不丢操作。
+    // ACT: 快照历史没法把插在中间的编辑单独留下，两步之间历史变过就放弃合并，用户多按一次撤销，不丢操作。
     // 上限：单步内部的并发编辑检测不到，所以上传这类长等待放在 step 外。
     async asOneHistoryStep(operation) {
       const target = currentSession(), start = target.historyDepth();
-      let expected = start, interleaved = false;
+      let expected = target.historyVersion(), interleaved = false;
       async function step<R>(run: () => Promise<R>) {
-        if (target.historyDepth() !== expected) interleaved = true;
+        if (target.historyVersion() !== expected) interleaved = true;
         const result = await run();
-        expected = target.historyDepth();
+        expected = target.historyVersion();
         return result;
       }
       try { return await operation(step); }
-      finally { if (!interleaved && target.historyDepth() === expected) target.mergeHistorySince(start); }
+      finally { if (!interleaved && target.historyVersion() === expected) target.mergeHistorySince(start); }
     },
     select(ids) {
       const target = currentSession();

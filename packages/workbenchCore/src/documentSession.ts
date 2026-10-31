@@ -33,6 +33,7 @@ export type DocumentSession = {
   getSnapshot(): DocumentSnapshot;
   getHistory(): { direction: "undo" | "redo"; steps: number; nodes: number; edges: number }[];
   historyDepth(): number;
+  historyVersion(): number;
   mergeHistorySince(depth: number): void;
   subscribe(listener: () => void): () => void;
   execute(command: DocumentCommand): DocumentSnapshot;
@@ -72,6 +73,7 @@ export function createDocumentSession(options: DocumentSessionOptions): Document
   let pendingSave: Promise<void> | undefined;
   const undoHistory: CanvasDocument[] = [];
   const redoHistory: CanvasDocument[] = [];
+  let historyVersion = 0;
   const runtimeData = new Map<string, JsonObject>();
   const listeners = new Set<() => void>();
   let snapshot = makeSnapshot();
@@ -106,6 +108,7 @@ export function createDocumentSession(options: DocumentSessionOptions): Document
     checkEditable(expectedRevision);
     const previous = source.pop();
     if (!previous) return snapshot;
+    historyVersion++;
     target.push(document);
     document = freezeJson({ ...previous, viewport: document.viewport });
     revision++;
@@ -117,6 +120,7 @@ export function createDocumentSession(options: DocumentSessionOptions): Document
     getSnapshot: () => snapshot,
     getHistory: () => (["undo", "redo"] as const).flatMap(direction => [...(direction === "undo" ? undoHistory : redoHistory)].reverse().map((item, index) => ({ direction, steps: index + 1, nodes: item.nodes.length, edges: item.edges.length }))),
     historyDepth: () => undoHistory.length,
+    historyVersion: () => historyVersion,
     // 调用方须确认 depth 之后都是同一次操作的步骤；撞到 historyLimit 时只少合并几步，不会多删。
     mergeHistorySince(depth) {
       if (undoHistory.length <= depth + 1) return;
@@ -140,6 +144,7 @@ export function createDocumentSession(options: DocumentSessionOptions): Document
       // 视口保存为工程偏好，不占用正文与节点的创作撤销步骤。
       if (command.name !== "setViewport" && command.name !== "updateRuntimeData") {
         editRevision++;
+        historyVersion++;
         undoHistory.push(document);
         if (undoHistory.length > historyLimit) undoHistory.shift();
         redoHistory.length = 0;
