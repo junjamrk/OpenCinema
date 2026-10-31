@@ -145,7 +145,7 @@ func (s *server) providers() []any {
 			if value == nil {
 				continue
 			}
-			provider = asObject(value)
+			provider = savedBuiltinProvider(asObject(value), provider)
 		}
 		result = append(result, providerSnapshot(provider))
 	}
@@ -168,7 +168,7 @@ func providerSnapshot(value object) object {
 	delete(provider, "revision")
 	delete(provider, "credentialConfigured")
 	provider["fileName"] = str(provider["id"]) + ".json"
-	provider["supportsPrice"] = str(provider["id"]) == "tfRouter"
+	provider["supportsPrice"] = boolean(provider["supportsPrice"])
 	for _, raw := range array(provider["models"]) {
 		model := asObject(raw)
 		if strings.TrimSpace(str(model["label"])) == "" {
@@ -424,8 +424,10 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 	}
 	if p == "/api/ai/media/balance" {
 		id := str(v["providerId"])
-		if id == "" {
-			id = "tfRouter"
+		for _, raw := range s.providers() {
+			if item := asObject(raw); id == "" && boolean(item["supportsBalance"]) {
+				id = str(item["id"])
+			}
 		}
 		provider, config, err := s.provider(id)
 		if err != nil {
@@ -511,7 +513,7 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 func (s *server) mediaPrice(ctx context.Context, directory string, provider, config, input object) (any, error) {
-	if str(provider["id"]) != "tfRouter" {
+	if !boolean(provider["supportsPrice"]) {
 		return nil, nil
 	}
 	body, err := s.priceRequest(ctx, directory, input)
@@ -803,18 +805,9 @@ func providerBase(p, config object) string {
 	if custom := str(config["baseUrl"]); custom != "" {
 		return strings.TrimRight(custom, "/")
 	}
-	switch str(p["id"]) {
-	case "tfRouter":
-		return "https://api.toonflow.net/v1"
-	case "apiMart":
-		if str(config["isOverseas"]) == "2" {
-			return "https://api.apimart.ai/v1"
-		}
-		return "https://api.apib.ai/v1"
-	case "metaso":
-		return "https://metaso.cn/api/minimax"
-	case "compshare":
-		return "https://api.modelverse.cn"
+	region := asObject(p["regionUrls"])
+	if regional := str(asObject(region["urls"])[str(config[str(region["field"])])]); regional != "" {
+		return strings.TrimRight(regional, "/")
 	}
 	return strings.TrimRight(str(p["apiUrl"]), "/")
 }
@@ -1036,7 +1029,7 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 	} else if videoProtocol(provider) != "" {
 		results, err = s.generateVideoProvider(ctx, provider, config, v, refs)
 	} else {
-		switch str(provider["id"]) {
+		switch str(provider["generator"]) {
 		case "tfRouter":
 			results, err = generateTfRouter(ctx, base, config, v, refs)
 		case "apiMart":

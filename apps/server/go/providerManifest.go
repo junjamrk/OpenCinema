@@ -51,6 +51,9 @@ func parseHTTPProvider(source string) (object, error) {
 	if providerManifestHasSecret(provider) {
 		return nil, fail(403, "供应商清单不能包含凭据或非空秘密默认值；请在工作台连接配置中填写")
 	}
+	for _, field := range catalogFields {
+		delete(provider, field)
+	}
 	id := str(provider["id"])
 	if !providerID.MatchString(id) || strings.TrimSpace(str(provider["label"])) == "" || len(str(provider["label"])) > 200 {
 		return nil, fail(400, "供应商 ID 或名称无效")
