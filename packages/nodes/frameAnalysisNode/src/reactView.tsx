@@ -4,6 +4,7 @@ import { errorText, useMediaUrl, mediaValueSchema, type NodeViewProps } from "@t
 import type { AnalysisResult } from "./videoAnalysis";
 import AnalysisReport from "./reactAnalysisReport";
 import NodeIcon from "@toonflow/node-shared/reactIcon";
+import { TaskLockNotice } from "@toonflow/node-shared/reactNodeNotice";
 import "@toonflow/node-shared/nodeControls";
 
 export default function FrameAnalysisNodeView({ node, controller, readOnly }: NodeViewProps) {
@@ -23,6 +24,7 @@ export default function FrameAnalysisNodeView({ node, controller, readOnly }: No
   const savedProgress = node.data?.analysisProgress as { status?: string; phase?: string; percent?: number; label?: string } | undefined;
   const currentStatus = savedProgress?.status === "running" && status?.status === "interrupted" ? "interrupted" : savedProgress?.status ?? status?.status;
   const running = ["running", "delegated", "unknown", "interrupted"].includes(currentStatus ?? "");
+  const locked = currentStatus === "unknown" || currentStatus === "interrupted";
   useEffect(() => { setPreviewError(""); }, [url]);
   useEffect(() => {
     let active = true;
@@ -47,10 +49,11 @@ export default function FrameAnalysisNodeView({ node, controller, readOnly }: No
     <div className="nodeFields"><label className="nodeField"><span>检测算法</span><select value={String(settings.method)} disabled={readOnly || running} onChange={event => void call("setAnalysisConfig", { method: event.target.value, threshold: event.target.value === "adaptive" ? 3 : 27 })}><option value="adaptive">自适应变化</option><option value="content">固定变化阈值</option></select></label>
       <label className="nodeField"><span>切镜阈值</span><input type="number" min=".1" max="255" step=".1" value={Number(settings.threshold)} disabled={readOnly || running} onChange={event => void call("setAnalysisConfig", { threshold: Number(event.target.value) })} /></label>
       <label className="nodeField"><span>最短镜头（秒）</span><input type="number" min="0" max="60" step=".1" value={Number(settings.minSceneSeconds)} disabled={readOnly || running} onChange={event => void call("setAnalysisConfig", { minSceneSeconds: Number(event.target.value) })} /></label></div>
-    <div className="nodeActions"><button type="button" className="nodePrimary" disabled={readOnly || busy || !source.success} onClick={() => void call(running ? "cancelAnalysis" : "analyzeVideo", running ? {} : { aiEnabled: false })}><NodeIcon name={running ? "close" : "movie"} />{running ? ["unknown", "interrupted"].includes(currentStatus ?? "") ? "确认任务终态" : "取消拉片" : "开始本地拉片"}</button>
+    <div className="nodeActions"><button type="button" className="nodePrimary" disabled={readOnly || busy || !source.success || locked} onClick={() => void call(running ? "cancelAnalysis" : "analyzeVideo", running ? {} : { aiEnabled: false })}><NodeIcon name={running && !locked ? "close" : "movie"} />{running && !locked ? "取消拉片" : "开始本地拉片"}</button>
       <button type="button" className="nodeComposerAction" disabled={readOnly || busy || running || !resultMatches} onClick={compose} title={resultMatches ? "在底部描述分析重点" : "先完成当前视频的本地拉片"}><NodeIcon name="generate" />交给 Agent 分析</button>
-      {(savedProgress?.label || status?.label) && <span className="nodeStatus">{savedProgress?.label || status?.label}</span>}</div>
-    {running && <progress className="nodeProgress" aria-label={savedProgress?.phase === "host" ? "宿主分析进度" : "本地拉片进度"} value={savedProgress?.phase !== "host" && typeof percent === "number" && Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : undefined} max={100} />}
+      {!locked && (savedProgress?.label || status?.label) && <span className="nodeStatus">{savedProgress?.label || status?.label}</span>}</div>
+    {locked && <TaskLockNotice owner={savedProgress?.phase === "host" ? "host" : "local"} disabled={readOnly || busy} onRelease={() => void call("cancelAnalysis", { acknowledge: true })} />}
+    {running && !locked && <progress className="nodeProgress" aria-label={savedProgress?.phase === "host" ? "宿主分析进度" : "本地拉片进度"} value={savedProgress?.phase !== "host" && typeof percent === "number" && Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : undefined} max={100} />}
     {!!settings.focus && <details className="nodeDetails"><summary>分析重点</summary><p className="nodeSavedInstruction">{String(settings.focus)}</p></details>}
     {result && !resultMatches && <span className="nodeStatus">输入已变化，下面保留上次拉片报告</span>}
     {result && <AnalysisReport result={result} controller={controller} hostText={hostReport?.manifest === result.manifest ? hostReport.text : undefined} />}

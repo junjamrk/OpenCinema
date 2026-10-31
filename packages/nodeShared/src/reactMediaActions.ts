@@ -79,11 +79,8 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
   let job: Promise<unknown> | undefined;
   let unknown: Error | undefined;
   context.onDispose(async () => { operation?.abort(new Error("节点已卸载")); await job?.catch(() => {}); });
-  context.onBeforeChange(async () => {
-    operation?.abort(new Error("节点即将变更")); await job?.catch(() => {});
-    if (unknown) throw unknown;
-    if (["running", "unknown", "delegated"].includes((readNodeData(document, id).mediaOperation as { status?: string } | undefined)?.status ?? "")) throw new Error("此前媒体任务尚未确认终止，请先确认服务端终态");
-  });
+  // ACT: 无活动 job 时不阻断画布：任务产物都写入独立目录，迟到结果不改动节点；未确认的任务只锁本节点，由解除锁定收尾。
+  context.onBeforeChange(async () => { operation?.abort(new Error("节点即将变更")); await job?.catch(() => {}); });
   const source = () => {
     const value = readMedia(readNodeData(document, id), type);
     if (!value) throw nodePreconditionError(workbench, id, "当前节点没有媒体输出；请先选择或生成有效媒体");
@@ -186,7 +183,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
   async function run<T>(name: string, signal: AbortSignal, action: (signal: AbortSignal, path: string, sourceRevision: string) => Promise<T>, expectedSourceRevision?: string, sourcePath?: string): Promise<T> {
     if (job) throw new Error("此节点正在处理媒体，请完成或取消后再试");
     if (unknown) throw unknown;
-    if (["running", "unknown", "delegated"].includes((readNodeData(document, id).mediaOperation as { status?: string } | undefined)?.status ?? "")) throw new Error("此前媒体任务尚未确认终止");
+    if (["running", "unknown", "delegated"].includes((readNodeData(document, id).mediaOperation as { status?: string } | undefined)?.status ?? "")) throw new Error("此前媒体任务尚未确认终止，请先解除锁定");
     workbench.assertWritable(); signal.throwIfAborted();
     if (["running", "delegated", "cancelRequested", "unknown"].includes(String((readNodeData(document, id).generation as { status?: string } | undefined)?.status))) throw new Error("生成任务尚未完成，请先完成或取消生成");
     const initial = sourcePath ?? source().url;
@@ -227,10 +224,13 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
     const status = job ? "running" : unknown ? "unknown" : saved?.status === "running" ? "interrupted" : saved?.status ?? "idle";
     return { operation: saved?.operation, status, executionSettled: ["idle", "completed", "failed", "cancelled"].includes(status), taskId: saved?.taskId, requestId: saved?.requestId, source: saved?.source, sourceRevision: saved?.sourceRevision, resultNodeIds: [...new Set([...(saved?.resultNodeIds ?? []), ...(saved?.resultNodeId ? [saved.resultNodeId] : [])])], error: saved?.error, startedAt: saved?.startedAt, finishedAt: saved?.finishedAt };
   }
-  context.registerTool({ name: "cancelMediaOperation", outputSchema: operationStatusSchema, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "取消此节点正在进行的本地媒体处理或转写；宿主未确认远端终止时保留unknown。返回原taskId、终态及产物引用，不自动重发任务。", parameters: z.strictObject({}), async execute() {
+  context.registerTool({ name: "cancelMediaOperation", outputSchema: operationStatusSchema, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "取消此节点正在进行的本地媒体处理或转写；宿主未确认远端终止时保留unknown。acknowledge=true放弃已无活动进程的unknown/interrupted/delegated任务并写为cancelled以解除节点锁定；原任务迟到的文件只留在其独立目录，宿主迟到的转写仍生成新节点。返回原taskId、终态及产物引用，不自动重发任务。", parameters: z.strictObject({ acknowledge: z.boolean().optional() }), async execute(args) {
     operation?.abort(new Error("用户取消操作")); await job?.catch(() => {});
     const saved = readNodeData(document, id).mediaOperation as { status?: string } | undefined;
-    if (saved?.status === "delegated") { await workbench.updateRuntimeData({ mediaOperation: { ...saved, status: "unknown", error: "宿主尚未确认转写终止，等待原任务实际产物" } }); await document.save(); }
+    if (args.acknowledge && !job && !operationStatus().executionSettled) {
+      workbench.assertWritable(); unknown = undefined;
+      await workbench.updateRuntimeData({ mediaOperation: { ...saved, status: "cancelled", finishedAt: new Date().toISOString() } }); await document.save();
+    } else if (saved?.status === "delegated") { await workbench.updateRuntimeData({ mediaOperation: { ...saved, status: "unknown", error: "宿主尚未确认转写终止，等待原任务实际产物" } }); await document.save(); }
     return operationStatus();
   } });
   context.registerTool({ name: "getMediaOperationStatus", annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }, description: "读取媒体处理/宿主转写的真实状态、原taskId/requestId、源版本、executionSettled、错误及resultNodeIds。断线后先查询原操作与此状态；产物须继续读取结果节点和工作区文件，不因completed文字认定已观察媒体。", parameters: z.strictObject({}), outputSchema: operationStatusSchema, execute: operationStatus });

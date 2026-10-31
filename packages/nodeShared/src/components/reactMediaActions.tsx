@@ -4,10 +4,12 @@ import { mediaEditor, mediaView, readMediaSourceRevision } from "../mediaEditor"
 import { useEditorSession } from "../editorSession";
 import AudioClipEditor from "./reactAudioClipEditor";
 import NodeIcon from "./reactIcon";
+import { TaskLockNotice } from "./reactNodeNotice";
 import { VideoReviewDialog } from "./videoShotControls";
 import VideoEditPlanControls from "./videoEditPlanControls";
 
 export default function MediaActions({ node, controller, readOnly, mediaType, currentTime }: NodeViewProps & { mediaType: "video" | "audio"; currentTime?: () => number }) {
+  const releasable = !readOnly;
   readOnly = readOnly || ["running", "delegated", "cancelRequested", "unknown"].includes(String((node.data?.generation as { status?: string } | undefined)?.status));
   const draft = mediaEditor(controller.getNodeService(node.id));
   const view = mediaView(controller.getNodeService(node.id));
@@ -30,10 +32,15 @@ export default function MediaActions({ node, controller, readOnly, mediaType, cu
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [operationState, setOperationState] = useState("idle");
-  useEffect(() => { let active = true; const update = () => void controller.callNodeTool(node.id, "getMediaOperationStatus", {}).then(result => { if (active) setOperationState((result as { status: string }).status); }).catch(() => {}); update(); const timer = setInterval(update, 1000); return () => { active = false; clearInterval(timer); }; }, [controller, node.id]);
+  const [operationName, setOperationName] = useState<string>();
+  useEffect(() => { let active = true; const update = () => void controller.callNodeTool(node.id, "getMediaOperationStatus", {}).then(result => { const { status, operation } = result as { status: string; operation?: string }; if (active) { setOperationState(status); setOperationName(operation); } }).catch(() => {}); update(); const timer = setInterval(update, 1000); return () => { active = false; clearInterval(timer); }; }, [controller, node.id]);
   const running = busy || ["running", "delegated"].includes(operationState);
-  readOnly = readOnly || operationState === "delegated";
-  readOnly = readOnly || operationState === "unknown";
+  const locked = ["unknown", "interrupted"].includes(operationState);
+  readOnly = readOnly || operationState === "delegated" || locked;
+  async function release() {
+    try { const { status } = await controller.callNodeTool(node.id, "cancelMediaOperation", { acknowledge: true }) as { status: string }; setOperationState(status); setError(""); }
+    catch (reason) { setError(errorText(reason)); }
+  }
   const lifetime = useRef<AbortController | undefined>(undefined);
   async function call(name: string, args: Record<string, unknown> = {}) {
     if (running || readOnly) return;
@@ -47,7 +54,7 @@ export default function MediaActions({ node, controller, readOnly, mediaType, cu
     catch (reason) { if (!operation.signal.aborted) setError(errorText(reason)); }
     finally { if (lifetime.current === operation) lifetime.current = undefined; setBusy(false); }
   }
-  return <details className="nodeDetails" open={editorView.open} onToggle={event => { const open = event.currentTarget.open; view.replace({ ...view.read().value, open, ...(!open ? { clipOpen: false } : {}) }); }}><summary>媒体编辑</summary><div className="nodeControls">
+  return <>{locked && <TaskLockNotice owner={operationName === "transcribeAudio" ? "host" : "local"} disabled={!releasable} onRelease={() => void release()} />}<details className="nodeDetails" open={editorView.open} onToggle={event => { const open = event.currentTarget.open; view.replace({ ...view.read().value, open, ...(!open ? { clipOpen: false } : {}) }); }}><summary>媒体编辑</summary><div className="nodeControls">
     {mediaType === "video" && <div className="nodeActions"><VideoEditPlanControls {...{ node, controller, readOnly }} disabled={running || readOnly} /></div>}
     <div className="nodeFields">
       <label className="nodeField"><span>起点（秒）</span><input type="number" min="0" step=".1" value={start} disabled={busy || readOnly} onChange={event => setStart(Number(event.target.value))} /></label>
@@ -63,5 +70,5 @@ export default function MediaActions({ node, controller, readOnly, mediaType, cu
     <div className="nodeActions"><button type="button" disabled={busy || readOnly} onClick={() => void call("changeSpeed", { speed })}><NodeIcon name="copy" />生成变速副本</button><button type="button" disabled={busy || readOnly} onClick={() => void call("transcribeAudio")}><NodeIcon name="microphone" />语音转文本</button>
       {running && <button type="button" onClick={() => { lifetime.current?.abort(new Error("用户取消操作")); void controller.callNodeTool(node.id, "cancelMediaOperation", {}).catch(() => {}); }}>取消</button>}
     </div>{reviewOpen && <VideoReviewDialog {...{ node, controller, readOnly }} disabled={running || readOnly} onClose={() => setReviewOpen(false)} />}{error && <p role="alert" className="nodeError">{error}</p>}
-  </div></details>;
+  </div></details></>;
 }
