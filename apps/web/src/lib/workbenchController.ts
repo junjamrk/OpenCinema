@@ -1457,7 +1457,7 @@ export function createWorkbenchController() {
       await addEndpointNode(currentSession(), { type, position, endpoint: connectionEndpointSchema.parse(endpoint) });
     },
     refreshPlugins,
-    getPluginError: id => moduleErrors.get(id),
+    getPluginError: id => moduleErrors.get(id) ?? [...nodeErrors.values()].find(error => error.pluginId === id)?.message,
     getCapabilities: () => runtime.getCapabilities(),
     async probePlugin(id) {
       // 失败原因已写入 moduleErrors；这里只需要等它结束。

@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { capabilityLabel } from "@toonflow/nodes-scaffold/nodeCapabilities";
 import SettingFields from "./settingFields";
 import type { WorkbenchController } from "./types";
-import { compareVersions, defaultPluginMarketUrl, parsePluginPackage, pluginIncompatibility, pluginMarketClient, pluginMarketUrlOf, workbenchSettingsClient, type PluginMarket, type PluginMarketEntry, type pluginPackageSchema, type pluginSchema } from "@/lib/workbenchSettingsClient";
+import { compareVersions, defaultPluginMarketUrl, parsePluginPackage, parseUrl, pluginIncompatibility, pluginMarketClient, pluginMarketUrlOf, workbenchSettingsClient, type PluginMarket, type PluginMarketEntry, type pluginPackageSchema, type pluginSchema } from "@/lib/workbenchSettingsClient";
 
 type Plugin = z.infer<typeof pluginSchema>;
 type PluginPackage = z.infer<typeof pluginPackageSchema>;
@@ -105,6 +105,7 @@ export default function PluginSettings({ controller, busy, perform, onStatus, on
   useEffect(() => {
     if (!marketUrl) return;
     const abort = new AbortController();
+    setMarket(undefined);
     void loadMarket(abort.signal);
     return () => abort.abort();
   }, [marketUrl]);
@@ -170,7 +171,7 @@ export default function PluginSettings({ controller, busy, perform, onStatus, on
     <section className="pluginMarket" aria-label="插件市场">
       <div className="pluginMarketBar">
         <strong>插件市场</strong>
-        <span>{market ? `${market.plugins.length} 个插件 · ${new URL(market.url).host}` : "进入此页时读取"} · 只读取目录，不上传工程内容；安装前按目录中的 SHA-256 校验{market?.skipped ? ` · 已跳过 ${market.skipped} 条无效记录` : ""}</span>
+        <span>{market ? `${market.plugins.length} 个插件 · ` : ""}进入此页时从 {parseUrl(market?.url ?? marketUrl ?? defaultPluginMarketUrl)?.host ?? marketUrl} 读取目录，不上传工程内容；安装前按目录中的 SHA-256 校验{market?.skipped ? ` · 已跳过 ${market.skipped} 条无效记录` : ""}</span>
         <button type="button" disabled={busy || marketLoading} onClick={() => void loadMarket(signal())}>{marketLoading ? "正在读取…" : marketError ? "重试" : "刷新市场"}</button>
       </div>
       {marketError && <p className="settingsError" role="alert">{marketError}</p>}
@@ -202,7 +203,7 @@ export default function PluginSettings({ controller, busy, perform, onStatus, on
     </section>
     {plugins.map(plugin => {
       const id = pluginIdOf(plugin), issue = issueOf(plugin), update = latest.get(id), label = plugin.displayName || plugin.name, homepage = httpLink(plugin.homepage);
-      const updatable = !!update && !issue && !!plugin.version && compareVersions(update.version, plugin.version) > 0;
+      const updatable = !!update && !!plugin.version && compareVersions(update.version, plugin.version) > 0;
       return <section className="pluginSettingsCard" key={plugin.name} data-focused={!latest.has(id) && id === focusPluginId || undefined}>
         <label className="pluginSetting"><span><strong>{label}</strong><small>{plugin.name} · {plugin.version ?? ""}{plugin.builtin ? " · 内置" : ""}{updatable ? ` · 有更新 ${update.version}` : ""}</small></span><input type="checkbox" aria-label={`启用${label}`} checked={plugin.enabled} disabled={busy || transitioning} onChange={event => void perform(async () => { await controller.setPluginEnabled(plugin.name, event.target.checked); await refreshInstalled(); })} /></label>
         {plugin.description && <p className="pluginDescription">{plugin.description}</p>}

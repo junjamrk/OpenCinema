@@ -23,7 +23,11 @@ export type CanvasNodeData = {
 export type CanvasNode = Node<CanvasNodeData, "workbenchNode">;
 export const nodeIcons: Record<string, typeof IconPuzzle> = { text: IconFileText, image: IconPhoto, video: IconVideo, audio: IconMusic, spatial: IconBox, motion: IconActivity, info: IconInfoCircle, frames: IconMovie };
 
-class NodeViewBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+function openPluginSettings(pluginId: string) {
+  window.dispatchEvent(new CustomEvent("openCinema:open-settings", { detail: { tab: "plugins", pluginId } }));
+}
+
+class NodeViewBoundary extends Component<{ pluginId: string; children: ReactNode }, { error: string | null }> {
   state = { error: null as string | null };
 
   static getDerivedStateFromError(error: unknown) {
@@ -32,12 +36,12 @@ class NodeViewBoundary extends Component<{ children: ReactNode }, { error: strin
 
   render() {
     if (!this.state.error) return this.props.children;
-    return <div className="nodeUnavailable" role="alert"><IconAlertTriangle aria-hidden="true" focusable="false" size={20} /><span>{this.state.error}</span><button type="button" onClick={() => this.setState({ error: null })}>重新加载视图</button></div>;
+    return <div className="nodeUnavailable" role="alert"><IconAlertTriangle aria-hidden="true" focusable="false" size={20} /><span>{this.state.error}</span><button type="button" onClick={() => this.setState({ error: null })}>重新加载视图</button><button type="button" className="nodrag" onClick={() => openPluginSettings(this.props.pluginId)}>查看插件设置</button></div>;
   }
 }
 
 function PluginUnavailable({ pluginId, plugin, error, locked, onEnable }: { pluginId: string; plugin?: WorkbenchPlugin; error?: string; locked: boolean; onEnable(): void }) {
-  const openPlugins = () => window.dispatchEvent(new CustomEvent("openCinema:open-settings", { detail: { tab: "plugins", pluginId } }));
+  const openPlugins = () => openPluginSettings(pluginId);
   const notice = error ? { message: error, action: "查看插件设置", run: openPlugins }
     : !plugin ? { message: `缺少插件 ${pluginId}`, action: "在插件市场查找", run: openPlugins }
     : plugin.supported === false ? { message: `插件「${plugin.label}」已停用`, action: "启用插件", run: onEnable }
@@ -179,7 +183,7 @@ export default function NodeView({ id, data, selected, isConnectable }: NodeProp
     cancelRenameRef.current = false;
   }
 
-  const content = <NodeViewBoundary key={`${id}:${node.type}:${pluginError ?? ""}`}>
+  const content = <NodeViewBoundary pluginId={pluginId} key={`${id}:${node.type}:${pluginError ?? ""}`}>
     {PluginView && pluginError && <p className="nodePluginError" role="alert">节点插件更新失败，当前保留原版本。{pluginError}</p>}
     {PluginView ? <Suspense fallback={<div className="nodeLoading" role="status"><IconLoader2 aria-hidden="true" focusable="false" className="spin" size={18} /><span>加载节点视图</span></div>}><PluginView node={node} controller={controller} readOnly={locked} toolbarMount={toolbarMount} /></Suspense> : !group && (snapshot.transitioning && !pluginError ? <div className="nodeLoading" role="status"><IconLoader2 aria-hidden="true" focusable="false" className="spin" size={18} /><span>读取节点</span></div> : <PluginUnavailable pluginId={pluginId} plugin={plugin} error={pluginError ?? controller.getPluginError(pluginId)} locked={locked} onEnable={() => void controller.setPluginEnabled(pluginId, true).catch(reportError)} />)}
   </NodeViewBoundary>;

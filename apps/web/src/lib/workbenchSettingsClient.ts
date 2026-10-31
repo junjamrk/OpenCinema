@@ -126,10 +126,13 @@ export function pluginMarketUrlOf(general: Record<string, unknown> | undefined) 
   const value = general?.pluginMarketUrl;
   return typeof value === "string" && value.trim() ? value.trim() : defaultPluginMarketUrl;
 }
+export function parseUrl(value: string, base?: URL) {
+  try { return new URL(value, base); } catch { return undefined; }
+}
 function requireMarketUrl(value: string, base?: URL) {
-  const url = new URL(value, base);
-  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
-  if (!(url.protocol === "https:" || (url.protocol === "http:" && loopback)) || url.username || url.password) throw new Error("插件市场地址须为不含凭据的 https 地址；本机开发可用 http://127.0.0.1");
+  const url = parseUrl(value, base);
+  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url?.hostname ?? "");
+  if (!url || !(url.protocol === "https:" || (url.protocol === "http:" && loopback)) || url.username || url.password) throw new Error("插件市场地址须为不含凭据的 https 地址；本机开发可用 http://127.0.0.1");
   return url;
 }
 async function readLimited(response: Response, limit: number) {
