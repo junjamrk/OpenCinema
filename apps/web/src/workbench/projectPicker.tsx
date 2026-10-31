@@ -16,7 +16,7 @@ export default function ProjectPicker({ creating, initialDirectory, pending, onO
   const [path, setPath] = useState(initialDirectory);
   const [name, setName] = useState("");
   const [listing, setListing] = useState<z.infer<typeof listingSchema>>();
-  const [restricted, setRestricted] = useState(false);
+  const [restricted, setRestricted] = useState(!!window.openCinemaTransport);
   const [error, setError] = useState("");
   const [restoring, setRestoring] = useState(false);
   const archiveInput = useRef<HTMLInputElement>(null);
@@ -38,6 +38,7 @@ export default function ProjectPicker({ creating, initialDirectory, pending, onO
   }
 
   useEffect(() => {
+    if (restricted) return;
     const operation = new AbortController();
     void browse(initialDirectory, operation.signal).then(found => { if (!found && initialDirectory && !operation.signal.aborted) void browse("", operation.signal); });
     return () => operation.abort();
