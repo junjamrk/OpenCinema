@@ -537,7 +537,7 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 	}
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("媒体供应商连接失败: %w", err)
+		return nil, submissionError(method == "POST", fmt.Errorf("媒体供应商连接失败: %w", err))
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		code := ""

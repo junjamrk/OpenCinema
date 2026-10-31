@@ -115,6 +115,13 @@ var errProviderUnreachable = errors.New("无法连接远程服务")
 // 提交时连不上才能断定请求没发出去；产物下载的同类错误发生在生成完成之后，不算。
 var errSubmissionNotSent = errors.New("生成请求没有发出")
 
+func submissionError(submitting bool, err error) error {
+	if submitting && errors.Is(err, errProviderUnreachable) {
+		return fmt.Errorf("%w: %w", errSubmissionNotSent, err)
+	}
+	return err
+}
+
 var outboundHTTPClient = &http.Client{Timeout: 5 * time.Minute, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 	if len(via) > 5 {
 		return fmt.Errorf("重定向过多")
@@ -875,10 +882,7 @@ func providerClientJSON(ctx context.Context, client *http.Client, base, path str
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		if submitting && errors.Is(err, errProviderUnreachable) {
-			return nil, fmt.Errorf("%w: %w", errSubmissionNotSent, err)
-		}
-		return nil, err
+		return nil, submissionError(submitting, err)
 	}
 	defer response.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(response.Body, 20*1024*1024))

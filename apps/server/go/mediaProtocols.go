@@ -174,7 +174,7 @@ func generateGptImage(ctx context.Context, base string, config, v, refs object) 
 	submitting := markMediaSubmitted(ctx)
 	response, err := safeClient().Do(request)
 	if err != nil {
-		return nil, err
+		return nil, submissionError(submitting, err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
