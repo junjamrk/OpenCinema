@@ -1569,7 +1569,7 @@ export function createWorkbenchController() {
         if (!file.size || file.size > 100 * 1024 ** 2) throw new Error(`文件为空或超过当前工作区100MiB写入上限：${file.name}`);
         if (kind === "text" && file.size > 1000000) throw new Error("文本文件最多 1 MB");
       }
-      for (const [index, file] of files.entries()) {
+      await controller.asOneHistoryStep(async () => { for (const [index, file] of files.entries()) {
         requireWritable(target);
         const { kind: type, mimeType } = inferMediaFileType(file);
         if (!type) throw new Error(`暂不支持此文件类型：${file.name}`);
@@ -1583,8 +1583,12 @@ export function createWorkbenchController() {
           const path = await uploadNodeFile(service.files, node.id, file); requireWritable(target);
           await controller.callNodeTool(node.id, `set${type[0]!.toUpperCase()}${type.slice(1)}`, { path, mimeType });
         }
-      }
+      } });
       await saveSession(target);
+    },
+    async asOneHistoryStep(operation) {
+      const target = currentSession(), depth = target.historyDepth();
+      try { return await operation(); } finally { target.mergeHistorySince(depth); }
     },
     select(ids) {
       const target = currentSession();

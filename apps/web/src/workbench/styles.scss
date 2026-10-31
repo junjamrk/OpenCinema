@@ -726,9 +726,13 @@
     .historyEntry {
       display: flex;
       align-items: center;
+      justify-content: flex-start;
       gap: 8px;
+      width: 100%;
       padding: 12px 0;
       border-top: 1px solid var(--borderSubtle);
+      text-align: left;
+      &:hover:not(:disabled) { color: var(--selectionAccent); }
       svg {
         color: var(--textMuted);
       }

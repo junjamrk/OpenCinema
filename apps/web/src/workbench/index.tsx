@@ -357,14 +357,16 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
   async function addStarterFlow() {
     const center = canvasCenter();
     const created: string[] = [];
-    for (const [index, [type, handleId]] of starterFlow.entries()) {
-      const position = { x: center.x - 580 + index * 420, y: center.y - 110 };
-      const previous = created.at(-1);
-      if (previous) await controller.addConnectedNode(type, position, { nodeId: previous, handleId: starterFlow[index - 1]![1], direction: "source" }); else await controller.addNode(type, position);
-      const nodeId = controller.getSnapshot().selectedIds[0];
-      if (!nodeId) throw new Error("示例流程创建中断，请重试");
-      created.push(nodeId);
-    }
+    await controller.asOneHistoryStep(async () => {
+      for (const [index, [type]] of starterFlow.entries()) {
+        const position = { x: center.x - 580 + index * 420, y: center.y - 110 };
+        const previous = created.at(-1);
+        if (previous) await controller.addConnectedNode(type, position, { nodeId: previous, handleId: starterFlow[index - 1]![1], direction: "source" }); else await controller.addNode(type, position);
+        const nodeId = controller.getSnapshot().selectedIds[0];
+        if (!nodeId) throw new Error("示例流程创建中断，请重试");
+        created.push(nodeId);
+      }
+    });
     controller.select([created[0]!]);
     // fitView 只计入已测量的节点，提前调用会把最后一个节点留在视图外。
     for (let attempt = 0; attempt < 40 && !created.every(id => flow.getNode(id)?.measured?.width); attempt++) await new Promise(resolve => setTimeout(resolve, 50));
@@ -1154,7 +1156,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
           {openPanel === "canvas" && <form className="projectForm" onSubmit={event => { event.preventDefault(); void run(async () => { if (canvasAction === "add") await controller.addCanvas(canvasName.trim() || undefined); else { const current = controller.getSnapshot(); if (!canvasRenameTarget || current.directory !== canvasRenameTarget.directory || current.canvasId !== canvasRenameTarget.canvasId) throw new Error("画布已切换，请重新打开改名对话框"); await controller.renameCanvas(canvasName.trim(), canvasRenameTarget.fileRevision); } setOpenPanel(null); }); }}><label htmlFor="canvasName">画布名称</label><input id="canvasName" autoFocus value={canvasName} onChange={event => setCanvasName(event.target.value)} autoComplete="off" disabled={pending} /><button type="submit" disabled={pending || (canvasAction === "rename" && !canvasName.trim())}>{canvasAction === "add" ? "创建画布" : "保存名称"}</button></form>}
           {openPanel === "settings" && <SettingsPanel controller={controller} initialTab={settingsTab} />}
           {openPanel === "collaboration" && CollaborationPanel && <CollaborationPanel service={collaboration.service} />}
-          {openPanel === "history" && history && <div className="historyPanelBody"><div className="historySummary"><span>{history.mode === "collaboration" ? "协作会话历史" : "当前编辑会话"}</span><span>修订 {history.revision} · 已保存 {history.savedRevision}</span></div><div className="historyActions"><button type="button" disabled={!snapshot.canUndo || pending || editingLocked} onClick={() => void run(() => controller.undo())}><IconArrowBackUp aria-hidden="true" focusable="false" size={16} />撤销</button><button type="button" disabled={!snapshot.canRedo || pending || editingLocked} onClick={() => void run(() => controller.redo())}><IconArrowForwardUp aria-hidden="true" focusable="false" size={16} />重做</button></div>{history.entries.map(entry => <div className="historyEntry" key={`${entry.direction}:${entry.steps}`}><IconHistory aria-hidden="true" focusable="false" size={16} /><span>{entry.direction === "undo" ? "回退" : "重做"}第 {entry.steps} 步</span><small>{entry.nodes} 节点 · {entry.edges} 连线</small></div>)}</div>}
+          {openPanel === "history" && history && <div className="historyPanelBody"><div className="historySummary"><span>{history.mode === "collaboration" ? "协作会话历史" : "当前编辑会话"}</span><span>修订 {history.revision} · 已保存 {history.savedRevision}</span></div><div className="historyActions"><button type="button" disabled={!snapshot.canUndo || pending || editingLocked} onClick={() => void run(() => controller.undo())}><IconArrowBackUp aria-hidden="true" focusable="false" size={16} />撤销</button><button type="button" disabled={!snapshot.canRedo || pending || editingLocked} onClick={() => void run(() => controller.redo())}><IconArrowForwardUp aria-hidden="true" focusable="false" size={16} />重做</button></div>{history.entries.map(entry => <button type="button" className="historyEntry" key={`${entry.direction}:${entry.steps}`} disabled={pending || editingLocked} title={`${entry.direction === "undo" ? "回到" : "重做到"}这一步`} onClick={() => void run(async () => { for (let step = 0; step < entry.steps; step++) await (entry.direction === "undo" ? controller.undo() : controller.redo()); })}><IconHistory aria-hidden="true" focusable="false" size={16} /><span>{entry.direction === "undo" ? "回退" : "重做"}第 {entry.steps} 步</span><small>{entry.nodes} 节点 · {entry.edges} 连线</small></button>)}</div>}
         </MotionLayer>
       </MotionLayer>}</AnimatePresence>
 

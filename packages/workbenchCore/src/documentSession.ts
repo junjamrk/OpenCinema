@@ -32,6 +32,8 @@ export type DocumentSessionOptions = DocumentBinding & {
 export type DocumentSession = {
   getSnapshot(): DocumentSnapshot;
   getHistory(): { direction: "undo" | "redo"; steps: number; nodes: number; edges: number }[];
+  historyDepth(): number;
+  mergeHistorySince(depth: number): void;
   subscribe(listener: () => void): () => void;
   execute(command: DocumentCommand): DocumentSnapshot;
   undo(options?: { expectedRevision?: number }): DocumentSnapshot;
@@ -114,6 +116,13 @@ export function createDocumentSession(options: DocumentSessionOptions): Document
   const session: DocumentSession = {
     getSnapshot: () => snapshot,
     getHistory: () => (["undo", "redo"] as const).flatMap(direction => [...(direction === "undo" ? undoHistory : redoHistory)].reverse().map((item, index) => ({ direction, steps: index + 1, nodes: item.nodes.length, edges: item.edges.length }))),
+    historyDepth: () => undoHistory.length,
+    // ACT: 只按位置合并，操作期间撞到 historyLimit 时合并点会后移几步，上限前的历史仍完整。
+    mergeHistorySince(depth) {
+      if (undoHistory.length <= depth + 1) return;
+      undoHistory.splice(depth + 1);
+      publish();
+    },
     subscribe(listener) {
       if (disposed) throw new DocumentSessionError("disposed", "编辑会话已关闭");
       listeners.add(listener);
