@@ -297,7 +297,8 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
     const input = composerRef.current;
     const start = key === activePromptKey.current ? input?.selectionStart : undefined, end = key === activePromptKey.current ? input?.selectionEnd : undefined;
     setPromptDrafts(previous => {
-      const draft = previous[key] ?? request.prompt ?? "";
+      // 发送成功后草稿是空串，空串不算用户在写，重新生成要能回填提示词。
+      const draft = previous[key] || request.prompt || "";
       return { ...previous, [key]: request.insertText ? `${draft.slice(0, start ?? draft.length)}${request.insertText}${draft.slice(end ?? draft.length)}` : draft };
     });
     setPromptStatus(""); setPalette(null); setOpenPanel(null); setManagementPanel(null); setContextMenu(null);

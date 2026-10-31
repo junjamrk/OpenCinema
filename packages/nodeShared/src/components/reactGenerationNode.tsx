@@ -67,10 +67,11 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const guide = (node.data?.inpaint as { guide?: string } | undefined)?.guide;
   const referenceImage = inputs.find(input => input.dataType === "IMAGE" && input.value)?.value;
   const prior = mediaType === "image" ? readMedia(node.data, "image") ?? (guide ? { url: guide, mimeType: "image/png" } : undefined) : referenceImage && typeof referenceImage === "object" && "url" in referenceImage ? referenceImage : undefined;
-  function compose(insertText?: string) {
-    try { workbench.focusComposer(insertText ? { insertText } : {}); }
+  function focusComposer(input: { prompt?: string; insertText?: string }) {
+    try { workbench.focusComposer(input); }
     catch (reason) { setError(errorText(reason)); }
   }
+  const compose = (insertText?: string) => focusComposer(insertText ? { insertText } : {});
   async function call(name: string, args: Record<string, unknown> = {}) {
     setBusy(true); setError("");
     try { return await controller.callNodeTool(node.id, name, args); } catch (failure) { setError(errorText(failure)); return false; } finally { setBusy(false); }
@@ -138,6 +139,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
       {(generationState === "interrupted" || generationState === "failed" && generation?.taskId && !!node.data?.model) && <button type="button" disabled={busy || readOnly} onClick={() => callStatusTool("getGenerationStatus")}>重新核对</button>}
       {generationState === "resultReady" && <button type="button" disabled={busy || readOnly} onClick={() => callStatusTool("applyGenerationResult")}>采用已完成{mediaLabels[mediaType]}</button>}
       {abandonable && <button type="button" disabled={busy || readOnly} onClick={abandon}>放弃此任务</button>}
+      {(["failed", "cancelled"].includes(generationState) || generationState === "completed" && !value) && <button type="button" disabled={busy || readOnly} title="回填提示词到底部输入框，确认后发送" onClick={() => focusComposer({ prompt })}>重新生成</button>}
       <span className="nodeStatus" data-state={generationState} role="status">{({ running: "生成中", delegated: "已交给宿主，等待产物", completed: value ? "产物已保存" : "任务已结束，节点没有产物", resultReady: `${mediaLabels[mediaType]}已生成，待采用`, cancelled: "已取消", failed: generation?.abandoned ? "已放弃此任务" : "生成失败", interrupted: "上次生成已中断", unknown: "任务终态尚未确认", cancelRequested: "正在确认取消" } as Record<string, string>)[generationState] ?? generationState}{progress !== undefined && running ? ` · ${Math.round(progress)}%` : ""}</span>
       {cost && <span className="nodeStatus">预估 {cost.estimate?.price ?? "无报价"} · 实际 {cost.actual ? `${cost.actual.amount} ${cost.actual.unit}（${cost.actual.source === "vendor" ? "厂商返回" : "余额差"}）` : "未知"}</span>}
       {mediaType === "video" && generationState === "completed" && value && <span className="nodeStatus" data-state={shotReview?.status === "rejected" ? "failed" : "pending"} title="审片记录绑定源文件版本；打开审片或合成时会重新核对当前版本">{shotReview?.source === value.url ? shotReview.status === "approved" ? `通过记录 · ${shotReview.start}–${shotReview.end}s（合成前核版本）` : "候选已拒收" : "视频候选 · 待审"}</span>}
