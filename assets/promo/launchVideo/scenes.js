@@ -678,12 +678,12 @@
         l.style.transform = `translateY(${(1 - p) * 44}px) scale(${lerp(1.05, 1, p)})`;
         l.style.filter = p < 1 ? `blur(${(1 - p) * 12}px)` : "none";
       });
-      const lift = P(t, 13.2, 0.4);
+      const lift = P(t, 13.2, 0.25);
       block.style.top = lerp(378, 178, lift) + "px";
-      const lp = P(t, 13.2, 0.42);
+      const lp = P(t, 13.2, 0.25);
       logo.style.opacity = lp.toFixed(3);
       logo.style.transform = `scale(${lerp(1.06, 1, lp)})`;
-      const mp = P(t, 13.3, 0.35);
+      const mp = P(t, 13.24, 0.21);
       meta.style.opacity = mp.toFixed(3);
       meta.style.transform = `translateY(${(1 - mp) * 16}px)`;
     } });

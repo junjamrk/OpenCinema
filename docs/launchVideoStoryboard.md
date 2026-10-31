@@ -22,7 +22,7 @@ A 15-second, Apple-style launch film for the OpenCinema workbench. This document
 | Footage analysis | 8.8–10.2 | 8.4–9.6 | 1.2 s |
 | Generation plan | 10.2–11.4 | 9.6–10.8 | 1.2 s |
 | Review and edit | 11.4–13.0 | 10.8–12.4 | 1.6 s |
-| End card | 13.0–15.0 | 12.4–15.0 | 2.6 s (complete card holds 1.5 s) |
+| End card | 13.0–15.0 | 12.4–15.0 | 2.6 s (complete card holds 1.55 s) |
 
 ## Visual system
 
@@ -138,9 +138,9 @@ Times are seconds from the first frame. "Cut" is the transition out of the shot.
 | | |
 | --- | --- |
 | Picture | Off-white. |
-| State changes | **Your agent.** (12.40) **Your canvas.** (12.60) **Your film.** (12.80) stack in the centre. 13.20 the lines lift to make room and the OpenCinema logo lands below them (scale 1.06 → 1, fade). 13.35 `Local workbench · MIT open source` and `github.com/junjamrk/OpenCinema` fade in. |
+| State changes | **Your agent.** (12.40) **Your canvas.** (12.60) **Your film.** (12.80) stack in the centre. 13.20 the lines lift to make room and the OpenCinema logo lands below them (scale 1.06 → 1, fade, 0.25 s). 13.24 `Local workbench · MIT open source` and `github.com/junjamrk/OpenCinema` fade in. |
 | Camera | Static. |
-| Hold | Card complete at 13.50 and untouched until 15.00: **1.50 s.** |
+| Hold | Card complete at 13.45 and untouched until 15.00: **1.55 s.** |
 | Sound | The cut accent lands with line one at 12.40; soft taps for lines two and three at 12.60 / 12.80. One clean final hit 13.20 with a 1.6 s tail. Silence by 14.90. |
 
 ## Sound cue sheet
