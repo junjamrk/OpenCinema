@@ -31,7 +31,7 @@ export async function readImageSnapshot(workbench: NodeWorkbenchService, source:
 }
 export async function readImageCanvas(workbench: NodeWorkbenchService, source: NodeMediaValue, signal: AbortSignal) { return (await readImageSnapshot(workbench, source, signal)).canvas; }
 
-export function drawImageStrokes(canvas: HTMLCanvasElement, strokes: ImageStroke[], mask = false) {
+export function drawImageStrokes(canvas: HTMLCanvasElement, strokes: ImageStroke[], mask = false, opacity = 1) {
   let layer = annotationLayers.get(canvas);
   if (!layer) { layer = globalThis.document.createElement("canvas"); annotationLayers.set(canvas, layer); }
   if (layer.width !== canvas.width || layer.height !== canvas.height) { layer.width = canvas.width; layer.height = canvas.height; }
@@ -47,7 +47,9 @@ export function drawImageStrokes(canvas: HTMLCanvasElement, strokes: ImageStroke
     if (stroke.tool === "rectangle" || stroke.tool === "circle") {
       const end = stroke.points[1]!; const x = first.x * canvas.width; const y = first.y * canvas.height; const width = (end.x - first.x) * canvas.width; const height = (end.y - first.y) * canvas.height;
       context.beginPath(); if (stroke.tool === "rectangle") context.rect(x, y, width, height);
-      else { const radius = Math.min(Math.abs(width), Math.abs(height)) / 2; context.arc(x + Math.sign(width) * radius, y + Math.sign(height) * radius, radius, 0, Math.PI * 2); }
+      else context.ellipse(x + width / 2, y + height / 2, Math.abs(width) / 2, Math.abs(height) / 2, 0, 0, Math.PI * 2);
+      // 蒙版要覆盖框内区域；只描边时局部重绘只会换掉一圈边线。
+      if (mask) context.fill();
       context.stroke(); continue;
     }
     context.beginPath(); context.moveTo(first.x * canvas.width, first.y * canvas.height);
@@ -55,7 +57,7 @@ export function drawImageStrokes(canvas: HTMLCanvasElement, strokes: ImageStroke
     if (stroke.points.length > 1) context.stroke(); else { context.arc(first.x * canvas.width, first.y * canvas.height, stroke.width / 2, 0, Math.PI * 2); context.fill(); }
   }
   const target = canvas.getContext("2d"); if (!target) throw new Error("无法创建标记画布");
-  target.drawImage(layer, 0, 0);
+  target.globalAlpha = opacity; target.drawImage(layer, 0, 0); target.globalAlpha = 1;
 }
 
 export function canvasBlob(canvas: HTMLCanvasElement) {

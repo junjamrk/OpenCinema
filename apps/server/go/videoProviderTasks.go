@@ -242,6 +242,10 @@ func (s *server) runMediaTask(ctx context.Context, id string, task *mediaTask) {
 // is never replayed. An interrupted reference preparation can resume because
 // beginVideoSubmission durably changes phase before any generation request.
 func (s *server) resumeVideoTask(id string, task *mediaTask) error {
+	// ComfyUI 已无记录时再查也不会变，继续恢复只会把未确认盖成运行中；取消时才重新核对。
+	if task.job["status"] == "missing" && !task.cancelRequested {
+		return nil
+	}
 	retryDownload := !task.settled.IsZero() && task.job["status"] == "completed" && number(task.result["code"]) != 200
 	retryReferences := task.unknown && task.job["phase"] == "preparingReferences" && task.job["protocol"] == nil
 	if retryReferences && task.cancelRequested && str(task.job["id"]) == "" {

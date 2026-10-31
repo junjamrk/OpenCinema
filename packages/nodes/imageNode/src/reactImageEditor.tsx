@@ -62,13 +62,27 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
   const [version, setVersion] = useState(0), [color, setColor] = useState("#ff3333"), [width, setWidth] = useState(16);
   const [tool, setTool] = useState<NonNullable<ImageStroke["tool"]>>("brush"), [text, setText] = useState("");
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
+  const [zoom, setZoom] = useState(1), [cropRatio, setCropRatio] = useState<number>();
+  const brushCursor = useRef<HTMLSpanElement>(null);
   const locked = readOnly || busy || !dimensions.width || !state.sourceRevision || loadedSourceRevision !== state.sourceRevision;
-  const imageStyle = { "--imageRatio": dimensions.width / Math.max(1, dimensions.height) } as CSSProperties;
+  const imageStyle = { "--imageRatio": dimensions.width / Math.max(1, dimensions.height), "--imageZoom": zoom } as CSSProperties;
+  const zoomable = task === "mark" || task === "crop" || task === "grid";
+  const changeZoom = (change: (value: number) => number) => setZoom(value => clamp(Math.round(change(value) * 100) / 100, 1, 8));
   useEffect(() => { if (state.sourceRevision && loadedSourceRevision && state.sourceRevision !== loadedSourceRevision) setSourceReload(value => value + 1); }, [state.sourceRevision]);
   useEffect(() => { setLighting(readLightingSettings(node.data?.lighting)); }, [JSON.stringify(node.data?.lighting)]);
   useEffect(() => { setAngle(readMultiAngleSettings(node.data?.multiAngle)); }, [JSON.stringify(node.data?.multiAngle)]);
   useEffect(() => { if (open) setOpened(true); setVisited(previous => new Set([...previous, task])); const element = dialog.current; if (open && element && !element.open) element.showModal(); else if (!open && element?.open) element.close(); }, [open, task, url, dialogRoot]);
   useEffect(() => () => dialog.current?.close(), []);
+  useEffect(() => {
+    const element = dialog.current; if (!element) return;
+    // React 的 wheel 监听是被动的，无法阻止浏览器整页缩放。
+    const wheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || !(event.target instanceof Element) || !event.target.closest(".imageWorkbenchImage")) return;
+      event.preventDefault(); changeZoom(value => value * (event.deltaY < 0 ? 1.1 : 1 / 1.1));
+    };
+    element.addEventListener("wheel", wheel, { passive: false });
+    return () => element.removeEventListener("wheel", wheel);
+  }, [dialogRoot, !!source, !!url]);
   useEffect(() => () => { if (wheelGestureTimer.current) clearTimeout(wheelGestureTimer.current); draft.endGesture(); }, [draft]);
   function finishControlGesture() {
     if (wheelGestureTimer.current) clearTimeout(wheelGestureTimer.current);
@@ -79,7 +93,8 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
     if (!element || !image) return;
     const painter = element.getContext("2d"); if (!painter) return;
     painter.clearRect(0, 0, element.width, element.height); painter.drawImage(image, 0, 0);
-    drawImageStrokes(element, [...strokes.current.slice(0, strokeCount.current), ...(active.current ? [active.current] : [])]);
+    // 预览半透明，涂抹时还能看到下方内容；保存的标记副本仍是不透明原色。
+    drawImageStrokes(element, [...strokes.current.slice(0, strokeCount.current), ...(active.current ? [active.current] : [])], false, .72);
   }
   function commit(stroke: ImageStroke) {
     if ((stroke.tool === "rectangle" || stroke.tool === "circle") && (!stroke.points[1] || Math.abs(stroke.points[1].x - stroke.points[0]!.x) * dimensions.width < 1 || Math.abs(stroke.points[1].y - stroke.points[0]!.y) * dimensions.height < 1)) return;
@@ -93,7 +108,7 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
     const operation = new AbortController(); let imageUrl = "";
     original.current = undefined; active.current = undefined;
     if (draft.read().value.source !== source?.url) draft.replace({ ...draft.read().value, source: source?.url ?? "", sourceRevision: null, strokes: [], strokeCount: 0, crop: { x: 0, y: 0, width: 1, height: 1 } });
-    setDimensions({ width: 0, height: 0 }); setLoadedSourceRevision(""); setEditorUrl(""); setVersion(value => value + 1);
+    setDimensions({ width: 0, height: 0 }); setLoadedSourceRevision(""); setEditorUrl(""); setVersion(value => value + 1); setZoom(1); setCropRatio(undefined);
     if (!opened || !source) return;
     void readImageSnapshot(controller.getNodeService(node.id), source, operation.signal).then(async ({ canvas: image, revision }) => {
       if (disposed || !canvas.current) return;
@@ -134,11 +149,17 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
   function editorKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
     event.stopPropagation();
     if (event.key === "Escape" && (active.current || cropDrag.current || stagePointer.current)) { event.preventDefault(); cancelPointerEdit(); return; }
-    if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
-    const key = event.key.toLowerCase();
-    if (key !== "z" && key !== "y") return;
     const target = event.target;
     if (target instanceof HTMLElement && (target.isContentEditable || target.closest("textarea, input:not([type='range']):not([type='color']):not([type='checkbox']):not([type='radio'])"))) return;
+    const key = event.key.toLowerCase();
+    if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+      const nextTool = task === "mark" && !locked ? ({ b: "brush", r: "rectangle", c: "circle", t: "text", e: "eraser" } as const)[key] : undefined;
+      if (nextTool) { event.preventDefault(); setTool(nextTool); }
+      else if (task === "mark" && !locked && (key === "[" || key === "]")) { event.preventDefault(); setWidth(value => clamp(value + (key === "]" ? 4 : -4), 1, 200)); }
+      else if (zoomable && (key === "+" || key === "=" || key === "-" || key === "0")) { event.preventDefault(); changeZoom(value => key === "0" ? 1 : key === "-" ? value / 1.25 : value * 1.25); }
+      return;
+    }
+    if (event.altKey || key !== "z" && key !== "y") return;
     event.preventDefault(); changeHistory(key === "y" || event.shiftKey ? "redo" : "undo");
   }
   function chooseTask(next: ImageTask) { finishControlGesture(); setTask(next); setVisited(previous => new Set([...previous, next])); setNotice(""); }
@@ -157,10 +178,25 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
     } catch (reason) { setError(errorText(reason)); } finally { setBusy(false); requestAnimationFrame(() => { if (dialog.current?.open) dialog.current.querySelector<HTMLElement>(".imageWorkbenchFeedback")?.focus(); }); }
   }
   function point(event: PointerEvent<HTMLCanvasElement>) { const bounds = event.currentTarget.getBoundingClientRect(); return { x: clamp((event.clientX - bounds.left) / bounds.width, 0, 1), y: clamp((event.clientY - bounds.top) / bounds.height, 0, 1) }; }
+  function moveBrushCursor(event: PointerEvent<HTMLCanvasElement>) {
+    const element = brushCursor.current, bounds = event.currentTarget.getBoundingClientRect(); if (!element) return;
+    const size = width * bounds.width / Math.max(1, dimensions.width);
+    element.style.display = !locked && (tool === "brush" || tool === "eraser") ? "block" : "none";
+    element.style.width = element.style.height = `${size}px`;
+    element.style.transform = `translate(${event.clientX - bounds.left - size / 2}px, ${event.clientY - bounds.top - size / 2}px)`;
+  }
   const minCropWidth = 1 / Math.max(1, dimensions.width), minCropHeight = 1 / Math.max(1, dimensions.height);
   function normalizeCrop(next: CropRect) {
     const width = clamp(Number.isFinite(next.width) ? next.width : crop.width, minCropWidth, 1), height = clamp(Number.isFinite(next.height) ? next.height : crop.height, minCropHeight, 1);
     return { x: clamp(Number.isFinite(next.x) ? next.x : crop.x, 0, 1 - width), y: clamp(Number.isFinite(next.y) ? next.y : crop.y, 0, 1 - height), width, height };
+  }
+  // 比例在原图像素上定义；crop 坐标按宽高分别归一化，需换算后再投影。
+  function lockedCrop(anchorX: number, anchorY: number, x: number, y: number, ratio: number) {
+    const aspect = ratio * dimensions.height / Math.max(1, dimensions.width), dx = x - anchorX, dy = y - anchorY, right = dx >= 0, bottom = dy >= 0;
+    // 把指针投影到比例对角线上，只沿一个方向拖动也能连续缩放。
+    const projected = (Math.abs(dx) * aspect + Math.abs(dy)) / (aspect * aspect + 1) * aspect;
+    const width = clamp(projected, minCropWidth, Math.max(minCropWidth, Math.min(right ? 1 - anchorX : anchorX, (bottom ? 1 - anchorY : anchorY) * aspect))), height = width / aspect;
+    return normalizeCrop({ x: right ? anchorX : anchorX - width, y: bottom ? anchorY : anchorY - height, width, height });
   }
   function cropPoint(event: PointerEvent<HTMLElement>) { const bounds = cropFrame.current!.getBoundingClientRect(); return { x: clamp((event.clientX - bounds.left) / bounds.width, 0, 1), y: clamp((event.clientY - bounds.top) / bounds.height, 0, 1) }; }
   function startCrop(event: PointerEvent<HTMLElement>, mode: "draw" | "move" | CropCorner) {
@@ -168,6 +204,7 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
     event.preventDefault(); event.stopPropagation(); draft.beginGesture("调整裁剪"); cropDrag.current = { pointerId: event.pointerId, mode, origin: cropPoint(event), crop }; cropFrame.current.setPointerCapture(event.pointerId);
   }
   function resizeCrop(rect: CropRect, corner: CropCorner, x: number, y: number) {
+    if (cropRatio) return lockedCrop(corner.includes("w") ? rect.x + rect.width : rect.x, corner.includes("n") ? rect.y + rect.height : rect.y, x, y, cropRatio);
     let left = rect.x, right = left + rect.width, top = rect.y, bottom = top + rect.height;
     if (corner.includes("w")) left = clamp(x, 0, right - minCropWidth); else right = clamp(x, left + minCropWidth, 1);
     if (corner.includes("n")) top = clamp(y, 0, bottom - minCropHeight); else bottom = clamp(y, top + minCropHeight, 1);
@@ -177,7 +214,7 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
     const drag = cropDrag.current; if (!drag || event.pointerId !== drag.pointerId || locked) return;
     const current = cropPoint(event);
     if (drag.mode === "move") setCrop(normalizeCrop({ ...drag.crop, x: drag.crop.x + current.x - drag.origin.x, y: drag.crop.y + current.y - drag.origin.y }));
-    else if (drag.mode === "draw") setCrop(normalizeCrop({ x: Math.min(current.x, drag.origin.x), y: Math.min(current.y, drag.origin.y), width: Math.abs(current.x - drag.origin.x), height: Math.abs(current.y - drag.origin.y) }));
+    else if (drag.mode === "draw") setCrop(cropRatio ? lockedCrop(drag.origin.x, drag.origin.y, current.x, current.y, cropRatio) : normalizeCrop({ x: Math.min(current.x, drag.origin.x), y: Math.min(current.y, drag.origin.y), width: Math.abs(current.x - drag.origin.x), height: Math.abs(current.y - drag.origin.y) }));
     else setCrop(resizeCrop(drag.crop, drag.mode, current.x, current.y));
   }
   function nudgeCrop(event: KeyboardEvent<HTMLElement>, corner?: CropCorner) {
@@ -187,6 +224,7 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
     setCrop(corner ? resizeCrop(crop, corner, crop.x + (corner.includes("w") ? 0 : crop.width) + dx, crop.y + (corner.includes("n") ? 0 : crop.height) + dy) : normalizeCrop({ ...crop, x: crop.x + dx, y: crop.y + dy }));
   }
   function frameCrop(ratio?: number) {
+    setCropRatio(ratio);
     if (!ratio) { setCrop({ x: 0, y: 0, width: 1, height: 1 }); return; }
     const relative = ratio / (dimensions.width / dimensions.height), width = Math.min(1, relative), height = Math.min(1, 1 / relative);
     setCrop({ x: (1 - width) / 2, y: (1 - height) / 2, width, height });
@@ -197,6 +235,7 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
   const drawing = strokes.current.slice(0, strokeCount.current), lastClear = drawing.findLastIndex(stroke => stroke.tool === "clear");
   const hasDrawing = drawing.slice(lastClear + 1).some(stroke => stroke.tool !== "eraser");
   const gridValid = Number.isInteger(rows) && Number.isInteger(columns) && rows >= 1 && rows <= 10 && columns >= 1 && columns <= 10;
+  const loadingImage = !dimensions.width && !error && !mediaError ? <p className="imageWorkbenchLoading" role="status">正在读取图片…</p> : null;
   if (!source || !url) return null;
   return <><button type="button" className={toolbar ? "nodeMediaTool nodeMediaToolPrimary" : "nodeComposerAction imageEditorEntry"} title="打开图片编辑台" aria-label="编辑图片" disabled={readOnly || busy} onClick={() => { setOpened(true); setOpen(true); }}><NodeIcon name="brush" />{!toolbar && "编辑图片"}</button>
     {dialogRoot && createPortal(<dialog ref={dialog} className="nodeControls imageWorkbenchDialog nodrag nopan nowheel" aria-label="图片编辑台" aria-busy={busy}
@@ -228,7 +267,11 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
         if (wheelGestureTimer.current) clearTimeout(wheelGestureTimer.current);
         wheelGestureTimer.current = setTimeout(() => { wheelGestureTimer.current = undefined; draft.endGesture(); }, 180);
       }} onPointerDown={event => { if (event.target === event.currentTarget) close(); }}>
-      <header className="imageWorkbenchHeader"><div><strong>图片编辑</strong><span>{String(node.data?.label ?? "图片")}{dimensions.width > 0 ? ` · ${dimensions.width} × ${dimensions.height}` : ""}</span></div><div className="imageWorkbenchHeaderActions"><div className="imageHistoryToolbar" role="toolbar" aria-label="图片编辑历史">
+      <header className="imageWorkbenchHeader"><div><strong>图片编辑</strong><span>{String(node.data?.label ?? "图片")}{dimensions.width > 0 ? ` · ${dimensions.width} × ${dimensions.height}` : ""}</span></div><div className="imageWorkbenchHeaderActions">{zoomable && <div className="imageHistoryToolbar imageZoomToolbar" role="group" aria-label="画面缩放">
+        <button type="button" aria-label="缩小画面" title="缩小（-）" disabled={zoom <= 1} onClick={() => changeZoom(value => value / 1.25)}>−</button>
+        <button type="button" className="imageZoomValue" aria-label="恢复适应窗口" title="恢复适应窗口（0），⌘/Ctrl + 滚轮缩放" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
+        <button type="button" aria-label="放大画面" title="放大（+）" disabled={zoom >= 8} onClick={() => changeZoom(value => value * 1.25)}>+</button>
+      </div>}<div className="imageHistoryToolbar" role="toolbar" aria-label="图片编辑历史">
         <button type="button" aria-label="撤销图片编辑" aria-keyshortcuts="Meta+Z Control+Z" title={`${history.undoLabel ? `撤销：${history.undoLabel}` : "撤销"}（⌘/Ctrl Z）`} disabled={locked || !history.canUndo} onClick={() => changeHistory("undo")}><NodeIcon name="undo" /></button>
         <button type="button" aria-label="重做图片编辑" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z Control+Y" title={`${history.redoLabel ? `重做：${history.redoLabel}` : "重做"}（⌘/Ctrl ⇧ Z）`} disabled={locked || !history.canRedo} onClick={() => changeHistory("redo")}><NodeIcon name="redo" /></button>
       </div><button type="button" title="关闭图片编辑台，保留当前工作台草稿" aria-label="关闭图片编辑台" disabled={busy} onClick={close}><NodeIcon name="close" /></button></div></header>
@@ -238,29 +281,29 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
         chooseTask(imageTasks[next]!.id); (event.currentTarget.parentElement?.querySelectorAll("button")[next] as HTMLButtonElement | undefined)?.focus();
       }}><NodeIcon name={item.icon} />{item.label}</button>)}</nav>
       <section className="imageWorkbenchPanel" id={`imagePanel${node.id}mark`} role="tabpanel" aria-labelledby={`imageTask${node.id}mark`} hidden={task !== "mark"}>
-        <div className="imageWorkbenchStage"><div className="imageWorkbenchImage" style={imageStyle}><canvas ref={canvas} className="imageMarkCanvas" aria-label="图像标记画布" onPointerDown={event => {
+        <div className="imageWorkbenchStage">{loadingImage}<div className="imageWorkbenchImage" style={imageStyle}><span ref={brushCursor} className="imageBrushCursor" aria-hidden="true" /><canvas ref={canvas} className="imageMarkCanvas" aria-label="图像标记画布" onPointerLeave={() => { if (brushCursor.current) brushCursor.current.style.display = "none"; }} onPointerDown={event => {
           if (locked || !original.current || event.button !== 0 || !event.isPrimary || active.current) return;
           if (tool === "eraser" && !hasDrawing) return;
           if (strokeCount.current >= 500) { setError("标记数量已达上限，请清除标记后继续"); return; }
           event.stopPropagation(); if (tool === "text") { if (text.trim()) commit({ tool, text, color, width, points: [point(event)] }); return; }
           draft.beginGesture(tool === "eraser" ? "擦除标记" : "绘制标记"); markPointer.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId); active.current = { tool, color, width, points: [point(event)] }; redraw();
-        }} onPointerMove={event => { if (!active.current || event.pointerId !== markPointer.current || active.current.points.length >= 20000) return; event.stopPropagation(); if (active.current.tool === "rectangle" || active.current.tool === "circle") active.current.points[1] = point(event); else active.current.points.push(point(event)); redraw(); }} onPointerUp={event => {
+        }} onPointerMove={event => { moveBrushCursor(event); if (!active.current || event.pointerId !== markPointer.current || active.current.points.length >= 20000) return; event.stopPropagation(); if (active.current.tool === "rectangle" || active.current.tool === "circle") active.current.points[1] = point(event); else active.current.points.push(point(event)); redraw(); }} onPointerUp={event => {
           if (!active.current || event.pointerId !== markPointer.current) return; event.stopPropagation(); if ((active.current.tool === "rectangle" || active.current.tool === "circle") && active.current.points.length < 2) active.current.points[1] = point(event); commit(active.current); active.current = undefined; markPointer.current = undefined; draft.endGesture(); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
         }} onPointerCancel={cancelPointerEdit} onLostPointerCapture={() => { if (active.current) cancelPointerEdit(); }} /></div></div>
         <aside className="imageWorkbenchControls"><h4>选区与标记</h4><div className="imageToolGrid" role="group" aria-label="标记工具">{([['brush', '画笔'], ['rectangle', '矩形'], ['circle', '圆形'], ['text', '文字'], ['eraser', '橡皮擦']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} disabled={locked} onClick={() => setTool(key)}><NodeIcon name={key} />{label}</button>)}</div>
           <label className="nodeField"><span>颜色</span><input type="color" aria-label="标记颜色" value={color} disabled={locked} onChange={event => setColor(event.target.value)} /></label>{range(tool === "text" ? "字号" : "笔宽", width, 1, 200, setWidth)}
           {tool === "text" && <label className="nodeField"><span>标记文字，点击图片放置</span><textarea aria-label="标记文字" value={text} maxLength={2000} disabled={locked} onChange={event => setText(event.target.value)} /></label>}
-          <div className="nodeActions"><button type="button" disabled={locked || !hasDrawing} onClick={() => { draft.replace({ ...draft.read().value, strokes: [], strokeCount: 0 }, undefined, "清除标记"); setNotice("已清除标记，可撤销恢复"); }}><NodeIcon name="trash" />清除标记</button></div><p className="imageWorkbenchHint">涂抹需要修改的区域，再到下方描述创作要求；保存标记副本则直接保留画面上的标记。</p>
+          <div className="nodeActions"><button type="button" disabled={locked || !hasDrawing} onClick={() => { draft.replace({ ...draft.read().value, strokes: [], strokeCount: 0 }, undefined, "清除标记"); setNotice("已清除标记，可撤销恢复"); }}><NodeIcon name="trash" />清除标记</button></div><p className="imageWorkbenchHint">涂抹或框选需要修改的区域，矩形和圆形的框内都算选区，再用“使用选区创作”描述要求；“保存标记副本”只保留画面上的标记。</p><p className="imageWorkbenchHint">快捷键：B 画笔、R 矩形、C 圆形、T 文字、E 橡皮，[ ] 调笔宽，+ − 缩放。</p>
         </aside>
       </section>
       <section className="imageWorkbenchPanel" id={`imagePanel${node.id}crop`} role="tabpanel" aria-labelledby={`imageTask${node.id}crop`} hidden={task !== "crop"}>
-        <div className="imageWorkbenchStage"><div ref={cropFrame} className="imageWorkbenchImage imageCropFrame" style={imageStyle} onPointerDown={event => startCrop(event, "draw")} onPointerMove={moveCrop} onPointerUp={event => { if (cropDrag.current?.pointerId !== event.pointerId) return; cropDrag.current = undefined; draft.endGesture(); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={cancelPointerEdit} onLostPointerCapture={() => { if (cropDrag.current) cancelPointerEdit(); }}><img src={activeUrl} alt="裁剪原图" draggable={false} /><div className="imageCropSelection" role="group" aria-label="裁剪选区，方向键移动，Shift加速" tabIndex={0} style={{ left: `${crop.x * 100}%`, top: `${crop.y * 100}%`, width: `${crop.width * 100}%`, height: `${crop.height * 100}%` }} onPointerDown={event => startCrop(event, "move")} onKeyDown={event => nudgeCrop(event)}><span className="imageCropGrid" aria-hidden="true" />{cropCorners.map(corner => <button key={corner.id} type="button" className={`imageCropHandle imageCropHandle${corner.id}`} aria-label={`调整裁剪${corner.label}，方向键微调`} disabled={locked} onPointerDown={event => startCrop(event, corner.id)} onKeyDown={event => nudgeCrop(event, corner.id)} />)}</div></div></div>
-        <aside className="imageWorkbenchControls"><h4>裁剪构图</h4><div className="imagePresetGrid"><button type="button" disabled={locked} onClick={() => frameCrop()}>原图</button>{([["1:1", 1], ["16:9", 16 / 9], ["9:16", 9 / 16], ["4:3", 4 / 3], ["3:4", 3 / 4]] as const).map(([label, ratio]) => <button type="button" key={label} disabled={locked} onClick={() => frameCrop(ratio)}>{label}</button>)}</div><output className="imageCropSize">{Math.max(1, Math.round(crop.width * dimensions.width))} × {Math.max(1, Math.round(crop.height * dimensions.height))} px</output><p className="imageWorkbenchHint">拖动选区移动，拖动角点缩放；方向键微调，按住 Shift 加速。</p>
-          <details className="nodeDetails"><summary>旋转与翻转副本</summary><div className="nodeActions"><button type="button" disabled={locked} onClick={() => void call("transformImage", { rotation: 90 })}><NodeIcon name="reset" />另存旋转 90°</button><button type="button" disabled={locked} onClick={() => void call("transformImage", { flipX: true })}>另存水平翻转</button><button type="button" disabled={locked} onClick={() => void call("transformImage", { flipY: true })}>另存垂直翻转</button></div></details><details className="nodeDetails"><summary>精确裁剪参数</summary><div className="nodeFields">{([['x', '左边'], ['y', '上边'], ['width', '宽度'], ['height', '高度']] as const).map(([key, label]) => <label className="nodeField" key={key}><span>{label}（0–1）</span><input type="number" min="0" max="1" step=".001" value={crop[key]} disabled={locked} onChange={event => setCrop(normalizeCrop({ ...crop, [key]: Number(event.target.value) }))} /></label>)}</div></details>
+        <div className="imageWorkbenchStage">{loadingImage}<div ref={cropFrame} className="imageWorkbenchImage imageCropFrame" style={imageStyle} onPointerDown={event => startCrop(event, "draw")} onPointerMove={moveCrop} onPointerUp={event => { if (cropDrag.current?.pointerId !== event.pointerId) return; cropDrag.current = undefined; draft.endGesture(); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={cancelPointerEdit} onLostPointerCapture={() => { if (cropDrag.current) cancelPointerEdit(); }}><img src={activeUrl} alt="裁剪原图" draggable={false} /><div className="imageCropSelection" role="group" aria-label="裁剪选区，方向键移动，Shift加速" tabIndex={0} style={{ left: `${crop.x * 100}%`, top: `${crop.y * 100}%`, width: `${crop.width * 100}%`, height: `${crop.height * 100}%` }} onPointerDown={event => startCrop(event, "move")} onKeyDown={event => nudgeCrop(event)}><span className="imageCropGrid" aria-hidden="true" />{cropCorners.map(corner => <button key={corner.id} type="button" className={`imageCropHandle imageCropHandle${corner.id}`} aria-label={`调整裁剪${corner.label}，方向键微调`} disabled={locked} onPointerDown={event => startCrop(event, corner.id)} onKeyDown={event => nudgeCrop(event, corner.id)} />)}</div></div></div>
+        <aside className="imageWorkbenchControls"><h4>裁剪构图</h4><div className="imagePresetGrid" role="group" aria-label="裁剪比例"><button type="button" aria-pressed={!cropRatio} disabled={locked} onClick={() => frameCrop()}>自由</button>{([["1:1", 1], ["16:9", 16 / 9], ["9:16", 9 / 16], ["4:3", 4 / 3], ["3:4", 3 / 4]] as const).map(([label, ratio]) => <button type="button" key={label} aria-pressed={cropRatio === ratio} disabled={locked} onClick={() => frameCrop(ratio)}>{label}</button>)}</div><output className="imageCropSize">{Math.max(1, Math.round(crop.width * dimensions.width))} × {Math.max(1, Math.round(crop.height * dimensions.height))} px</output><p className="imageWorkbenchHint">拖动选区移动，拖动角点缩放；选了比例后会保持比例，点“自由”恢复全图并解除。方向键微调，按住 Shift 加速。</p>
+          <details className="nodeDetails"><summary>旋转与翻转副本</summary><div className="nodeActions"><button type="button" disabled={locked} onClick={() => void call("transformImage", { rotation: 90 })}><NodeIcon name="reset" />另存旋转 90°</button><button type="button" disabled={locked} onClick={() => void call("transformImage", { flipX: true })}>另存水平翻转</button><button type="button" disabled={locked} onClick={() => void call("transformImage", { flipY: true })}>另存垂直翻转</button></div></details><details className="nodeDetails"><summary>精确裁剪参数</summary><div className="nodeFields">{([['x', '左边', dimensions.width], ['y', '上边', dimensions.height], ['width', '宽度', dimensions.width], ['height', '高度', dimensions.height]] as const).map(([key, label, size]) => <label className="nodeField" key={key}><span>{label}（px）</span><input type="number" min="0" max={size} step="1" value={Math.round(crop[key] * size)} disabled={locked} onChange={event => { setCropRatio(undefined); setCrop(normalizeCrop({ ...crop, [key]: Number(event.target.value) / Math.max(1, size) })); }} /></label>)}</div></details>
         </aside>
       </section>
       <section className="imageWorkbenchPanel" id={`imagePanel${node.id}grid`} role="tabpanel" aria-labelledby={`imageTask${node.id}grid`} hidden={task !== "grid"}>
-        <div className="imageWorkbenchStage"><div className="imageWorkbenchImage imageWorkbenchGrid" style={imageStyle}><img src={activeUrl} alt="宫格切分预览" draggable={false} />{gridValid && <div style={{ gridTemplateColumns: `repeat(${columns}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }}>{Array.from({ length: rows * columns }, (_, index) => <span key={index}>{index + 1}</span>)}</div>}</div></div><aside className="imageWorkbenchControls"><h4>宫格切分</h4><div className="imagePresetGrid">{[2, 3, 4].map(count => <button type="button" key={count} disabled={locked} onClick={() => draft.replace({ ...draft.read().value, rows: count, columns: count }, undefined, "调整宫格")}>{count} × {count}</button>)}</div><div className="nodeFields"><label className="nodeField"><span>行数</span><input type="number" min="1" max="10" value={rows} disabled={locked} onChange={event => setRows(Number(event.target.value))} /></label><label className="nodeField"><span>列数</span><input type="number" min="1" max="10" value={columns} disabled={locked} onChange={event => setColumns(Number(event.target.value))} /></label></div><p className="imageWorkbenchHint">切分为独立图片并在画布成组，原图保留。</p></aside>
+        <div className="imageWorkbenchStage">{loadingImage}<div className="imageWorkbenchImage imageWorkbenchGrid" style={imageStyle}><img src={activeUrl} alt="宫格切分预览" draggable={false} />{gridValid && <div style={{ gridTemplateColumns: `repeat(${columns}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }}>{Array.from({ length: rows * columns }, (_, index) => <span key={index}>{index + 1}</span>)}</div>}</div></div><aside className="imageWorkbenchControls"><h4>宫格切分</h4><div className="imagePresetGrid">{[2, 3, 4].map(count => <button type="button" key={count} disabled={locked} onClick={() => draft.replace({ ...draft.read().value, rows: count, columns: count }, undefined, "调整宫格")}>{count} × {count}</button>)}</div><div className="nodeFields"><label className="nodeField"><span>行数</span><input type="number" min="1" max="10" value={rows} disabled={locked} onChange={event => setRows(Number(event.target.value))} /></label><label className="nodeField"><span>列数</span><input type="number" min="1" max="10" value={columns} disabled={locked} onChange={event => setColumns(Number(event.target.value))} /></label></div><p className="imageWorkbenchHint">切分为独立图片并在画布成组，原图保留。</p></aside>
       </section>
       <section className="imageWorkbenchPanel" id={`imagePanel${node.id}lighting`} role="tabpanel" aria-labelledby={`imageTask${node.id}lighting`} hidden={task !== "lighting"}>
         <div className="imageWorkbenchStage">{visited.has("lighting") && <ImageStage url={activeUrl} mode="lighting" settings={lighting} onChange={setLighting} disabled={locked} />}</div><aside className="imageWorkbenchControls"><h4>灯光设置</h4><label className="nodeField"><span>预设</span><select value={lighting.preset} disabled={locked} onChange={event => { const preset = lightingPresets.find(value => value.id === event.target.value); setLighting(readLightingSettings({ ...lighting, ...preset?.settings, preset: event.target.value })); }}><option value="">自定义</option>{lightingPresets.map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}</select></label>
@@ -274,7 +317,7 @@ export default function ImageEditor({ node, controller, readOnly, toolbar }: Nod
       <section className="imageWorkbenchPanel" id={`imagePanel${node.id}panorama`} role="tabpanel" aria-labelledby={`imageTask${node.id}panorama`} hidden={task !== "panorama"}>
         <div className="imageWorkbenchStage imagePanoramaWorkbench">{visited.has("panorama") && <PanoramaPreview url={activeUrl} settings={panorama} onChange={setPanorama} disabled={locked} />}</div><aside className="imageWorkbenchControls"><h4>全景透视</h4><div className="nodeFields"><label className="nodeField"><span>投影</span><select value={panorama.mode} disabled={locked} onChange={event => setPanorama({ ...panorama, mode: event.target.value as PanoramaSettings["mode"] })}><option value="sphere">球面 720°</option><option value="cylinder">柱面 360°</option></select></label><label className="nodeField"><span>视角数量</span><select value={panorama.count} disabled={locked} onChange={event => setPanorama({ ...panorama, count: Number(event.target.value) as PanoramaSettings["count"] })}>{[1, 4, 12].map(count => <option key={count} value={count}>{count}</option>)}</select></label></div>{range("方位角", panorama.yaw ?? 0, -180, 180, value => setPanorama({ ...panorama, yaw: value }))}{range("俯仰角", panorama.pitch ?? 0, -80, 80, value => setPanorama({ ...panorama, pitch: value }))}{range("视野", panorama.fov ?? 60, 20, 120, value => setPanorama({ ...panorama, fov: value }))}<label className="nodeField"><span>输出方式</span><select value={panorama.layout ?? "separate"} disabled={locked} onChange={event => setPanorama({ ...panorama, layout: event.target.value as PanoramaSettings["layout"] })}><option value="separate">分图并成组</option><option value="combined">拼成一张</option></select></label><details className="nodeDetails"><summary>高级投影校正</summary><div className="imageAdvancedFields">{panoramaCorrections.map(group => <details className="nodeDetails" key={group.key}><summary>{group.label}</summary><label className="imageCheckField"><input type="checkbox" checked={!!panorama[group.key]} disabled={locked} onChange={event => setPanorama({ ...panorama, [group.key]: event.target.checked })} />启用校正</label>{panorama[group.key] && <div className="imageAdvancedFields">{group.fields.map(([key, label, min, max, initial]) => <div key={key}>{range(label, Number(panorama[key] ?? initial), min, max, value => setPanorama({ ...panorama, [key]: value }), key === "waveCount" ? 1 : .5)}</div>)}{group.key === "lensEnabled" && <select aria-label="镜头畸变类型" value={panorama.lensMode ?? "barrel"} disabled={locked} onChange={event => setPanorama({ ...panorama, lensMode: event.target.value as PanoramaSettings["lensMode"] })}><option value="barrel">桶形校正</option><option value="pincushion">枕形校正</option></select>}</div>}</details>)}</div></details></aside>
       </section>
-      <footer className="imageWorkbenchFooter"><div className="imageWorkbenchFeedback" tabIndex={-1}>{error || mediaError ? <p className="nodeError" role="alert">{error || mediaError}</p> : <span className="nodeStatus" role="status">{busy ? "正在处理图片…" : notice || "草稿保留在当前工作台，关闭后可继续编辑"}</span>}</div><div className="nodeActions">
+      <footer className="imageWorkbenchFooter"><div className="imageWorkbenchFeedback" tabIndex={-1}>{error || mediaError ? <p className="nodeError" role="alert">{error || mediaError}</p> : <span className="nodeStatus" role="status">{busy ? "正在处理图片…" : !dimensions.width ? "正在读取图片…" : notice || "草稿保留在当前工作台，关闭后可继续编辑"}</span>}</div><div className="nodeActions">
         {task === "mark" && <><button type="button" disabled={locked || !hasDrawing} onClick={() => void call("markImage", { strokes: drawing })}>保存标记副本</button><button type="button" className="nodePrimary" disabled={locked || !hasDrawing} onClick={() => void call("createInpaint", { strokes: drawing }, true)}>使用选区创作<NodeIcon name="arrowRight" /></button></>}
         {task === "crop" && <button type="button" className="nodePrimary" disabled={locked} onClick={() => void call("transformImage", { crop })}>保存裁剪副本</button>}
         {task === "grid" && <button type="button" className="nodePrimary" disabled={locked || !gridValid} onClick={() => void call("splitGrid", { rows, columns })}>切分并创建节点组</button>}

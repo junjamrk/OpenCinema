@@ -20,7 +20,7 @@ import NodeView, { nodeIcons } from "./nodeView";
 import HeaderIcon from "./headerIcon";
 import { menuKeyDown, trapOverlayFocus } from "./overlayFocus";
 import { MotionLayer, WorkbenchMotion } from "./uiMotion";
-import SettingsPanel from "./settingsPanel";
+import SettingsPanel, { type SettingsTab } from "./settingsPanel";
 import CanvasManager from "./canvasManager";
 import { createWorkspaceFiles } from "@/lib/workspaceFileClient";
 import AssetLibrary from "./assetLibrary";
@@ -28,6 +28,7 @@ import WorkbenchTooltip from "./workbenchTooltip";
 import { assetDragType, assetLibraryClient } from "@/lib/assetLibraryClient";
 import { filterNodeMenu, normalizeNodeMenu, resolveNodeMenu, type NodeMenuItem } from "@/lib/nodeMenu";
 import { workbenchSettingsClient } from "@/lib/workbenchSettingsClient";
+import { forgetRecentProject, readRecentProjects } from "@/lib/recentProjects";
 import type { CanvasNode } from "./nodeView";
 import type { CanvasViewOptions, WorkbenchController, WorkbenchNode, WorkbenchPosition } from "./types";
 import "@xyflow/react/dist/style.css";
@@ -83,6 +84,8 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
   const [canvasRenameTarget, setCanvasRenameTarget] = useState<{ directory: string; canvasId: string; fileRevision: string }>();
   const [canvasName, setCanvasName] = useState("");
   const [projectDirectory, setProjectDirectory] = useState("");
+  const [recentProjects, setRecentProjects] = useState(readRecentProjects);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("host");
   const [palette, setPalette] = useState<"add" | "search" | null>(null);
   const [pickingTargets, setPickingTargets] = useState(false);
   const [query, setQuery] = useState("");
@@ -268,7 +271,9 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
   const selectedComposer = composerTargets.length === 1 ? snapshot.plugins.find(plugin => plugin.type.replace(/^remote-/, "") === composerTargets[0].type?.replace(/^remote-/, ""))?.composer : undefined;
   const composerReferences = (snapshot.document?.edges ?? []).filter(edge => snapshot.selectedIds.includes(edge.target)).length;
   const composerState = composerAction ? getComposerState(selectedComposer, composerTargets[0]?.data ?? {}) : { requiresHost: true };
-  const composerDisabledReason = snapshot.readOnly ? "当前为只读协作，无法提交修改" : snapshot.transitioning ? "画布切换中" : composerTargets.length > 20 ? "每次最多操作 20 个节点" : composerState.disabledReason || (composerState.requiresHost && !snapshot.host.canSend ? "连接 Agent 后即可发送，创作要求会保留" : "");
+  const composerNeedsHost = !!composerState.requiresHost && !snapshot.host.canSend;
+  const composerDisabledReason = snapshot.readOnly ? "当前为只读协作，无法提交修改" : snapshot.transitioning ? "画布切换中" : composerTargets.length > 20 ? "每次最多操作 20 个节点" : composerState.disabledReason || (composerNeedsHost ? composerAction ? "连接 Agent，或点节点上方的参数按钮选一个已配置的模型；创作要求会保留" : "连接 Agent 后即可发送，创作要求会保留" : "");
+  const composerBlocked = !sending && !promptStatus && !!composerDisabledReason && !!prompt.trim();
   const canSendPrompt = !!snapshot.document && !composerDisabledReason;
 
   useLayoutEffect(() => {
@@ -671,13 +676,21 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
     setPalette(null);
   }
 
-  async function openProject(event: FormEvent) {
-    event.preventDefault();
-    if (!projectDirectory.trim()) return;
-    await run(async () => {
-      await controller.openProject(projectDirectory.trim());
+  function openDirectory(directory: string) {
+    return run(async () => {
+      await controller.openProject(directory);
       setOpenPanel(null);
     });
+  }
+
+  async function openProject(event: FormEvent) {
+    event.preventDefault();
+    if (projectDirectory.trim()) await openDirectory(projectDirectory.trim());
+  }
+
+  function openSettings(tab: SettingsTab) {
+    setSettingsTab(tab);
+    setOpenPanel("settings");
   }
 
   async function sendPrompt(event?: FormEvent) {
@@ -718,6 +731,9 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
     setContextMenu(null); setBatchConnectionOpen(false); copyDragRef.current = undefined;
     setConnectionSelection(null); setSelectionPointer(null); selectionDragRef.current = null; setZoomInput(null);
   }, [snapshot.directory, snapshot.canvasId]);
+  useEffect(() => {
+    if (openPanel === "project") setRecentProjects(readRecentProjects());
+  }, [openPanel]);
   useEffect(() => {
     if (window.openCinemaTransport || !snapshot.directory || !snapshot.canvasId) return;
     const url = new URL(location.href);
@@ -846,6 +862,15 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
     if (before.directory === current.directory && before.canvasId === current.canvasId && current.document && !current.readOnly && !current.transitioning) await controller.execute("setViewport", { viewport: flow.getViewport() });
   }
 
+  const otherProjects = recentProjects.filter(project => project.directory !== snapshot.directory);
+  const recentProjectList = otherProjects.length > 0 && <div className="recentProjects" role="group" aria-label="最近工程">
+    <span>最近工程</span>
+    {otherProjects.map(({ directory, name }) => <div className="recentProject" key={directory}>
+      <button type="button" title={directory} disabled={pending || snapshot.transitioning} onClick={() => void openDirectory(directory)}><IconFolderOpen aria-hidden="true" focusable="false" size={16} /><strong>{name}</strong><small>{directory}</small></button>
+      <button type="button" aria-label={`从列表移除 ${name}`} title="从列表移除，不删除文件" onClick={() => setRecentProjects(forgetRecentProject(directory))}><IconX aria-hidden="true" focusable="false" size={14} /></button>
+    </div>)}
+  </div>;
+
   return <div className="openCinemaWorkbench" ref={rootRef}>
     <WorkbenchTooltip containerRef={rootRef} />
     <input ref={mediaImportRef} type="file" multiple hidden aria-label="导入画布素材" onChange={event => { const files = [...event.target.files ?? []], target = mediaImportTarget.current; event.target.value = ""; if (files.length && target) void run(() => { const current = controller.getSnapshot(); if (current.directory !== target.directory || current.canvasId !== target.canvasId) throw new Error("选择文件期间画布已切换，请重新导入"); return controller.importMedia(files, target.position); }); setContextMenu(null); }} />
@@ -968,7 +993,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
           <button type="button" ref={paletteTriggerRef} disabled={!snapshot.document || editingLocked} onClick={() => showPalette("add")} title="添加节点 (Tab)" aria-label="添加节点"><IconPlus aria-hidden="true" focusable="false" size={16} /></button>
           <button type="button" disabled={!snapshot.document} onClick={() => showPalette("search")} title="搜索画布节点" aria-label="搜索画布节点"><IconSearch aria-hidden="true" focusable="false" size={16} /></button>
           <button type="button" disabled={!snapshot.directory} onClick={() => setManagementPanel("assets")} title="素材库" aria-label="素材库"><IconFolderOpen aria-hidden="true" focusable="false" size={16} /></button>
-          <button type="button" title="工作台设置" aria-label="工作台设置" onClick={() => setOpenPanel("settings")}><IconSettings aria-hidden="true" focusable="false" size={16} /></button>
+          <button type="button" title="工作台设置" aria-label="工作台设置" onClick={() => openSettings("host")}><IconSettings aria-hidden="true" focusable="false" size={16} /></button>
           <button type="button" disabled={!nodes.length || editingLocked} title="整理画布" aria-label="整理画布" onClick={() => void run(() => controller.execute("arrangeCanvas", {}))}><IconLayoutGrid aria-hidden="true" focusable="false" size={16} /></button>
           <button type="button" className={snapEnabled ? "activeTool" : ""} disabled={editingLocked} title="网格吸附" aria-label="网格吸附" aria-pressed={snapEnabled} onClick={() => changeCanvasView({ snapEnabled: !snapEnabled })}><IconGridDots aria-hidden="true" focusable="false" size={16} /></button>
           <button type="button" className={!showEdges ? "activeTool" : ""} title={showEdges ? "隐藏连线（保留选中节点相关连线）" : "显示连线"} aria-label="显示连线" aria-pressed={showEdges} onClick={() => { changeCanvasView({ showEdges: !showEdges }); setSelectedEdgeIds([]); }}>{showEdges ? <IconLink aria-hidden="true" focusable="false" size={16} /> : <IconLinkOff aria-hidden="true" focusable="false" size={16} />}</button>
@@ -1023,12 +1048,14 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
         </div></details>
         <button type="button" title="删除选中节点" data-tone="danger" aria-label="删除选中节点" onClick={() => runCommand("removeElements", { nodeIds: snapshot.selectedIds, edgeIds: selectedEdgeIds })}><IconTrash aria-hidden="true" focusable="false" size={17} /></button></div>}
 
-      {!snapshot.directory && <button className="openProjectAction" type="button" disabled={snapshot.transitioning} onClick={() => { setProjectDirectory(""); setOpenPanel("project"); }}><IconFolderOpen aria-hidden="true" focusable="false" size={20} />打开工程</button>}
+      {!snapshot.directory && <section className="projectWelcome" aria-label="开始使用"><strong>选择一个工程开始</strong><p>工程就是本机的一个文件夹，画布和素材都保存在里面。</p><button className="openProjectAction" type="button" disabled={snapshot.transitioning} onClick={() => { setProjectDirectory(""); setOpenPanel("project"); }}><IconFolderOpen aria-hidden="true" focusable="false" size={20} />打开工程</button>{recentProjectList}</section>}
+
+      {snapshot.document && !snapshot.document.nodes.length && !editingLocked && !palette && <section className="canvasEmptyGuide" aria-label="开始创作"><strong>把素材拖到这里，或添加第一个节点</strong><p>支持图片、视频、音频和文本文件。也可以在下方直接告诉 Agent 你想做什么。</p><div><button type="button" onClick={() => showPalette("add", canvasCenter())}><IconPlus aria-hidden="true" focusable="false" size={16} />添加节点<kbd>Tab</kbd></button><button type="button" onClick={() => { mediaImportTarget.current = { directory: snapshot.directory, canvasId: snapshot.canvasId, position: canvasCenter() }; mediaImportRef.current?.click(); }}><IconUpload aria-hidden="true" focusable="false" size={16} />导入素材</button><button type="button" onClick={() => openSettings("models")}><IconSettings aria-hidden="true" focusable="false" size={16} />配置媒体服务</button></div></section>}
 
       <button className="historyTrigger" type="button" title="历史记录" aria-label="历史记录" disabled={!snapshot.document || snapshot.transitioning} onClick={() => setOpenPanel("history")}><IconHistory aria-hidden="true" focusable="false" size={14} /><span>历史记录</span></button>
 
       <div className="composerArea">
-        <form className={`hostComposer${promptStatus || sending ? " composerHasStatus" : ""}`} onSubmit={event => void sendPrompt(event)}>
+        <form className={`hostComposer${promptStatus || sending || composerBlocked ? " composerHasStatus" : ""}`} onSubmit={event => void sendPrompt(event)}>
           {composerTargets.length > 0 || composerAction ? <div className="composerContext" id="composerScope" aria-live="polite">
             <span className="composerMode">{composerAction?.label ?? (composerTargets.length ? "操作选中节点" : "画布指令")}</span>
             {selectedComposer?.defaultAction && <button type="button" className="composerModeSwitch" onClick={() => { setComposerAction(composerAction ? null : { nodeId: composerTargets[0].id, ...selectedComposer }); setPromptStatus(""); }} title={composerAction ? "让 Agent 调整此节点，不发起生成" : "使用此节点的生成能力"}>{composerAction ? "调整节点" : selectedComposer.label}</button>}
@@ -1053,6 +1080,7 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
           </div>
           </div>
           {(promptStatus || sending) && <div className="composerStatus" role="status">{sending ? sendingPromptKey.current !== promptKey ? "上一条指令处理中 · 可继续写" : composerAction ? "正在发起创作" : "Agent 处理中" : promptStatus}</div>}
+          {composerBlocked && <div className="composerStatus composerBlocked"><span>{composerDisabledReason}</span>{composerNeedsHost && <button type="button" onClick={() => openSettings("host")}>连接 Agent</button>}{composerNeedsHost && composerAction && <button type="button" onClick={() => openSettings("models")}>配置模型</button>}</div>}
         </form>
       </div>
 
@@ -1078,9 +1106,9 @@ function WorkbenchWorkspace({ controller }: { controller: WorkbenchController })
           trapOverlayFocus(event);
         }}>
           <header><span>{({ project: "打开工程", canvas: canvasAction === "add" ? "新建画布" : "重命名画布", settings: "工作台设置", history: "历史记录", collaboration: "多人协作" })[openPanel]}</span><button type="button" disabled={pending} onClick={() => setOpenPanel(null)} aria-label="关闭面板"><IconX aria-hidden="true" focusable="false" size={19} /></button></header>
-          {openPanel === "project" && <form className="projectForm" onSubmit={event => void openProject(event)}><label htmlFor="projectDirectory">工作目录</label><input id="projectDirectory" autoFocus value={projectDirectory} onChange={event => setProjectDirectory(event.target.value)} placeholder="输入工作目录的绝对路径" autoComplete="off" disabled={pending} /><button type="submit" disabled={!projectDirectory.trim() || pending}>{pending ? <IconLoader2 aria-hidden="true" focusable="false" className="spin" size={17} /> : <IconFolderOpen aria-hidden="true" focusable="false" size={17} />}打开工程</button></form>}
+          {openPanel === "project" && <form className="projectForm" onSubmit={event => void openProject(event)}><label htmlFor="projectDirectory">工作目录</label><input id="projectDirectory" autoFocus value={projectDirectory} onChange={event => setProjectDirectory(event.target.value)} placeholder="例如 /Users/me/Movies/myFilm" autoComplete="off" disabled={pending} /><small>填写已存在文件夹的绝对路径；空文件夹也可以，会自动创建第一张画布。</small><button type="submit" disabled={!projectDirectory.trim() || pending}>{pending ? <IconLoader2 aria-hidden="true" focusable="false" className="spin" size={17} /> : <IconFolderOpen aria-hidden="true" focusable="false" size={17} />}打开工程</button>{recentProjectList}</form>}
           {openPanel === "canvas" && <form className="projectForm" onSubmit={event => { event.preventDefault(); void run(async () => { if (canvasAction === "add") await controller.addCanvas(canvasName.trim() || undefined); else { const current = controller.getSnapshot(); if (!canvasRenameTarget || current.directory !== canvasRenameTarget.directory || current.canvasId !== canvasRenameTarget.canvasId) throw new Error("画布已切换，请重新打开改名对话框"); await controller.renameCanvas(canvasName.trim(), canvasRenameTarget.fileRevision); } setOpenPanel(null); }); }}><label htmlFor="canvasName">画布名称</label><input id="canvasName" autoFocus value={canvasName} onChange={event => setCanvasName(event.target.value)} autoComplete="off" disabled={pending} /><button type="submit" disabled={pending || (canvasAction === "rename" && !canvasName.trim())}>{canvasAction === "add" ? "创建画布" : "保存名称"}</button></form>}
-          {openPanel === "settings" && <SettingsPanel controller={controller} />}
+          {openPanel === "settings" && <SettingsPanel controller={controller} initialTab={settingsTab} />}
           {openPanel === "collaboration" && CollaborationPanel && <CollaborationPanel service={collaboration.service} />}
           {openPanel === "history" && history && <div className="historyPanelBody"><div className="historySummary"><span>{history.mode === "collaboration" ? "协作会话历史" : "当前编辑会话"}</span><span>修订 {history.revision} · 已保存 {history.savedRevision}</span></div><div className="historyActions"><button type="button" disabled={!snapshot.canUndo || pending || editingLocked} onClick={() => void run(() => controller.undo())}><IconArrowBackUp aria-hidden="true" focusable="false" size={16} />撤销</button><button type="button" disabled={!snapshot.canRedo || pending || editingLocked} onClick={() => void run(() => controller.redo())}><IconArrowForwardUp aria-hidden="true" focusable="false" size={16} />重做</button></div>{history.entries.map(entry => <div className="historyEntry" key={`${entry.direction}:${entry.steps}`}><IconHistory aria-hidden="true" focusable="false" size={16} /><span>{entry.direction === "undo" ? "回退" : "重做"}第 {entry.steps} 步</span><small>{entry.nodes} 节点 · {entry.edges} 连线</small></div>)}</div>}
         </MotionLayer>

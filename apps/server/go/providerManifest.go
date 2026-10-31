@@ -56,8 +56,8 @@ func parseHTTPProvider(source string) (object, error) {
 		return nil, fail(400, "供应商 ID 或名称无效")
 	}
 	if str(provider["transport"]) == "local" {
-		if videoProtocol(provider) != "openaiVideo" {
-			return nil, fail(400, "本地供应商须使用 openaiVideo 协议")
+		if protocol := videoProtocol(provider); protocol != "openaiVideo" && protocol != "comfyui" {
+			return nil, fail(400, "本地供应商须使用 openaiVideo 或 comfyui 协议")
 		}
 		if _, err := localMediaEndpoint(str(provider["apiUrl"])); err != nil {
 			return nil, err

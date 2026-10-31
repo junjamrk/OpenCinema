@@ -32,20 +32,20 @@ import type { WorkbenchController, WorkbenchNodeViewProps, WorkbenchSnapshot } f
 type View = ComponentType<WorkbenchNodeViewProps>;
 type TextDraft = { text: string; session: DocumentSession };
 type NodePluginError = { pluginId: string; message: string; definition?: NodePluginDefinition<View> };
-const builtinPlugins: Record<string, { label: string; icon?: string; scope?: "workspace"; load(): Promise<PluginModule<View>> }> = {
-  textNode: { label: "文本", icon: "text", load: () => import("@toonflow/node-text/reactPlugin") },
-  imageNode: { label: "图片", icon: "image", load: () => import("@toonflow/node-image/reactPlugin") },
-  videoNode: { label: "视频", icon: "video", load: () => import("@toonflow/node-video/reactPlugin") },
-  audioNode: { label: "音频", icon: "audio", load: () => import("@toonflow/node-audio/reactPlugin") },
-  imageGenerationNode: { label: "图像生成", icon: "image", load: () => import("@toonflow/node-image-generation/reactPlugin") },
-  videoGenerationNode: { label: "视频生成", icon: "video", load: () => import("@toonflow/node-video-generation/reactPlugin") },
-  audioGenerationNode: { label: "音频生成", icon: "audio", load: () => import("@toonflow/node-audio-generation/reactPlugin") },
-  frameAnalysisNode: { label: "逐帧拉片", icon: "frames", load: () => import("@toonflow/node-frame-analysis/reactPlugin") },
-  mediaInfoNode: { label: "媒体信息", icon: "info", load: () => import("@toonflow/node-media-info/reactPlugin") },
-  blockoutNode: { label: "Blockout 排演", icon: "spatial", load: () => import("@toonflow/node-blockout/reactPlugin") },
-  director3dNode: { label: "3D 导演台", icon: "spatial", load: () => import("@toonflow/node-director3d/reactPlugin") },
-  videoDepthNode: { label: "视频深度白模", icon: "motion", load: () => import("@toonflow/node-video-depth/reactPlugin") },
-  motionAnalysisNode: { label: "Motion 运动分析", icon: "motion", load: () => import("@toonflow/node-motion-analysis/reactPlugin") },
+const builtinPlugins: Record<string, { label: string; description?: string; icon?: string; scope?: "workspace"; load(): Promise<PluginModule<View>> }> = {
+  textNode: { label: "文本", description: "Markdown 写剧本、分镜和说明，文本可接入下游节点", icon: "text", load: () => import("@toonflow/node-text/reactPlugin") },
+  imageNode: { label: "图片", description: "导入图片，做局部重绘、裁剪、宫格、打光、机位与全景", icon: "image", load: () => import("@toonflow/node-image/reactPlugin") },
+  videoNode: { label: "视频", description: "导入视频，截帧、剪辑、变速、提取音轨和审片", icon: "video", load: () => import("@toonflow/node-video/reactPlugin") },
+  audioNode: { label: "音频", description: "导入音频，试听、波形剪辑、拼接、变速和转写", icon: "audio", load: () => import("@toonflow/node-audio/reactPlugin") },
+  imageGenerationNode: { label: "图像生成", description: "用提示词和参考图生成图片，可选 Agent 或专项模型", icon: "image", load: () => import("@toonflow/node-image-generation/reactPlugin") },
+  videoGenerationNode: { label: "视频生成", description: "文生视频、首尾帧与多模态参考，含镜头管理和审片", icon: "video", load: () => import("@toonflow/node-video-generation/reactPlugin") },
+  audioGenerationNode: { label: "音频生成", description: "用文本或参考素材生成配音与音效", icon: "audio", load: () => import("@toonflow/node-audio-generation/reactPlugin") },
+  frameAnalysisNode: { label: "逐帧拉片", description: "本地检测切点，输出关键帧、镜头片段和音轨", icon: "frames", load: () => import("@toonflow/node-frame-analysis/reactPlugin") },
+  mediaInfoNode: { label: "媒体信息", description: "本地读取编码、时长、帧率和轨道信息", icon: "info", load: () => import("@toonflow/node-media-info/reactPlugin") },
+  blockoutNode: { label: "Blockout 排演", description: "3D 编排走位与摄影机，导出 RGB／Depth 参考", icon: "spatial", load: () => import("@toonflow/node-blockout/reactPlugin") },
+  director3dNode: { label: "3D 导演台", description: "用文字生成 3D 动画和运镜，再手动取景导出", icon: "spatial", load: () => import("@toonflow/node-director3d/reactPlugin") },
+  videoDepthNode: { label: "视频深度白模", description: "用本地模型把视频转成深度白模参考", icon: "motion", load: () => import("@toonflow/node-video-depth/reactPlugin") },
+  motionAnalysisNode: { label: "Motion 运动分析", description: "分析二维运动、姿态和相对深度，导出制作参考包", icon: "motion", load: () => import("@toonflow/node-motion-analysis/reactPlugin") },
   collaborationExtension: { label: "协作", scope: "workspace", load: () => import("@toonflow/node-collaboration/reactPlugin") as unknown as Promise<PluginModule<View>> },
 };
 const relativePath = z.string().min(1).max(4096).refine(value => !/^(?:[\\/]|[a-z][a-z\d+.-]*:)/i.test(value)
@@ -237,7 +237,7 @@ export function createWorkbenchController() {
     return next;
   }
   function publishPlugins() {
-    publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => ({ type: `remote-${id}`, label, icon: definitions.get(id)?.icon ?? builtinPlugins[id]?.icon, composer: definitions.get(id)?.composer, category: /Generation/.test(id) ? "生成" : /Analysis|Info|Depth/.test(id) ? "分析" : /blockout|director/.test(id) ? "空间与摄影" : "文本与媒体", supported: !disabledPlugins.has(id) })),
+    publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => ({ type: `remote-${id}`, label, description: builtinPlugins[id]?.description, icon: definitions.get(id)?.icon ?? builtinPlugins[id]?.icon, composer: definitions.get(id)?.composer, category: /Generation/.test(id) ? "生成" : /Analysis|Info|Depth/.test(id) ? "分析" : /blockout|director/.test(id) ? "空间与摄影" : "文本与媒体", supported: !disabledPlugins.has(id) })),
       workspacePlugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) === "workspace").map(([id, label]) => ({ id, label, enabled: !disabledPlugins.has(id) })) });
   }
   function pluginAvailability(pluginId: string, id?: string): CanvasQueryAvailability {

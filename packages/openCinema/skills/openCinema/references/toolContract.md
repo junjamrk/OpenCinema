@@ -29,11 +29,13 @@
 
 `notDispatched` 可按恢复建议修正；派发后的 `unknown` 先查原操作。`invalidToolResult` 表示执行已经返回而结果不符合声明，不能自动重做有副作用的操作。`annotations.readOnlyHint`、`destructiveHint`、`idempotentHint` 和 `openWorldHint` 是发现提示，服务端仍执行真实授权。
 
-## 本地 MiniMax H3 连接
+## 本地 ComfyUI 连接与工作流
 
-通过 `getWorkbenchTools` 搜索 `LocalVideoConnection`，按同一 `catalogRevision` 调用三个扩展操作。`getLocalVideoConnection` 只读非秘密连接与独立 `configRevision`；`setLocalVideoConnection` 仅允许修改 `enabled` 和明确的本机／局域网 ComfyUI `endpoint`，传入该配置修订和外层稳定 `operationId`。端点不允许凭据、查询令牌、公网地址、任意工作流或 shell；保存连接不发起下载或推理。
+通过 `getWorkbenchTools` 搜索 `LocalVideoConnection`，按同一 `catalogRevision` 调用三个扩展操作。`getLocalVideoConnection` 只读非秘密连接与独立 `configRevision`；`setLocalVideoConnection` 仅允许修改 `enabled` 和明确的本机／局域网 ComfyUI `endpoint`，传入该配置修订和外层稳定 `operationId`。端点不允许凭据、查询令牌、公网地址或 shell；保存连接不发起推理。
 
-`inspectLocalVideoConnection` 按 `expectedRevision` 访问已配置服务，返回实际系统、H3 节点 Schema 与候选权重目录。模型列表按 `offset/limit` 分页，后续页带回同一 `inspectionRevision`；目录快照变化先从第一页重读。`ready`、`capabilities[].available` 和 `dependenciesAvailable` 仅说明已枚举依赖，不能证明权重已加载、硬件足够或生成完成。当前连接入口固定 `executionSupported:false`、`generationVerified:false`、`modelLoadState:"unknown"`，不执行任意生成工作流。
+`inspectLocalVideoConnection` 按 `expectedRevision` 访问已配置服务，返回实际系统和每个已导入工作流缺少的节点。`ready` 只说明服务可用且节点齐全，模型文件和显存在提交时由 ComfyUI 校验。
+
+ComfyUI 工作流是 `comfyui` 供应商的模型。启用连接后，它和其他模型一样出现在节点 `getConfig`，用 `generateImage`、`generateVideo` 或 `generateAudio` 生成，生成请求不能携带工作流。工作流由用户在设置页导入；用户明确要求时，也可以用 `getProviderModels` 读取后经 `setProviderModels` 完整保存，模型格式见 `docs/videoProvider.md`。工作流会在 ComfyUI 上执行，不要自行拼图或保存来源不明的工作流。
 
 ## 统一视频 Provider
 
