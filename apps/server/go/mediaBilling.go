@@ -156,6 +156,8 @@ func balanceDeduction(before, after object) object {
 }
 
 // recordVendorCost 只收厂商明确返回且带单位的金额，字段不全就当没有，不推算。
+// ACT: cost、amount、unit 这几个字段名没有 TF-router 公开文档可核对。字段不符时只是读不到，回退到余额差，不会记错金额；
+// 升级方式是拿到真实响应或接口文档后改成确定的字段名。
 func recordVendorCost(ctx context.Context, data object) {
 	value, _ := ctx.Value(videoTaskKey{}).(*videoTaskContext)
 	if value == nil || str(data["unit"]) == "" {
