@@ -3,13 +3,16 @@ import { z } from "zod";
 import type { WorkbenchController } from "./types";
 import ComfySettings from "./comfySettings";
 import NodeMenuSettings from "./nodeMenuSettings";
+import PluginSettings from "./pluginSettings";
+import SettingFields from "./settingFields";
 import { canvasShortcutFields, defaultCanvasShortcuts, isShortcutAllowed, normalizeShortcut } from "@/lib/canvasShortcuts";
-import { defaultPluginMarketUrl, ffmpegConfigurationSchema, ffmpegStatusSchema, mediaProviderSchema, pluginMarketClient, pluginMarketUrlOf, pluginPackageSchema, pluginSchema, providerModelSchema, workbenchSettingsClient, type PluginMarket, type PluginMarketEntry } from "@/lib/workbenchSettingsClient";
+import { ffmpegConfigurationSchema, ffmpegStatusSchema, mediaProviderSchema, providerModelSchema, workbenchSettingsClient } from "@/lib/workbenchSettingsClient";
 
 const depthSchema = z.object({ available: z.boolean(), runtimeAvailable: z.boolean(), message: z.string(), preparationProgress: z.object({ phase: z.string(), received: z.number(), total: z.number(), error: z.string().optional() }).optional() });
 const hostSessionSchema = z.object({ id: z.string(), name: z.string(), directory: z.string().optional() });
 type ModelDraft = { id: string; label: string; type: "image" | "video" | "audio" | "text"; options: string };
 export type SettingsTab = "host" | "plugins" | "models" | "canvas" | "ffmpeg" | "nodeMenu";
+export type SettingsRequest = { tab: SettingsTab; pluginId?: string };
 const apiKeyRule = { field: "apiKey", title: "API Key", type: "input", value: "", props: { type: "password" } };
 const providerTemplates = {
   video: { id: "remoteVideo", label: "自建视频服务", apiUrl: "https://video.example.com/v1", videoProtocol: "openaiVideo", transport: "public", cancelMode: "none", endpoints: { video: "videos" }, rules: [apiKeyRule], models: [{ id: "deployedModelName", label: "已部署的视频模型", type: "video", mode: ["text", "endFrameOptional"], imageRatios: ["16:9", "9:16"], audio: false, durationResolutionMap: [{ duration: [4, 8], resolution: ["720p"] }], video: { inputMap: { firstFrame: "input_reference" } } }] },
@@ -23,18 +26,6 @@ function providerSummary(provider: z.infer<typeof mediaProviderSchema>) {
 function draftModels(provider: z.infer<typeof mediaProviderSchema>): ModelDraft[] {
   return provider.models.map(({ id, label, type, ...options }) => ({ id, label, type, options: JSON.stringify(options, null, 2) }));
 }
-function SettingFields({ rules, values, onChange, disabled }: { rules: Record<string, unknown>[]; values: Record<string, unknown>; onChange: (field: string, value: string | number | boolean) => void; disabled: boolean }) {
-  return <>{rules.filter(rule => typeof rule.field === "string" && rule.field).map(rule => {
-    const field = String(rule.field), label = String(rule.title || field), value = values[field] ?? rule.value ?? "";
-    const props = rule.props && typeof rule.props === "object" ? rule.props as Record<string, unknown> : {};
-    const options = Array.isArray(rule.options) ? rule.options as Record<string, unknown>[] : [];
-    if (["switch", "checkbox"].includes(String(rule.type))) return <label className="settingToggle" key={field}><span>{label}</span><input type="checkbox" checked={value === true} disabled={disabled} onChange={event => onChange(field, event.target.checked)} /></label>;
-    if (rule.type === "select" && options.length) return <label key={field}>{label}<select value={String(value)} disabled={disabled} onChange={event => { const selected = options.find(option => String(option.value) === event.target.value)?.value; onChange(field, typeof selected === "number" || typeof selected === "boolean" ? selected : String(selected ?? "")); }}>{options.map((option, index) => <option key={index} value={String(option.value)}>{String(option.label ?? option.value)}</option>)}</select></label>;
-    const numeric = ["inputNumber", "slider"].includes(String(rule.type));
-    const secret = props.type === "password" || /key|token|secret|password|credential/i.test(field);
-    return <label key={field}>{label}<input type={numeric ? "number" : secret ? "password" : "text"} value={String(value)} disabled={disabled} autoComplete="off" placeholder={typeof props.placeholder === "string" ? props.placeholder : undefined} onChange={event => onChange(field, numeric ? Number(event.target.value) : event.target.value)} /></label>;
-  })}</>;
-}
 async function api(path: string, body?: unknown, method = "POST") {
   const response = await fetch(`/api/${path}`, { method: body === undefined ? "GET" : method, headers: { "Content-Type": "application/json", "x-toonflow-workspace": "1" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const value = await response.json();
@@ -42,10 +33,10 @@ async function api(path: string, body?: unknown, method = "POST") {
   return value.data;
 }
 
-export default function SettingsPanel({ controller, initialTab = "host" }: { controller: WorkbenchController; initialTab?: SettingsTab }) {
+export default function SettingsPanel({ controller, request }: { controller: WorkbenchController; request: SettingsRequest }) {
   const native = !!window.openCinemaTransport;
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
-  const [tab, setTab] = useState<SettingsTab>(initialTab);
+  const [tab, setTab] = useState<SettingsTab>(request.tab);
   const [settings, setSettings] = useState<Record<string, unknown>>({});
   const [generalConfiguration, setGeneralConfiguration] = useState<Awaited<ReturnType<typeof workbenchSettingsClient.generalConfiguration>>>();
   const [providers, setProviders] = useState<z.infer<typeof mediaProviderSchema>[]>([]);
@@ -55,30 +46,22 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
   const [providerSource, setProviderSource] = useState("");
   const [addingProvider, setAddingProvider] = useState(false);
   const [modelDrafts, setModelDrafts] = useState<ModelDraft[]>([]);
-  const [installedPlugins, setInstalledPlugins] = useState<z.infer<typeof pluginSchema>[]>([]);
-  const [configuringPlugin, setConfiguringPlugin] = useState<z.infer<typeof pluginSchema>>();
-  const [pluginValues, setPluginValues] = useState<Record<string, unknown>>({});
-  const [removingPlugin, setRemovingPlugin] = useState<string>();
   const [removingProvider, setRemovingProvider] = useState(false);
   const [ffmpeg, setFfmpeg] = useState<z.infer<typeof ffmpegStatusSchema>>();
   const [ffmpegConfiguration, setFfmpegConfiguration] = useState<z.infer<typeof ffmpegConfigurationSchema>>();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
-  const [pendingPackage, setPendingPackage] = useState<{ value: z.infer<typeof pluginPackageSchema>; size: number; existing: boolean; builtin: boolean; origin?: string }>();
-  const [market, setMarket] = useState<PluginMarket>();
-  const [marketLoading, setMarketLoading] = useState(false);
-  const [marketError, setMarketError] = useState("");
-  const [marketUrlDraft, setMarketUrlDraft] = useState("");
   const [depth, setDepth] = useState<z.infer<typeof depthSchema>>();
   const [hostSessions, setHostSessions] = useState<z.infer<typeof hostSessionSchema>[]>([]);
   const [hostSessionId, setHostSessionId] = useState(() => {
     if (native) return "";
     try { return localStorage.getItem("openCinema.hostSessionId") ?? ""; } catch { return ""; }
   });
-  const pluginFile = useRef<HTMLInputElement>(null);
   const providerFile = useRef<HTMLInputElement>(null);
   const config = settings.mediaProviderConfigs && typeof settings.mediaProviderConfigs === "object" ? settings.mediaProviderConfigs as Record<string, Record<string, unknown>> : {};
+  // 面板已打开时，节点或工具再次请求某一页也要跳过去。
+  useEffect(() => { setTab(request.tab); }, [request]);
   useEffect(() => {
     let active = true;
     void Promise.all([api("settings/get"), workbenchSettingsClient.providerCatalog(new AbortController().signal), workbenchSettingsClient.generalConfiguration(new AbortController().signal)]).then(([values, catalog, general]) => {
@@ -89,7 +72,6 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
     }).catch(value => { if (active) setError(value instanceof Error ? value.message : String(value)); });
     return () => { active = false; };
   }, []);
-  // 插件的安装、停用和卸载发生在别的标签页或 Agent 工具里，所以进入本页和配置变化时都重新读取。
   useEffect(() => {
     if (tab !== "models") return;
     const controller = new AbortController();
@@ -102,18 +84,15 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
     return () => { controller.abort(); window.removeEventListener("toonflow:provider-config-changed", refresh); };
   }, [tab]);
   useEffect(() => {
-    if (tab !== "plugins" && tab !== "ffmpeg") return;
+    if (tab !== "ffmpeg") return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     async function refresh() {
       try {
-        if (tab === "plugins") { const list = await workbenchSettingsClient.plugins(controller.signal); if (!controller.signal.aborted) setInstalledPlugins(list); }
-        else {
-          const [state, configuration] = await Promise.all([workbenchSettingsClient.ffmpegStatus(controller.signal), workbenchSettingsClient.ffmpegConfiguration(controller.signal)]);
-          if (controller.signal.aborted) return;
-          setFfmpeg(state); setFfmpegConfiguration(configuration);
-          if (["downloading", "verifying", "installing"].includes(state.download.phase)) timer = setTimeout(() => void refresh(), 1000);
-        }
+        const [state, configuration] = await Promise.all([workbenchSettingsClient.ffmpegStatus(controller.signal), workbenchSettingsClient.ffmpegConfiguration(controller.signal)]);
+        if (controller.signal.aborted) return;
+        setFfmpeg(state); setFfmpegConfiguration(configuration);
+        if (["downloading", "verifying", "installing"].includes(state.download.phase)) timer = setTimeout(() => void refresh(), 1000);
       } catch (value) { if (!controller.signal.aborted) setError(value instanceof Error ? value.message : String(value)); }
     }
     void refresh();
@@ -136,22 +115,6 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
     void refresh(); const timer = setInterval(() => void refresh(), 2000);
     return () => { active = false; clearInterval(timer); };
   }, [tab, snapshot.directory]);
-  useEffect(() => { const value = generalConfiguration?.general.pluginMarketUrl; setMarketUrlDraft(typeof value === "string" ? value : ""); }, [generalConfiguration?.configRevision]);
-  async function loadMarket() {
-    setMarketLoading(true); setMarketError("");
-    try {
-      const general = generalConfiguration ?? await workbenchSettingsClient.generalConfiguration(new AbortController().signal);
-      setMarket(await pluginMarketClient.index(pluginMarketUrlOf(general.general), new AbortController().signal));
-    } catch (value) { setMarketError(value instanceof Error ? value.message : String(value)); } finally { setMarketLoading(false); }
-  }
-  // 市场条目只下载并校验，安装仍走同一张“复核”卡片；用户看清 id、版本、大小后才执行。
-  async function reviewMarketEntry(entry: PluginMarketEntry) {
-    const downloaded = await pluginMarketClient.download(entry, new AbortController().signal);
-    const catalog = await workbenchSettingsClient.plugins(new AbortController().signal);
-    const existing = catalog.find(item => (item.id ?? item.name) === entry.id);
-    setPendingPackage({ value: downloaded.value, size: downloaded.size, existing: !!existing, builtin: !!existing?.builtin, origin: `来自插件市场 ${new URL(market?.url ?? defaultPluginMarketUrl).host} · SHA-256 已校验 ${downloaded.sha256.slice(0, 16)}…` });
-    setStatus("插件包已下载并通过校验，请确认安装");
-  }
   async function perform(action: () => Promise<void>) {
     if (busy) return;
     setBusy(true); setError(""); setStatus("");
@@ -217,68 +180,7 @@ export default function SettingsPanel({ controller, initialTab = "host" }: { con
           <p>Agent 需调用 registerHost 声明能力，并用 pollHostRequests 领取画布指令、completeHostRequest 回报结果。仅建立 MCP 连接不代表 Agent 在线。</p></details>
       </>}
     </div>}
-    {tab === "plugins" && <div className="settingsContent">
-      <div className="settingsActions"><button type="button" disabled={busy} onClick={() => void perform(async () => { await controller.refreshPlugins(); setInstalledPlugins(await workbenchSettingsClient.plugins(new AbortController().signal)); setStatus("插件目录已刷新"); })}>刷新目录</button><button type="button" disabled={busy} onClick={() => pluginFile.current?.click()}>安装插件包</button><a href="/pluginSdk.js" target="_blank" rel="noreferrer">插件 SDK</a></div>
-      <input ref={pluginFile} type="file" accept="application/json,.json" hidden aria-label="插件包" onChange={event => {
-        const file = event.target.files?.[0]; event.target.value = "";
-        if (!file) return;
-        void perform(async () => {
-          if (file.size > 128 * 1024 ** 2) throw new Error("插件包超过 128 MiB");
-          const value = pluginPackageSchema.parse(JSON.parse(await file.text()));
-          const catalog = z.array(z.object({ id: z.string().optional(), name: z.string(), builtin: z.boolean() })).parse(await api("nodes/get"));
-          const existing = catalog.find(item => (item.id ?? item.name) === value.manifest.id);
-          setPendingPackage({ value, size: file.size, existing: !!existing, builtin: !!existing?.builtin });
-        });
-      }} />
-      {pendingPackage && <div className="pluginPackageReview"><strong>{pendingPackage.value.manifest.name ?? pendingPackage.value.manifest.id}</strong><span>{pendingPackage.value.manifest.id} · {pendingPackage.value.manifest.version}</span><span>{(pendingPackage.size / 1024 ** 2).toFixed(2)} MiB · {pendingPackage.value.assets?.length ?? 0} 个资源</span>{pendingPackage.origin && <span>{pendingPackage.origin}</span>}{typeof pendingPackage.value.manifest.description === "string" && <span>{pendingPackage.value.manifest.description}</span>}<div className="settingsActions"><button type="button" disabled={busy} onClick={() => void perform(async () => {
-        const value = pendingPackage;
-        await api("nodes/install", { fileName: `${value.value.manifest.id}.js`, ...value.value, ...(value.existing ? { force: true, replaceBuiltin: value.builtin } : {}) });
-        await controller.refreshPlugins(); setInstalledPlugins(await workbenchSettingsClient.plugins(new AbortController().signal)); setPendingPackage(undefined); setStatus("插件已安装并登记能力");
-      })}>{pendingPackage.existing ? pendingPackage.builtin ? "更新内置插件" : "更新已安装插件" : "安装此插件"}</button><button type="button" disabled={busy} onClick={() => setPendingPackage(undefined)}>取消</button></div></div>}
-      <section className="pluginMarket" aria-label="插件市场">
-        <div className="pluginMarketBar"><strong>插件市场</strong><span>{market ? `${market.plugins.length} 个插件 · ${new URL(market.url).host} · 安装前按 SHA-256 校验` : "静态目录，默认来自 opencinema.site；下载后按目录中的 SHA-256 校验，再经本机服务安装。"}</span><button type="button" disabled={busy || marketLoading} onClick={() => void loadMarket()}>{marketLoading ? "正在读取…" : market ? "刷新市场" : "打开插件市场"}</button></div>
-        {marketError && <p className="settingsError" role="alert">{marketError}</p>}
-        {market?.plugins.length === 0 && <p>市场目录暂时没有插件。</p>}
-        {market?.plugins.map(entry => {
-          const current = installedPlugins.find(plugin => (plugin.id ?? plugin.name) === entry.id), same = current?.version === entry.version;
-          const description = entry.description["zh-CN"] ?? entry.description.zh ?? entry.description.en ?? Object.values(entry.description)[0] ?? "";
-          return <section className="pluginSettingsCard pluginMarketCard" key={`${entry.id}@${entry.version}`}>
-            <div className="pluginMarketHead"><strong>{entry.displayName?.["zh-CN"] ?? entry.name}</strong><small>{entry.id} · {entry.version} · {entry.author} · {entry.license} · {(entry.size / 1024 ** 2).toFixed(2)} MiB</small></div>
-            <p>{description}</p>
-            {(entry.tags.length > 0 || Object.keys(entry.requires).length > 0) && <div className="pluginMarketTags">{entry.tags.map(tag => <span key={tag}>{tag}</span>)}{Object.keys(entry.requires).map(name => <span key={`requires:${name}`} className="pluginMarketRequires" title="插件声明需要的宿主能力">{name}</span>)}</div>}
-            <div className="settingsActions">
-              <button type="button" disabled={busy || snapshot.transitioning || same} onClick={() => void perform(() => reviewMarketEntry(entry))}>{same ? `已安装 ${entry.version}` : current ? `下载更新 ${entry.version}` : "下载并复核"}</button>
-              {entry.homepage && <a href={entry.homepage} target="_blank" rel="noreferrer">主页</a>}
-            </div>
-          </section>;
-        })}
-        <details><summary>市场地址</summary>
-          <label>index.json 地址<input value={marketUrlDraft} placeholder={defaultPluginMarketUrl} disabled={busy || !generalConfiguration} spellCheck={false} onChange={event => setMarketUrlDraft(event.target.value)} /></label>
-          <div className="settingsActions"><button type="button" disabled={busy || !generalConfiguration} onClick={() => void perform(async () => {
-            if (!generalConfiguration) throw new Error("设置尚未读取");
-            const next = await workbenchSettingsClient.saveGeneralConfiguration({ pluginMarketUrl: marketUrlDraft.trim() }, generalConfiguration.configRevision, new AbortController().signal);
-            setGeneralConfiguration(next); setMarket(undefined); setStatus(marketUrlDraft.trim() ? "市场地址已保存" : "已恢复默认市场地址");
-          })}>保存地址</button><span>留空恢复默认。只接受 https；本机开发可用 http://127.0.0.1。</span></div>
-        </details>
-      </section>
-      {installedPlugins.map(plugin => <section className="pluginSettingsCard" key={plugin.name}>
-        <label className="pluginSetting"><span><strong>{plugin.displayName || plugin.name}</strong><small>{plugin.name} · {plugin.version ?? ""}{plugin.builtin ? " · 内置" : ""}</small></span><input type="checkbox" aria-label={`启用${plugin.displayName || plugin.name}`} checked={plugin.enabled} disabled={busy || snapshot.transitioning} onChange={event => void perform(async () => { await controller.setPluginEnabled(plugin.name, event.target.checked); setInstalledPlugins(await workbenchSettingsClient.plugins(new AbortController().signal)); })} /></label>
-        {plugin.loadError && <p className="settingsError" role="alert">{plugin.loadError}</p>}
-        <div className="settingsActions">
-          {!!plugin.configRules?.length && <button type="button" disabled={busy || plugin.canConfigure === false} onClick={() => { setConfiguringPlugin(plugin); setPluginValues(plugin.config ?? {}); }}>配置</button>}
-          {plugin.installed && <><button type="button" disabled={busy || !plugin.enabled || !plugin.revision} onClick={() => void perform(async () => {
-            const value = await workbenchSettingsClient.pluginPackage(plugin.name, plugin.revision!, new AbortController().signal);
-            const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
-            const link = document.createElement("a"); link.href = url; link.download = `${plugin.name}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); setStatus("插件包已导出，不包含运行配置");
-          })}>导出插件包</button><button type="button" disabled={busy} onClick={() => setRemovingPlugin(plugin.name)}>{plugin.builtin ? "恢复内置版本" : "卸载"}</button></>}
-        </div>
-        {removingPlugin === plugin.name && <div className="settingConfirmation"><p>{plugin.builtin ? "移除已安装的更新并恢复内置版本。" : "卸载插件后，现有节点和素材会保留；重新安装后可继续编辑。"}</p><div className="settingsActions"><button type="button" disabled={busy} onClick={() => void perform(async () => { await workbenchSettingsClient.uninstallPlugin(plugin.name, new AbortController().signal, plugin.builtin); await controller.refreshPlugins(); setInstalledPlugins(await workbenchSettingsClient.plugins(new AbortController().signal)); setRemovingPlugin(undefined); setConfiguringPlugin(undefined); setStatus(plugin.builtin ? "已恢复内置版本" : "插件已卸载"); })}>{plugin.builtin ? "确认恢复" : "确认卸载"}</button><button type="button" disabled={busy} onClick={() => setRemovingPlugin(undefined)}>取消</button></div></div>}
-      </section>)}
-      {configuringPlugin && <form className="settingEditor" onSubmit={event => { event.preventDefault(); void perform(async () => { const result = await workbenchSettingsClient.savePlugin(configuringPlugin.name, pluginValues, configuringPlugin.configRevision, new AbortController().signal); setConfiguringPlugin({ ...configuringPlugin, ...result }); setInstalledPlugins(await workbenchSettingsClient.plugins(new AbortController().signal)); await controller.refreshPlugins(); setStatus("插件配置已保存"); }); }}>
-        <strong>{configuringPlugin.displayName || configuringPlugin.name} · 配置</strong><SettingFields rules={configuringPlugin.configRules ?? []} values={pluginValues} disabled={busy} onChange={(field, value) => setPluginValues({ ...pluginValues, [field]: value })} /><div className="settingsActions"><button type="submit" disabled={busy}>保存配置</button><button type="button" disabled={busy} onClick={() => setConfiguringPlugin(undefined)}>关闭配置</button></div>
-      </form>}
-      <p>已安装的插件可读取和修改工作区。停用插件会保留画布和素材，重新启用后恢复编辑能力。</p>
-    </div>}
+    {tab === "plugins" && <PluginSettings controller={controller} busy={busy} perform={perform} onStatus={setStatus} onError={setError} generalConfiguration={generalConfiguration} onGeneralConfiguration={setGeneralConfiguration} focusPluginId={request.pluginId} />}
     {tab === "models" && <div className="settingsContent providerSettings">
       <div className="providerMaster">
       <div className="providerList" role="group" aria-label="媒体供应商">{providers.map(provider => <button type="button" className="providerRow" key={provider.id} aria-pressed={provider.id === providerId} onClick={() => selectProvider(provider.id)}><span><strong>{provider.label}</strong><small>{providerSummary(provider)}</small></span><em data-ready={provider.transport === "local" || provider.videoProtocol === "adapter" || !!provider.credentialConfigured}>{provider.transport === "local" ? "本地服务" : provider.videoProtocol === "adapter" ? "本机适配器" : provider.credentialConfigured ? "已配置" : "待配置"}</em></button>)}</div>

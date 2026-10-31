@@ -113,6 +113,20 @@
     }
 
     .pluginSettingsCard .pluginSetting { padding: 0; border: 0; }
+    .pluginSettingsCard[data-focused="true"] { border-color: var(--borderSelected); box-shadow: 0 0 0 1px var(--borderSelected); }
+    .pluginDescription, .pluginFocusNotice { margin: 0; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); }
+    .pluginPackageReview {
+      dl.pluginFacts { display: grid; gap: 6px; margin: 0; font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall);
+        > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; }
+        dt { color: var(--textMuted); }
+        dd { display: grid; gap: 2px; margin: 0; color: var(--textSecondary); }
+        dd em { color: var(--statusWarning); font-style: normal; }
+        ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+      }
+      .pluginReadme pre { max-height: 240px; margin: 8px 0 0; overflow: auto; color: var(--textSecondary); font: 11px / 18px var(--fontMono); white-space: pre-wrap; }
+      .pluginBlockers { display: grid; gap: 2px; color: var(--statusError); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); strong { font-weight: var(--fontWeightTitle); } }
+      .pluginTrustNotice { margin: 0; padding: 8px 10px; border: 1px solid var(--statusWarningBorder); border-radius: var(--radiusControl); background: var(--statusWarningSurface); color: var(--textPrimary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); }
+    }
     .pluginMarket { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusPanel); background: var(--surfaceCanvas); }
     .pluginMarketBar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; strong { color: var(--textPrimary); } > span { flex: 1 1 200px; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); } }
     .pluginMarketCard { p { margin: 0; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); } }
