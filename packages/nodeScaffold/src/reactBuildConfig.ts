@@ -15,6 +15,8 @@ export interface NodeConfig {
   github: string;
   outDir?: string;
   configRules?: Record<string, unknown>[];
+  // 格式同 /api/providers/media/add 的 HTTP JSON 清单，安装时由服务端按同一规则校验。
+  providers?: Record<string, unknown>[];
   resources?: Record<string, Omit<NodeResource, "size"> & { path: string }>;
 }
 
@@ -42,6 +44,7 @@ const mimeTypes: Record<string, string> = { ".js": "text/javascript", ".mjs": "t
 
 export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
   z.array(z.record(z.string(), z.json())).max(100).parse(config.configRules ?? []);
+  z.array(z.record(z.string(), z.json())).max(32).parse(config.providers ?? []);
   if (config.github) {
     const github = new URL(config.github);
     if (github.origin !== "https://github.com" || github.username || github.password) throw new Error("GitHub 地址必须是 https://github.com 下的地址");
@@ -100,7 +103,7 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
           }
           nodeResourceManifestSchema.parse(resources);
           if (Object.keys(resources).length && !requires.pluginResources) throw new Error("包含资源的插件须声明 pluginResources 宿主能力");
-          manifest = { apiVersion: 1, id, renderer: "react", scope, name: metadata.name, displayName: metadata.name, ...display, version: info.version, author: config.author, github: config.github, requires, configRules: config.configRules ?? [], readme, resources };
+          manifest = { apiVersion: 1, id, renderer: "react", scope, name: metadata.name, displayName: metadata.name, ...display, version: info.version, author: config.author, github: config.github, requires, configRules: config.configRules ?? [], readme, resources, ...(config.providers ? { providers: config.providers } : {}) };
           const module = bundle["index.js"];
           if (!module || module.type !== "chunk") throw new Error("未生成 React ESM 插件入口");
           const styles = Object.values(bundle).filter(asset => asset.type === "asset" && asset.fileName.endsWith(".css"));
