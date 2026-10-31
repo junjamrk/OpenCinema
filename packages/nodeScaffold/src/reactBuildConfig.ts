@@ -13,6 +13,7 @@ import { nodeResourceManifestSchema, type NodeResource } from "./nodeResources.t
 export interface NodeConfig {
   author: string;
   github: string;
+  outDir?: string;
   configRules?: Record<string, unknown>[];
   resources?: Record<string, Omit<NodeResource, "size"> & { path: string }>;
 }
@@ -53,7 +54,7 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
   const scope = metadata.scope ?? "node";
   // 未声明的字段不写入发行物，运行时才能回退到插件源码自己的声明。
   const display = JSON.parse(JSON.stringify({ category, description, icon }));
-  const output = fileURLToPath(new URL(`../../../build/nodes/${id}`, import.meta.url));
+  const output = resolve(root, config.outDir ?? "dist");
   const sourceEntry = resolve(root, "src/reactPlugin.ts");
   const entryName = "virtual:openCinemaReactEntry";
   const entryId = "\0openCinemaReactEntry";
