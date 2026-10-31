@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NodeViewProps } from "@toonflow/node-shared/reactNode";
 import { errorText } from "@toonflow/node-shared/reactNode";
+import NodeError from "@toonflow/node-shared/reactNodeNotice";
 import { ASSET_CATALOG, assetSpec } from "./nativeBlockout/assets";
 import { ASPECT_RATIOS, SENSORS, LENS_SET } from "./nativeBlockout/camera";
 import { RIGS } from "./nativeBlockout/rigs";
@@ -96,7 +97,7 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
   const setOpen = field("open"), setSceneId = field("sceneId"), setShotId = field("shotId"), setSelected = field("selected"), setSelectedIds = field("selectedIds"), setMarkId = field("markId"), setTime = field("time"), setPlaying = field("playing"), setEditScope = field("editScope"), setMode = field("mode");
   const [snapshot, setSnapshot] = useState<{ project: ProjectDoc; revision: string }>(),
     [inspectorOpen, setInspectorOpen] = useState(true),
-    [error, setError] = useState(""),
+    [error, setError] = useState<unknown>(""),
     [saving, setSaving] = useState(false),
     [status, setStatus] = useState({ busy: false, phase: "", progress: 0, error: "" });
   const [category, setCategory] = useState("people"),
@@ -251,7 +252,7 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
       else await refresh();
       return value;
     } catch (failure) {
-      setError(errorText(failure));
+      setError(failure);
     } finally {
       setSaving(false);
     }
@@ -482,11 +483,7 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
         )}
       </button>
       {!!node.data?.blockoutPath && !outputEntries.length && <p className="nodeStatus" role="status">当前白模版本尚未发布参考；修改后须重新导出，历史文件保留。</p>}
-      {error && (
-        <p className="blockoutError" role="alert">
-          {error}
-        </p>
-      )}
+      <NodeError className="blockoutError" error={error} />
       {open &&
         view &&
         snapshot &&
@@ -543,11 +540,7 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
             {!!(node.data?.modelPath || node.data?.modelSnapshot) && (
               <p className="blockoutLegacy">旧导演台草稿已保留，Blockout 使用独立的场景文档。</p>
             )}
-            {(error || status.error) && (
-              <p className="blockoutError" role="alert">
-                {error || status.error}
-              </p>
-            )}
+            <NodeError className="blockoutError" error={error || status.error} />
             <nav className="blockoutToolbar">
               <button disabled={locked} onClick={() => void action(() => controller.undo())}>
                 <NodeIcon name="undo" />撤销

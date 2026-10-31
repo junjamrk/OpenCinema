@@ -4,7 +4,7 @@ import { errorText, useMediaUrl, mediaValueSchema, type NodeViewProps } from "@t
 import type { AnalysisResult } from "./videoAnalysis";
 import AnalysisReport from "./reactAnalysisReport";
 import NodeIcon from "@toonflow/node-shared/reactIcon";
-import { TaskLockNotice } from "@toonflow/node-shared/reactNodeNotice";
+import NodeError, { TaskLockNotice } from "@toonflow/node-shared/reactNodeNotice";
 import "@toonflow/node-shared/nodeControls";
 
 export default function FrameAnalysisNodeView({ node, controller, readOnly }: NodeViewProps) {
@@ -13,7 +13,7 @@ export default function FrameAnalysisNodeView({ node, controller, readOnly }: No
   const inputs = workbench.getInputs("in");
   const source = mediaValueSchema.safeParse(inputs.length ? inputs[0]?.value : settings.source);
   const { url, error: mediaError } = useMediaUrl(controller, source.success ? source.data : undefined);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>("");
   const [busy, setBusy] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const player = useRef<HTMLVideoElement>(null);
@@ -32,7 +32,7 @@ export default function FrameAnalysisNodeView({ node, controller, readOnly }: No
     update(); const timer = setInterval(update, 1000);
     return () => { active = false; clearInterval(timer); };
   }, [node.id, controller]);
-  async function call(name: string, args: Record<string, unknown> = {}) { setBusy(true); setError(""); try { await controller.callNodeTool(node.id, name, args); } catch (reason) { setError(errorText(reason)); } finally { setBusy(false); } }
+  async function call(name: string, args: Record<string, unknown> = {}) { setBusy(true); setError(""); try { await controller.callNodeTool(node.id, name, args); } catch (reason) { setError(reason); } finally { setBusy(false); } }
   function compose() {
     if (readOnly || busy || running || !resultMatches) return;
     try { workbench.focusComposer({}); } catch (reason) { setError(errorText(reason)); }
@@ -58,6 +58,6 @@ export default function FrameAnalysisNodeView({ node, controller, readOnly }: No
     {result && !resultMatches && <span className="nodeStatus">输入已变化，下面保留上次拉片报告</span>}
     {result && <AnalysisReport result={result} controller={controller} hostText={hostReport?.manifest === result.manifest ? hostReport.text : undefined} />}
     {previewError && <span className="nodeStatus">{previewError}</span>}
-    {(error || status?.error || mediaError) && <p className="nodeError" role="alert">{error || status?.error || mediaError}</p>}
+    <NodeError error={error || status?.error || mediaError} />
   </div>;
 }

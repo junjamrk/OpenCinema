@@ -4,7 +4,7 @@ import { mediaEditor, mediaView, readMediaSourceRevision } from "../mediaEditor"
 import { useEditorSession } from "../editorSession";
 import AudioClipEditor from "./reactAudioClipEditor";
 import NodeIcon from "./reactIcon";
-import { TaskLockNotice } from "./reactNodeNotice";
+import NodeError, { TaskLockNotice } from "./reactNodeNotice";
 import { VideoReviewDialog } from "./videoShotControls";
 import VideoEditPlanControls from "./videoEditPlanControls";
 
@@ -29,7 +29,7 @@ export default function MediaActions({ node, controller, readOnly, mediaType, cu
   }, [draft, source]);
   const [speed, setSpeed] = useState(1);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>("");
   const [busy, setBusy] = useState(false);
   const [operationState, setOperationState] = useState("idle");
   const [operationName, setOperationName] = useState<string>();
@@ -51,7 +51,7 @@ export default function MediaActions({ node, controller, readOnly, mediaType, cu
       if (name === "clipMedia" && !sourceRevision) throw new Error("素材版本仍在读取，请稍后重试");
       await controller.callNodeTool(node.id, name, { ...args, ...(name === "clipMedia" ? { sourceRevision } : {}) }, operation.signal);
     }
-    catch (reason) { if (!operation.signal.aborted) setError(errorText(reason)); }
+    catch (reason) { if (!operation.signal.aborted) setError(reason); }
     finally { if (lifetime.current === operation) lifetime.current = undefined; setBusy(false); }
   }
   return <>{locked && <TaskLockNotice owner={operationName === "transcribeAudio" ? "host" : "local"} disabled={!releasable} onRelease={() => void release()} />}<details className="nodeDetails" open={editorView.open} onToggle={event => { const open = event.currentTarget.open; view.replace({ ...view.read().value, open, ...(!open ? { clipOpen: false } : {}) }); }}><summary>媒体编辑</summary><div className="nodeControls">
@@ -69,6 +69,6 @@ export default function MediaActions({ node, controller, readOnly, mediaType, cu
     <label className="nodeField"><span>变速</span><input type="number" min={mediaType === "audio" ? .1 : .25} max="4" step=".1" value={speed} disabled={busy || readOnly} onChange={event => setSpeed(Number(event.target.value))} /></label>
     <div className="nodeActions"><button type="button" disabled={busy || readOnly} onClick={() => void call("changeSpeed", { speed })}><NodeIcon name="copy" />生成变速副本</button><button type="button" disabled={busy || readOnly} onClick={() => void call("transcribeAudio")}><NodeIcon name="microphone" />语音转文本</button>
       {running && <button type="button" onClick={() => { lifetime.current?.abort(new Error("用户取消操作")); void controller.callNodeTool(node.id, "cancelMediaOperation", {}).catch(() => {}); }}>取消</button>}
-    </div>{reviewOpen && <VideoReviewDialog {...{ node, controller, readOnly }} disabled={running || readOnly} onClose={() => setReviewOpen(false)} />}{error && <p role="alert" className="nodeError">{error}</p>}
+    </div>{reviewOpen && <VideoReviewDialog {...{ node, controller, readOnly }} disabled={running || readOnly} onClose={() => setReviewOpen(false)} />}<NodeError error={error} />
   </div></details></>;
 }
