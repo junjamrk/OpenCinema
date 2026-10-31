@@ -49,15 +49,17 @@
   const LIGHT = norm([-0.45, 0.85, -0.35]);
 
   // The staged action for the previs shot; u = seconds since the shot began (0..DUR)
-  const DUR = 2.5;
+  const DUR = 3.5;
   function action(u) {
     const s = clamp(u / DUR, 0, 1);
-    const run = clamp(s / 0.66, 0, 1);
-    const px = lerp(-3.2, 1.6, run);
+    // run in (0–1.65 s), duck (1.6–2.9 s), then walk on
+    const run = clamp(u / 1.65, 0, 1);
+    const walk = clamp((u - 2.9) / 0.6, 0, 1);
+    const px = lerp(-3.2, 1.6, run) + 0.7 * walk;
     const dist = (px + 3.2);
     const phase = dist / 1.45;
-    const duck = smooth((s - 0.60) / 0.11) * (1 - smooth((s - 0.84) / 0.12));
-    const carX = 10.5 - 13.5 * clamp((s - 0.05) / 0.89, 0, 1);
+    const duck = smooth((u - 1.6) / 0.35) * (1 - smooth((u - 2.55) / 0.35));
+    const carX = 10.5 - 13.5 * clamp((u - 0.15) / 2.45, 0, 1);
     const camAngle = 2.35 - 1.55 * s;
     return { px, phase, duck, carX, camAngle, s };
   }

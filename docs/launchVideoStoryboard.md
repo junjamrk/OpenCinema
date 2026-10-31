@@ -1,10 +1,10 @@
 # OpenCinema launch film · storyboard
 
-A 25-second, Apple-style launch film for the OpenCinema workbench. This document is the plan the film was built from: shot list, timing grid, on-screen text, camera moves, transitions, and the sound cue sheet. Sources and the build pipeline live in [`assets/promo/launchVideo/`](../assets/promo/launchVideo/readme.md); the rendered film is [`assets/promo/openCinemaLaunch.mp4`](../assets/promo/openCinemaLaunch.mp4).
+A 30-second, Apple-style launch film for the OpenCinema workbench. This document is the plan the film was built from: shot list, timing grid, on-screen text, camera moves, transitions, and the sound cue sheet. Sources and the build pipeline live in [`assets/promo/launchVideo/`](../assets/promo/launchVideo/readme.md); the rendered film is [`assets/promo/openCinemaLaunch.mp4`](../assets/promo/openCinemaLaunch.mp4).
 
 ## Decisions made before building
 
-- **Duration: 25.0 s.** The brief asked for a 15-second film; the first cut was built to that length and felt too fast in review, so the schedule below gives every scene a longer hold while keeping each action as quick as before. Readers get 1.0–1.7 s with every headline.
+- **Duration: 30.0 s.** The brief asked for a 15-second film. The first cut was built to that length and felt too fast in review; a 25-second cut fixed the first half, and the second half was then given more room again. The schedule below keeps each action as quick as before and lengthens the holds: readers get 1.0–3.2 s with every headline.
 - **One timing grid.** Every cut lands on a beat of a 120 BPM pulse (one beat = 0.50 s), so picture and sound never drift apart.
 - **One fictional project throughout:** *Harbor Chase*. A rainy-night car chase at a container harbor. The shot being fixed is always Shot 02. Every picture in the film (stills, clips, candidates, depth passes, previs) is drawn procedurally in code for this film. No photographs, no stock, and nothing produced by a video generation model.
 - **Live state only.** Every interface element is a real DOM or canvas element whose state is a function of time. There are no screenshots and no pans over static images.
@@ -12,17 +12,17 @@ A 25-second, Apple-style launch film for the OpenCinema workbench. This document
 
 ### Brief guide vs. final timings
 
-| Scene | Brief (15 s) | Final (25 s) | Length |
+| Scene | Brief (15 s) | Final (30 s) | Length |
 | --- | --- | --- | --- |
 | Hook: agent | 0.0–1.5 | 0.0–2.5 | 2.5 s |
 | Node canvas | 1.5–3.5 | 2.5–5.5 | 3.0 s |
 | Scoped control | 3.5–5.0 | 5.5–8.5 | 3.0 s |
 | Image editing | 5.0–6.8 | 8.5–12.0 | 3.5 s |
-| 3D previs | 6.8–8.8 | 12.0–14.5 | 2.5 s |
-| Footage analysis | 8.8–10.2 | 14.5–17.0 | 2.5 s |
-| Generation plan | 10.2–11.4 | 17.0–19.5 | 2.5 s |
-| Review and edit | 11.4–13.0 | 19.5–22.5 | 3.0 s |
-| End card | 13.0–15.0 | 22.5–25.0 | 2.5 s (complete card holds 1.55 s) |
+| 3D previs | 6.8–8.8 | 12.0–15.5 | 3.5 s |
+| Footage analysis | 8.8–10.2 | 15.5–19.0 | 3.5 s |
+| Generation plan | 10.2–11.4 | 19.0–23.0 | 4.0 s |
+| Review and edit | 11.4–13.0 | 23.0–27.5 | 4.5 s |
+| End card | 13.0–15.0 | 27.5–30.0 | 2.5 s (complete card holds 1.55 s) |
 
 ## Visual system
 
@@ -89,59 +89,59 @@ Times are seconds from the first frame. "Cut" is the transition out of the shot.
 | Cut | **Hard cut at 12.00.** |
 | Sound | Whip whoosh panned left → right 8.49. Three brush swishes. Soft bloom 9.45. Four shutter clicks on the beats 10.00–11.50. Pulse. |
 
-### S05 · 3D previs · 12.00–14.50
+### S05 · 3D previs · 12.00–15.50
 
 | | |
 | --- | --- |
 | Picture | Blockout viewport (dark panel 1500 × 720). White-model set: pier slab, container stacks, two lamp posts, a crane base. |
-| State changes | A mannequin runs along the pier (procedural gait) for the first 1.65 s and ducks at 13.50. A blockout sedan drives past right → left (12.12–14.35). A virtual camera (body + frustum) arcs around them for the whole shot. 13.50–14.00 a wipe moves left → right turning `RGB` into `DEPTH` (grey by distance). 14.00–14.50 a second wipe turns `DEPTH` into `NORMAL` (camera-space normals). The wipe line carries the layer name. |
+| State changes | A mannequin runs along the pier (procedural gait) for the first 1.65 s, ducks from 13.60 to 14.45 and walks on. A blockout sedan drives past right → left (12.15–14.60). A virtual camera (body + frustum) arcs around them for the whole shot. The RGB view holds until 14.50. 14.50–15.00 a wipe moves left → right turning `RGB` into `DEPTH` (grey by distance). 15.00–15.50 a second wipe turns `DEPTH` into `NORMAL` (camera-space normals). The wipe line carries the layer name. |
 | Camera | Viewer camera orbits slowly the whole shot. |
 | Text | Chips: `PREVIS / DEPTH REFERENCE` (top-left), `SHOT 02 · TAKE 3 · CAM B` (bottom-left), button *Freeze as shot reference* (bottom-right). |
-| Cut | **Hard cut at 14.50.** |
-| Sound | Accent 12.00. Car pass-by (filtered noise, pitch bend) 12.15–14.05. Two wipe swishes 13.50, 14.00. Pulse. |
+| Cut | **Hard cut at 15.50.** |
+| Sound | Accent 12.00. Car pass-by (filtered noise, pitch bend) 12.15–14.60. Two wipe swishes 14.50, 15.00. Pulse. |
 
-### S06 · Footage analysis · 14.50–17.00
+### S06 · Footage analysis · 15.50–19.00
 
 | | |
 | --- | --- |
 | Picture | A player holds the *Reference clip* (performer running along the pier, sedan passing) with a filmstrip bar under it. |
-| State changes | 14.58–15.07 three boundary markers pop onto the strip at detected cuts; the segments separate into `S1`–`S4` and the picture changes angle at each boundary as the clip scrubs. 15.00–15.60 a pose skeleton (mint joints and bones) locks onto the performer and tracks the run; from 15.45 sparse mint arrows show 2D camera motion; chips `POSE TRACK` and `2D CAMERA MOTION`. 16.20–16.80 the picture becomes a relative depth pass (top → bottom wipe), chip `RELATIVE DEPTH`. A side chip reads `NOT A 3D SOLVE`. |
+| State changes | 15.60–16.15 three boundary markers pop onto the strip at detected cuts; the segments separate into `S1`–`S4` and the picture changes angle at each boundary as the clip scrubs. 16.20–16.95 a pose skeleton (mint joints and bones) locks onto the performer and tracks the run; from 17.00 sparse mint arrows show 2D camera motion; chips `POSE TRACK` and `2D CAMERA MOTION`. 18.10–18.70 the picture becomes a relative depth pass (top → bottom wipe), chip `RELATIVE DEPTH`. A side chip reads `NOT A 3D SOLVE`. |
 | Camera | Drift ×1.00 → ×1.02. |
-| Text | **Read every frame.** (14.80). Holds until 17.00. |
-| Cut | **Hard cut at 17.00.** |
-| Sound | Accent 14.50. Three ticks 14.58 / 14.70 / 14.82. Lock click 15.00. Depth swoosh 16.20. Pulse. |
+| Text | **Read every frame.** (15.80). Holds until 19.00. |
+| Cut | **Hard cut at 19.00.** |
+| Sound | Accent 15.50. Three ticks 15.60 / 15.75 / 15.90. Lock click 16.20. Depth swoosh 18.10. Pulse. |
 
-### S07 · Generation plan · 17.00–19.50
-
-| | |
-| --- | --- |
-| Picture | A plan card (1300 × 560) drops in (17.00–17.60): *Generation plan · Shot 02*; the compiled prompt in mono; a reference row with three thumbnails and their roles: `identity` (hero car still), `composition` (previs RGB), `motion` (reference clip); footer `Provider · configured by you` and `Cost · billed by provider`; button *Generate 3 candidates*. The card holds for reading until 18.30. |
-| State changes | 18.30 the button is clicked. 18.35–18.75 the card compresses upward into a summary row and three candidate tiles slide into place (18.45, 18.60, 18.75), each badged `Pending review`. |
-| Camera | Drift, then push into candidate 2 from 19.25. |
-| Text | **See the plan first.** (17.30). Leaves at 19.20. |
-| Cut | **Continuous push-in at 19.25–19.50.** |
-| Sound | Accent 17.00. Click 18.30. Three pops 18.45 / 18.60 / 18.75. Pulse. |
-
-### S08 · Review and edit · 19.50–22.50
+### S07 · Generation plan · 19.00–23.00
 
 | | |
 | --- | --- |
-| Picture | 19.40–19.50 the pushed-in candidate 2 becomes the review panel: clip on the left, checklist on the right. |
-| State changes | 19.60–20.20 the six checks resolve one every 0.12 s: Direction, Action, Identity, Continuity pass (mint check); **Unexpected cuts** fails (graphite ✕); Deformation / branding passes. 20.25–20.49 the note field types `cut at 2.1 s`. 20.50 the status pill becomes **Rejected · kept**; the clip stays in the project. 20.50–20.95 a four-shot timeline rises; shots 01, 03 and 04 carry lock icons and never move; 20.70–21.05 shot 02 slides out and candidate 3 slides into its slot. 21.40–21.70 an audio track slides in under the video track. 21.90–22.45 the playhead sweeps left → right and lands on **Export**, which lights mint at 22.45. |
+| Picture | A plan card (1300 × 560) drops in (19.00–19.60): *Generation plan · Shot 02*; the compiled prompt in mono; a reference row with three thumbnails and their roles: `identity` (hero car still), `composition` (previs RGB), `motion` (reference clip); footer `Provider · configured by you` and `Cost · billed by provider`; button *Generate 3 candidates*. The card holds for reading until 21.00. |
+| State changes | 21.00 the button is clicked. 21.05–21.45 the card compresses upward into a summary row and three candidate tiles slide into place (21.15, 21.30, 21.45), each badged `Pending review`. They hold until 22.75. |
+| Camera | Drift, then push into candidate 2 from 22.75. |
+| Text | **See the plan first.** (19.30). Leaves at 22.70. |
+| Cut | **Continuous push-in at 22.75–23.00.** |
+| Sound | Accent 19.00. Click 21.00. Three pops 21.15 / 21.30 / 21.45. Pulse. |
+
+### S08 · Review and edit · 23.00–27.50
+
+| | |
+| --- | --- |
+| Picture | 22.90–23.00 the pushed-in candidate 2 becomes the review panel: clip on the left, checklist on the right. |
+| State changes | 23.10–24.15 the six checks resolve one every 0.15 s: Direction, Action, Identity, Continuity pass (mint check); **Unexpected cuts** fails (graphite ✕); Deformation / branding passes. 24.20–24.44 the note field types `cut at 2.1 s`. 24.60 the status pill becomes **Rejected · kept**; the clip stays in the project. 25.00–25.45 a four-shot timeline rises; shots 01, 03 and 04 carry lock icons and never move; 25.30–25.65 shot 02 slides out and candidate 3 slides into its slot. 26.20–26.50 an audio track slides in under the video track. 26.70–27.40 the playhead sweeps left → right and lands on **Export**, which lights mint at 27.45. |
 | Camera | Settle from the push-in, then drift. |
-| Text | **Replace one shot. Keep the rest.** (20.80). Holds until 22.50. |
-| Cut | **Hard cut to white at 22.50.** |
-| Sound | Push whoosh 19.23. Six ticks, the fail a lower thud. Flip click 20.50. Replace whoosh 20.70. Audio slide 21.40. Rising sweep 21.90–22.45. Click 22.45. Pulse stops; accent on the cut. |
+| Text | **Replace one shot. Keep the rest.** (25.40). Holds until 27.50. |
+| Cut | **Hard cut to white at 27.50.** |
+| Sound | Push whoosh 22.73. Six ticks, the fail a lower thud. Flip click 24.60. Replace whoosh 25.30. Audio slide 26.20. Rising sweep 26.70–27.40. Click 27.45. Pulse stops; accent on the cut. |
 
-### S09 · End card · 22.50–25.00
+### S09 · End card · 27.50–30.00
 
 | | |
 | --- | --- |
 | Picture | Off-white. |
-| State changes | **Your agent.** (22.50) **Your canvas.** (22.70) **Your film.** (22.90) stack in the centre. 23.20 the lines lift to make room and the OpenCinema logo lands below them (scale 1.06 → 1, fade, 0.25 s). 23.24 `Local workbench · MIT open source` and `github.com/junjamrk/OpenCinema` fade in. |
+| State changes | **Your agent.** (27.50) **Your canvas.** (27.70) **Your film.** (27.90) stack in the centre. 28.20 the lines lift to make room and the OpenCinema logo lands below them (scale 1.06 → 1, fade, 0.25 s). 28.24 `Local workbench · MIT open source` and `github.com/junjamrk/OpenCinema` fade in. |
 | Camera | Static. |
-| Hold | Card complete at 23.45 and untouched until 25.00: **1.55 s.** |
-| Sound | The cut accent lands with line one at 22.50; soft taps for lines two and three at 22.70 / 22.90. One clean final hit 23.20 with a 1.6 s tail. Silence by 24.90. |
+| Hold | Card complete at 28.45 and untouched until 30.00: **1.55 s.** |
+| Sound | The cut accent lands with line one at 27.50; soft taps for lines two and three at 27.70 / 27.90. One clean final hit 28.20 with a 1.6 s tail. Silence by 29.90. |
 
 ## Sound cue sheet
 
@@ -149,20 +149,20 @@ All sound is synthesised in `sound.py` with NumPy. There is no voiceover, no mus
 
 | Cue | Synthesis | Times (s) |
 | --- | --- | --- |
-| Pulse | Sine 110 → 48 Hz over 30 ms, 140 ms exponential decay, soft clip, low-pass | every 0.50 from 0.50 to 22.00 |
-| Cut accent | Pulse + 60 ms band-passed noise impact + short falling whoosh | 2.50 5.50 8.50 12.00 14.50 17.00 19.50 22.50 |
+| Pulse | Sine 110 → 48 Hz over 30 ms, 140 ms exponential decay, soft clip, low-pass | every 0.50 from 0.50 to 27.00 |
+| Cut accent | Pulse + 60 ms band-passed noise impact + short falling whoosh | 2.50 5.50 8.50 12.00 15.50 19.00 23.00 27.50 |
 | Keystroke | 3 ms noise burst + 2–3 kHz ping, random detune | 0.20–1.24, 27 keys |
-| UI click | 4 ms noise burst + 2.6 kHz ping | 2.00 5.80 7.25 15.00 18.30 20.50 22.45 |
-| Whoosh | Band-passed noise, centre frequency sweep, asymmetric envelope, stereo pan | 2.08↑ 2.50↓ 8.49 (L→R) 19.23↑ 20.70 21.90–22.45↑ |
-| Node pops | Short sine pings, ascending pentatonic | 2.50–3.52 (8) 18.45 18.60 18.75 (3) |
+| UI click | 4 ms noise burst + 2.6 kHz ping | 2.00 5.80 7.25 16.20 21.00 24.60 27.45 |
+| Whoosh | Band-passed noise, centre frequency sweep, asymmetric envelope, stereo pan | 2.08↑ 2.50↓ 8.49 (L→R) 22.73↑ 25.30 26.70–27.40↑ |
+| Node pops | Short sine pings, ascending pentatonic | 2.50–3.52 (8) 21.15 21.30 21.45 (3) |
 | Edge shimmer | Quiet high-passed noise with slow sweep | 3.30–4.50 |
 | Marquee / brush | Soft filtered noise following the gesture | 6.70–7.32; 8.80 8.98 9.16 |
 | Shutter clicks | Two-part click (down/up) | 10.00 10.50 11.00 11.50 |
-| Car pass-by | Low filtered noise with pitch bend and pan | 12.15–14.05 |
-| Wipe swish | Short high noise sweep | 13.50 14.00 16.20 |
-| Check ticks | Short pings; the fail is a 180 Hz thud | 19.60–20.20 (6) |
-| End taps | Muted pulse, −8 dB | 22.70 22.90 |
-| Final hit | 72 → 44 Hz sub, 1.8 s decay + noise impact + synthetic reverb tail | 23.20 |
+| Car pass-by | Low filtered noise with pitch bend and pan | 12.15–14.60 |
+| Wipe swish | Short high noise sweep | 14.50 15.00 18.10 |
+| Check ticks | Short pings; the fail is a 180 Hz thud | 23.10–23.85 (6) |
+| End taps | Muted pulse, −8 dB | 27.70 27.90 |
+| Final hit | 72 → 44 Hz sub, 1.8 s decay + noise impact + synthetic reverb tail | 28.20 |
 
 Master: look-ahead limiter with a −1 dBFS ceiling, integrated loudness normalised to −16 LUFS.
 
@@ -186,6 +186,6 @@ The logo was redesigned in this task at the user's request. The new mark is a ro
 
 ## Deliverable
 
-MP4, 1920 × 1080, 60 fps, H.264 High profile, `yuv420p`, BT.709, AAC 48 kHz stereo 192 kb/s, 25.000 s, `+faststart`.
+MP4, 1920 × 1080, 60 fps, H.264 High profile, `yuv420p`, BT.709, AAC 48 kHz stereo 192 kb/s, 30.000 s, `+faststart`.
 
 Build and verification steps are in [`assets/promo/launchVideo/readme.md`](../assets/promo/launchVideo/readme.md). The readability, overlap and end-card-hold checks are recorded there after each render.
