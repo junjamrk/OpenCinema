@@ -55,7 +55,7 @@
 - 进入插件页时读取市场目录，这会访问 opencinema.site。市场操作按较新、相同、较旧区分，已装卡片标记可用更新；不兼容的条目显示原因并禁用安装。`/api/nodes/capabilities` 返回统一的 `hostVersion`。
 - 安装复核卡片列出能力、作者、许可、服务地址、包地址和说明，权限提示放在安装按钮上方。
 - 安装后立即加载插件；加载失败显示在插件卡片上，可以重试。进入插件页时会加载已启用的已安装插件。
-- 升级失败不再删除供应商凭据。
+- 升级失败不再删除供应商凭据。已安装插件可从卡片回退到上一版本；旧版本目录留在磁盘上，已打开的页面仍能加载它的资源。
 - `pluginNotInstalled` 的恢复路径指向 `getPluginMarket`；安装不兼容的插件返回结构化错误 `pluginIncompatible`，`reviewPluginPackage` 补充当前版本、能力和服务地址。
 - 宿主能力集中到 `hostCapabilities.json`，构建和市场发布时校验 `requires`。市场目录逐条解析，坏记录只跳过自身。
 - `createOpenCinemaPlugin` 的 `--scaffold` 改为必填，生成 `readme.md` 和 `agent.md`；新增 `openCinemaDevInstall`，把构建产物自动提交给本机工作台。
