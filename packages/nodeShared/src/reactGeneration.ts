@@ -402,6 +402,12 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
       const referenceVersions = type === "video" ? await readReferenceVersions(activeInputs, signal) : undefined;
       if (type === "video" && creativeFingerprint !== videoCreativeFingerprint({ ...readNodeData(document, id), ...(args.prompt !== undefined ? { prompt: args.prompt } : {}) }, currentReferences())) throw new Error("准备期间创作计划或参考已变化，未提交生成，请重新读取");
       const originalOutput = JSON.stringify(readMedia(initial, type) ?? null);
+      // 模型失效、参考不符合模型这些问题提交前就能发现，抛回输入框，不写运行状态。
+      const choice = initial.model ? selectedModel(initial, await models(signal), type) : undefined;
+      if (initial.model && !choice) throw new Error("配置的专项模型当前不可用，请重新选择");
+      const rawInput = choice && generationRequest({ ...initial, prompt: generationPrompt }, choice, type, inputs, workbench.directory, id);
+      const input = rawInput && transforms?.prepare ? transforms.prepare(rawInput, initial) : rawInput;
+      assertIdle();
       const controller = new AbortController();
       const combined = AbortSignal.any([context.signal, controller.signal]);
       const operation = { id: crypto.randomUUID(), controller, promise: Promise.resolve(), state: "running", error: undefined as string | undefined };
@@ -422,7 +428,7 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
       operation.promise = (async () => {
         try {
           let result: { path: string; mimeType: string } | undefined;
-          if (!initial.model) {
+          if (!input) {
             const inpaint = initial.inpaint as { original?: string; guide?: string } | undefined;
             const imageReferences = inpaint ? [inpaint.original, inpaint.guide].filter(Boolean).map(url => ({ dataType: "IMAGE", value: { url, mimeType: "image/png" } })) : [];
             // 模型参数只对专项模型有效，换成宿主后保留的旧值不进创作参数。
@@ -435,11 +441,6 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
             const latest = readNodeData(document, id); const receipt = latest.generation as { taskId?: string; status?: string } | undefined;
             operation.state = receipt?.taskId === operation.id && receipt.status === "completed" || response.status === "completed" && JSON.stringify(readMedia(latest, type) ?? null) !== originalOutput ? "completed" : "delegated";
           } else {
-            const available = await models(combined);
-            const choice = selectedModel(initial, available, type);
-            if (!choice) throw new Error("配置的专项模型当前不可用，请重新选择");
-            const rawInput = generationRequest({ ...initial, prompt: generationPrompt }, choice, type, inputs, workbench.directory, id);
-            const input = transforms?.prepare ? transforms.prepare(rawInput, initial) : rawInput;
             if (type === "video") { await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), request: { ...input, brief: readShotBrief(initial), referenceRoles: initial.referenceRoles ?? {} } } }, combined); await document.save(); }
             workbench.assertWritable(); combined.throwIfAborted();
             if (type === "video") await requireReferenceVersions(referenceVersions, combined);
