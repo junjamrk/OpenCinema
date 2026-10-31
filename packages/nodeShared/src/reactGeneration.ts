@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { PluginActivationContext } from "@toonflow/nodes-scaffold/contracts";
-import { createMediaAiClient, type NodeMediaModel, type NodeImageRequest, type NodeVideoRequest, type NodeAudioRequest, type NodeMediaPriceRequest } from "@toonflow/nodes-scaffold/nodeAiClient";
+import { createMediaAiClient, type NodeMediaModel, type NodeModelParameter, type NodeImageRequest, type NodeVideoRequest, type NodeAudioRequest, type NodeMediaPriceRequest } from "@toonflow/nodes-scaffold/nodeAiClient";
 import type { NodeInputValue } from "@toonflow/nodes-scaffold/values";
 import { isExecutionUnknown, errorText, mediaValueSchema, pluginServices, readMedia, readNodeData, registerMediaTools, setMedia, type MediaType } from "./reactNode";
 import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchServices";
@@ -10,6 +10,7 @@ import { ToolExecutionError } from "@toonflow/nodes-scaffold/toolErrors";
 import { activeVideoReferences, readReferenceRole, readShotBrief, readVideoSources, shotBriefSchema, videoCreativeFingerprint, videoShotPrompt, referenceRoleSchema } from "./videoShot";
 import { readMediaSourceRevision } from "./mediaEditor";
 
+const parameterValueSchema = z.union([z.string(), z.number(), z.boolean()]);
 const configSchema = z.strictObject({
   providerId: z.string().min(1).optional(), modelId: z.string().min(1).optional(),
   ratio: z.string().max(100).optional(), size: z.string().max(100).optional(), resolution: z.string().max(100).optional(),
@@ -17,11 +18,13 @@ const configSchema = z.strictObject({
   voice: z.string().max(200).optional(), speed: z.number().finite().min(.25).max(4).optional(),
   volume: z.number().finite().min(0).max(4).optional(), pitch: z.number().finite().min(-20).max(20).optional(),
   language: z.string().max(100).optional(), format: z.string().max(30).optional(), sampleRate: z.number().int().positive().optional(),
+  parameters: z.record(z.string(), parameterValueSchema).optional().describe("模型专属参数，字段按 getConfig 返回的 models[].parameters 填写；传入时整体替换已保存的值"),
 }).refine(value => (value.providerId === undefined) === (value.modelId === undefined), "providerId 与 modelId 须同时提供");
 const generationStatusSchema = z.strictObject({ nodeId: z.string(), status: z.string(), taskId: z.string().optional(), requestId: z.string().optional(), executionSettled: z.boolean(), error: z.string().optional(), current: mediaValueSchema.optional(), revision: z.number().int().nonnegative(), providerId: z.string().optional(), modelId: z.string().optional(), providerJobId: z.string().optional(), phase: z.string().optional(), progress: z.number().optional(), cancelMode: z.string().optional(), sideEffectMayContinue: z.boolean().optional() });
 const configOutputSchema = configSchema.safeExtend({ host: z.boolean() });
-const videoConfigSchema = z.strictObject({ providerId: configSchema.shape.providerId, modelId: configSchema.shape.modelId, ratio: configSchema.shape.ratio, resolution: configSchema.shape.resolution, duration: configSchema.shape.duration, mode: configSchema.shape.mode, generateAudio: configSchema.shape.generateAudio }).refine(value => (value.providerId === undefined) === (value.modelId === undefined), "providerId 与 modelId 须同时提供");
-const modelSchema = z.strictObject({ id: z.string().optional().describe("供应商模型目录保留的原始ID；modelId为规范化调用ID"), supportsPrice: z.boolean().optional(), providerId: z.string(), providerLabel: z.string(), modelId: z.string(), label: z.string(), type: z.enum(["image", "video", "audio"]), mode: z.array(z.union([z.string(), z.array(z.string())])).optional(), imageSizes: z.array(z.string()).optional(), imageRatios: z.array(z.string()).optional(), durationResolutionMap: z.array(z.strictObject({ duration: z.array(z.number()), resolution: z.array(z.string()) })).optional(), audio: z.union([z.boolean(), z.literal("optional")]).optional(), voices: z.array(z.strictObject({ title: z.string(), voice: z.string() })).optional(), video: z.strictObject({ inputMap: z.record(z.string(), z.string()).optional(), defaults: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(), stringFields: z.array(z.string()).optional() }).optional(), execution: z.strictObject({ protocol: z.string(), location: z.enum(["local", "remote", "platform"]), cancelMode: z.enum(["none", "request"]) }).optional() });
+const videoConfigSchema = z.strictObject({ providerId: configSchema.shape.providerId, modelId: configSchema.shape.modelId, ratio: configSchema.shape.ratio, resolution: configSchema.shape.resolution, duration: configSchema.shape.duration, mode: configSchema.shape.mode, generateAudio: configSchema.shape.generateAudio, parameters: configSchema.shape.parameters }).refine(value => (value.providerId === undefined) === (value.modelId === undefined), "providerId 与 modelId 须同时提供");
+const parameterSchema = z.strictObject({ type: z.enum(["string", "number", "integer", "boolean"]).optional(), title: z.string().optional(), default: parameterValueSchema.optional(), minimum: z.number().optional(), maximum: z.number().optional(), enum: z.array(parameterValueSchema).optional() });
+const modelSchema = z.strictObject({ id: z.string().optional().describe("供应商模型目录保留的原始ID；modelId为规范化调用ID"), supportsPrice: z.boolean().optional(), providerId: z.string(), providerLabel: z.string(), modelId: z.string(), label: z.string(), type: z.enum(["image", "video", "audio"]), mode: z.array(z.union([z.string(), z.array(z.string())])).optional(), imageSizes: z.array(z.string()).optional(), imageRatios: z.array(z.string()).optional(), durationResolutionMap: z.array(z.strictObject({ duration: z.array(z.number()), resolution: z.array(z.string()) })).optional(), audio: z.union([z.boolean(), z.literal("optional")]).optional(), voices: z.array(z.strictObject({ title: z.string(), voice: z.string() })).optional(), video: z.strictObject({ inputMap: z.record(z.string(), z.string()).optional(), defaults: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(), stringFields: z.array(z.string()).optional() }).optional(), execution: z.strictObject({ protocol: z.string(), location: z.enum(["local", "remote", "platform"]), cancelMode: z.enum(["none", "request"]) }).optional(), parameters: z.strictObject({ type: z.literal("object"), properties: z.record(z.string(), parameterSchema) }).optional() });
 
 export function getGenerationComposerState(data: Readonly<Record<string, unknown>>) {
   const generation = data.generation;
@@ -53,7 +56,25 @@ export function matchingVideoModes(model: NodeMediaModel, inputs: NodeInputValue
   });
 }
 
+export function parameterIssue(schema: NodeModelParameter, value: unknown) {
+  const matches = schema.type === "string" ? typeof value === "string" : schema.type === "boolean" ? typeof value === "boolean" : schema.type === "integer" ? Number.isSafeInteger(value) : schema.type ? Number.isFinite(value) : ["string", "number", "boolean"].includes(typeof value);
+  if (!matches) return `须为${schema.type ? { string: "文本", number: "数字", integer: "整数", boolean: "开关值" }[schema.type] : "可选值"}`;
+  if (schema.enum && !schema.enum.includes(value as string)) return `须为 ${schema.enum.join("、")} 之一`;
+  if (typeof value === "number" && (value < (schema.minimum ?? -Infinity) || value > (schema.maximum ?? Infinity))) return `须在 ${schema.minimum ?? "不限"} 至 ${schema.maximum ?? "不限"} 之间`;
+  return undefined;
+}
+
+// 目录是权威：未声明的字段丢弃，不合法的退回默认值，所以换模型不会把旧模型的值带过去。
+export function normalizeParameters(data: Readonly<Record<string, unknown>>, choice: NodeMediaModel) {
+  const saved = (data.parameters ?? {}) as NonNullable<NodeImageRequest["parameters"]>;
+  return Object.fromEntries(Object.entries(choice.parameters?.properties ?? {}).flatMap(([key, schema]) => {
+    const value = saved[key] === undefined || parameterIssue(schema, saved[key]) ? schema.default : saved[key];
+    return value === undefined ? [] : [[key, value] as const];
+  }));
+}
+
 function normalizeConfig(data: Record<string, unknown>, choice: NodeMediaModel, type: MediaType, inputs: NodeInputValue[]): Record<string, unknown> {
+  if (choice.parameters || data.parameters) data = { ...data, parameters: normalizeParameters(data, choice) };
   if (type === "image") {
     const sizes = choice.imageSizes?.length ? choice.imageSizes : ["2K"]; const ratios = choice.imageRatios?.length ? choice.imageRatios : ["16:9"];
     return { ...data, size: sizes.includes(String(data.size)) ? data.size : sizes[0], ratio: ratios.includes(String(data.ratio)) ? data.ratio : ratios[0] };
@@ -86,7 +107,8 @@ function generationRequest(data: Record<string, unknown>, choice: NodeMediaModel
   }
   const allowed = type === "image" ? ["size", "ratio"] : type === "audio" ? ["voice", "speed", "volume", "pitch", "language", "format", "sampleRate"] : ["ratio", "duration", "resolution", "generateAudio"];
   const fields = Object.fromEntries(allowed.filter(key => normalized[key] !== undefined).map(key => [key, normalized[key]]));
-  const common = { ...fields, directory, providerId: choice.providerId, modelId: choice.modelId, prompt, outputDirectory: `assets/${id}` };
+  const parameters = normalized.parameters as NodeImageRequest["parameters"];
+  const common = { ...fields, ...(parameters && Object.keys(parameters).length ? { parameters } : {}), directory, providerId: choice.providerId, modelId: choice.modelId, prompt, outputDirectory: `assets/${id}` };
   if (type === "image") return { ...common, images: media("IMAGE").filter(image => !inpaint || image.path !== inpaint.source) };
   if (type === "audio") return { ...common, images: media("IMAGE"), audios: media("AUDIO") };
   let mode: NodeVideoRequest["mode"];
@@ -166,7 +188,7 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
       const choice = selectedModel(data, available, type);
       let mode = data.mode === "" ? undefined : data.mode;
       if (typeof mode === "string" && mode) { try { mode = JSON.parse(mode); } catch { /* 保留旧版原始模式字符串，交由真实配置 Schema 校验。 */ } }
-      const config = configOutputSchema.safeParse({ ...Object.fromEntries(Object.keys(configSchema.shape).filter(key => key in data).map(key => [key, data[key]])), providerId: choice?.providerId, modelId: choice?.modelId, mode, host: !choice });
+      const config = configOutputSchema.safeParse({ ...Object.fromEntries(Object.keys(configSchema.shape).filter(key => key in data).map(key => [key, data[key]])), providerId: choice?.providerId, modelId: choice?.modelId, mode, parameters: choice?.parameters ? normalizeParameters(data, choice) : undefined, host: !choice });
       if (!config.success) throw new ToolExecutionError({ code: "nodeConfigurationInvalid", message: `保存的节点配置需要协调：${errorText(config.error)}`, phase: "validation", executionState: "notDispatched", target: { directory: workbench.directory, canvasId: workbench.canvasId, nodeId: id }, recovery: { action: "readState", message: "用getCanvasNodes读取保留的原配置，再按setConfig已公布字段明确修正；配置未被覆盖", tool: "getCanvasNodes", args: { canvasId: workbench.canvasId, nodeIds: [id], fields: ["data"], dataKeys: ["model", ...Object.keys(configSchema.shape)] } } });
       const catalog = z.array(modelSchema).safeParse(available);
       if (!catalog.success) throw new ToolExecutionError({ code: "modelCatalogInvalid", message: `模型目录不符合已公布契约：${errorText(catalog.error)}`, phase: "validation", executionState: "notDispatched", target: { nodeId: id }, recovery: { action: "rediscoverTools", message: "复核供应商扩展和模型目录字段后重新发现当前节点工具；未过滤或丢弃原目录字段", tool: "getNodeTools", args: { nodeIds: [id] } } });
@@ -187,6 +209,11 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
         if (type === "video" && args.resolution !== undefined && choice.durationResolutionMap?.length && !choice.durationResolutionMap.some(item => item.resolution.length)) invalid("当前模型不提供分辨率选项");
         const capabilities: [string, unknown][] = [["ratio", choice.imageRatios], ["size", choice.imageSizes], ["resolution", choice.durationResolutionMap?.filter(item => item.duration.includes(args.duration ?? Number(data.duration))).flatMap(item => item.resolution)], ["duration", choice.durationResolutionMap?.flatMap(item => item.duration)]];
         for (const [key, allowed] of capabilities) if (fields[key] !== undefined && Array.isArray(allowed) && allowed.length && !allowed.includes(fields[key])) invalid(`当前模型不支持${key}=${fields[key]}`);
+      }
+      for (const [key, value] of Object.entries(args.parameters ?? {})) {
+        const schema = choice?.parameters?.properties[key];
+        const issue = schema ? parameterIssue(schema, value) : "未在当前模型声明";
+        if (issue) invalid(`参数 ${schema?.title ?? key} ${issue}`);
       }
       if (args.mode !== undefined && choice && !matchingVideoModes(choice, effectiveReferences()).some(mode => JSON.stringify(mode) === JSON.stringify(args.mode))) invalid("所选模式不匹配当前连线参考");
       if (args.generateAudio !== undefined && choice?.audio !== "optional" && args.generateAudio !== (choice?.audio === true)) invalid("当前模型不支持切换生成声音");
@@ -231,7 +258,7 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
         active.some(value => value.dataType === "VIDEO") && "当前视频仅作普通视觉参考，未声明专用Depth Control或精确运动锁定；必须对照原参考审片。",
         active.some(value => value.value === undefined) && "有效参考中存在暂无内容的节点，生成前须补齐。",
       ].filter((value): value is string => !!value);
-      return { prompt, characterCount, documentRevision, host: !choice, providerId: choice?.providerId, modelId: choice?.modelId, brief: readShotBrief(data), parameters: Object.fromEntries(["ratio", "duration", "resolution", "generateAudio", "mode"].filter(key => key in input).map(key => [key, (input as Record<string, unknown>)[key]])), generationModes: choice?.mode ?? [], videoReferenceControl: choice?.providerId === "ark" ? "softReference" as const : "notDeclared" as const, depthControl: "notDeclared" as const, references: inputs.map((value, index) => {
+      return { prompt, characterCount, documentRevision, host: !choice, providerId: choice?.providerId, modelId: choice?.modelId, brief: readShotBrief(data), parameters: Object.fromEntries(["ratio", "duration", "resolution", "generateAudio", "mode", "parameters"].filter(key => key in input).map(key => [key, (input as Record<string, unknown>)[key]])), generationModes: choice?.mode ?? [], videoReferenceControl: choice?.providerId === "ark" ? "softReference" as const : "notDeclared" as const, depthControl: "notDeclared" as const, references: inputs.map((value, index) => {
         const media = mediaValueSchema.safeParse(value.value), role = readReferenceRole(data, value);
         const isActive = role !== "exclude";
         if (isActive && media.success) counts[String(value.dataType)] = (counts[String(value.dataType)] ?? 0) + 1;
@@ -380,7 +407,8 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
           if (!initial.model) {
             const inpaint = initial.inpaint as { original?: string; guide?: string } | undefined;
             const imageReferences = inpaint ? [inpaint.original, inpaint.guide].filter(Boolean).map(url => ({ dataType: "IMAGE", value: { url, mimeType: "image/png" } })) : [];
-            const config = Object.fromEntries(Object.keys(configSchema.shape).filter(key => initial[key] !== undefined).map(key => [key, initial[key]]));
+            // 模型参数只对专项模型有效，换成宿主后保留的旧值不进创作参数。
+            const config = Object.fromEntries(Object.keys(configSchema.shape).filter(key => key !== "parameters" && initial[key] !== undefined).map(key => [key, initial[key]]));
             const effectivePrompt = type === "video" ? videoShotPrompt({ ...initial, prompt: generationPrompt }, inputs) : generationPrompt;
             if (type === "video") { await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), request: { prompt: effectivePrompt, references, config, brief: readShotBrief(initial), referenceRoles: initial.referenceRoles ?? {} } } }, combined); await document.save(); }
             if (type === "video") await requireReferenceVersions(referenceVersions, combined);

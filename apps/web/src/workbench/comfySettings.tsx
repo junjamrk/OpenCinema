@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { analyzeComfyWorkflow, buildComfyModel, comfyDefaults, type ComfyAnalysis, type ComfyLoader, type ComfyMediaType, type ComfyRole } from "@/lib/comfyWorkflow";
 import { localVideoConnectionInspectionSchema, localVideoConnectionSchema, mediaProviderSchema, providerModelSchema, workbenchSettingsClient } from "@/lib/workbenchSettingsClient";
 
-type Draft = { analysis: ComfyAnalysis; label: string; type: ComfyMediaType; promptNode: string; loaders: ComfyLoader[]; ratios: string; durations: string };
+type Draft = { analysis: ComfyAnalysis; label: string; type: ComfyMediaType; promptNode: string; loaders: ComfyLoader[]; parameters: string[]; ratios: string; durations: string };
 type ComfySettingsProps = { provider: z.infer<typeof mediaProviderSchema>; busy: boolean; perform: (action: () => Promise<void>) => Promise<void>; onStatus: (message: string) => void; onSaved: (provider?: z.infer<typeof mediaProviderSchema>) => Promise<void> };
 const roleLabels: Record<ComfyRole, string> = { firstFrame: "首帧", lastFrame: "尾帧", reference: "参考素材", keep: "保持工作流原值" };
 const statusLabels = { disabled: "未启用", unreachable: "无法连接", incompatible: "服务不兼容", dependenciesMissing: "已连接，缺少节点", ready: "已连接" };
@@ -46,11 +46,11 @@ export default function ComfySettings({ provider, busy, perform, onStatus, onSav
     if (file.size > 2 * 1024 ** 2) throw new Error("工作流超过 2 MiB");
     const analysis = analyzeComfyWorkflow(await file.text());
     const defaults = comfyDefaults(analysis);
-    setDraft({ analysis, label: file.name.replace(/\.json$/i, ""), type: analysis.type, promptNode: analysis.promptNode, loaders: analysis.loaders, ratios: defaults.ratios.join(", "), durations: defaults.durations.join(", ") });
+    setDraft({ analysis, label: file.name.replace(/\.json$/i, ""), type: analysis.type, promptNode: analysis.promptNode, loaders: analysis.loaders, parameters: [], ratios: defaults.ratios.join(", "), durations: defaults.durations.join(", ") });
   });
   const saveWorkflow = () => void perform(async () => {
     if (!draft) return;
-    const model = providerModelSchema.parse(buildComfyModel(draft.analysis, { id: `workflow${crypto.randomUUID().slice(0, 8)}`, label: draft.label.trim(), type: draft.type, promptNode: draft.promptNode, loaders: draft.loaders, ratios: splitOptions(draft.ratios), durations: splitOptions(draft.durations).map(Number) }));
+    const model = providerModelSchema.parse(buildComfyModel(draft.analysis, { id: `workflow${crypto.randomUUID().slice(0, 8)}`, label: draft.label.trim(), type: draft.type, promptNode: draft.promptNode, loaders: draft.loaders, parameters: draft.parameters, ratios: splitOptions(draft.ratios), durations: splitOptions(draft.durations).map(Number) }));
     await onSaved(await workbenchSettingsClient.saveProviderModels(provider.id, [...provider.models, model], provider.revision, new AbortController().signal));
     setDraft(undefined); onStatus("工作流已添加，可以在生成节点里选择");
   });
@@ -75,7 +75,8 @@ export default function ComfySettings({ provider, busy, perform, onStatus, onSav
       {draft.loaders.map((loader, index) => <label key={`${loader.node}:${loader.field}`}>{loader.title}<select value={loader.role} disabled={busy} onChange={event => setDraft({ ...draft, loaders: draft.loaders.map((item, itemIndex) => itemIndex === index ? { ...item, role: event.target.value as ComfyRole } : item) })}>{(loader.type === "image" ? ["firstFrame", "lastFrame", "reference", "keep"] as const : ["reference", "keep"] as const).map(role => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></label>)}
       {draft.analysis.size && draft.type !== "audio" && <label>可选画幅（逗号分隔）<input value={draft.ratios} disabled={busy} onChange={event => setDraft({ ...draft, ratios: event.target.value })} /></label>}
       {draft.analysis.frames && draft.analysis.fps && draft.type === "video" && <label>可选时长（秒，逗号分隔）<input value={draft.durations} disabled={busy} onChange={event => setDraft({ ...draft, durations: event.target.value })} /></label>}
-      <p>{parameterSummary(draft.analysis)}。每次生成自动更换随机种子，模型和采样参数保持工作流原值。</p>
+      {draft.analysis.parameters.filter(item => item.node !== draft.promptNode).map(item => <label key={item.key} className="settingToggle"><span>节点可调：{item.schema.title}</span><input type="checkbox" checked={draft.parameters.includes(item.key)} disabled={busy} onChange={event => setDraft({ ...draft, parameters: event.target.checked ? [...draft.parameters, item.key] : draft.parameters.filter(key => key !== item.key) })} /></label>)}
+      <p>{parameterSummary(draft.analysis)}。没勾选的字段保持工作流原值；种子留空时每次生成自动更换。</p>
       <div className="settingsActions"><button type="submit" disabled={busy || !draft.label.trim() || !draft.promptNode}>添加工作流</button><button type="button" disabled={busy} onClick={() => setDraft(undefined)}>取消</button></div>
     </form>}
   </>;

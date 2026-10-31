@@ -21,7 +21,7 @@
 
 `getGenerationStatus` 返回状态及已知的远端任务 ID、阶段、进度、取消方式。视频状态查询可能恢复原任务观察及产物回收，明确声明为可能写入和访问外部服务，不会重发生成 POST。`resultReady` 表示断线期间视频已落盘，手工“采用已完成视频”或 Agent `applyGenerationResult` 会校验原模型、参考和当前输出，再通过共享历史和保存入口采用。
 
-底层 HTTP 复用 `POST /api/ai/media/generate`，另带 `mediaType:"video"`、工程绝对 `directory`、工程相对 `outputDirectory` 和 UUID `operationId`（与 `taskId` 是同一凭据，两者同时提供时必须相同）。同 ID、同请求回读原任务，不同参数拒绝。未知状态保留原 ID，不换 ID 重派。
+底层 HTTP 复用 `POST /api/ai/media/generate`，另带 `mediaType:"video"`、工程绝对 `directory`、工程相对 `outputDirectory` 和 UUID `operationId`（与 `taskId` 是同一凭据，两者同时提供时必须相同）。同 ID、同请求回读原任务，不同参数拒绝；模型参数也算在内，字段顺序不影响判定。未知状态保留原 ID，不换 ID 重派。
 
 ## 执行协议
 
@@ -79,18 +79,52 @@ API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应�
 | `images`、`videos`、`audios` | 参考素材，按顺序一一对应，数量必须与请求一致 |
 | `width`、`height` | 须同时映射。由画幅和分辨率算出，分辨率写成短边像素，如 `720p` |
 | `frames` | 由时长和 `fps` 算出，按 `frameStep` 对齐到 `n × frameStep + 1`，须同时声明 `fps` |
+| `parameters` | 模型参数到工作流字段的映射，形如 `{ "cfg": [{ "node": "3", "field": "cfg" }] }`，见下文「模型参数」 |
 
 映射目标必须是节点上的固定值，不能是连线。未映射的素材或时长直接拒绝，不静默丢弃；未映射尺寸时节点不显示画幅选项。模型目录不向节点下发 `comfy` 字段，生成请求只选模型，不能携带工作流。含非空凭据字段的工作流拒绝保存。工作流只能由用户在设置页导入：Agent 工具 `setProviderModels` 和 `manageMediaProviders` 不能新增或修改图。这一限制在工具层，能直接访问本机 HTTP 接口的进程不受它约束。
 
 内置 `comfyui` 供应商使用设置页的本地连接。要接第二台 ComfyUI，用 **其他 ComfyUI 服务模板** 添加一个 `videoProtocol:"comfyui"` 的供应商，它用自己的 `apiUrl`，同样只允许本机或局域网地址。
 
 - 素材按内容命名上传到 `input` 根目录，同一素材不重复上传。子目录会让部分自定义加载节点的校验失败。
-- `seed`、`noise_seed` 的固定值每次提交都随机替换，否则 ComfyUI 直接返回缓存。
+- `seed`、`noise_seed` 的固定值每次提交都随机替换，否则 ComfyUI 直接返回缓存。用户通过模型参数填了种子时以用户为准，此时完全相同的图可能直接命中 ComfyUI 缓存。
 - 任务 ID 在提交前落盘并作为 `prompt_id` 发送。响应丢失时按同一 ID 查询，不重新提交；旧版 ComfyUI 忽略客户端 ID 时以响应为准。
 - 状态先查 `/queue` 再查 `/history/{id}`，两边都没有时报告未确认，不判定为失败。
 - 进度来自 `/ws?clientId={id}` 的 `progress` 消息，只用于展示，是当前节点的进度，不是整个工作流。连不上时不影响任务。
 - 取消时排队中用 `POST /queue` 删除，运行中用 `POST /interrupt` 带 `prompt_id` 中断。
 - 产物只回收 `type:"output"` 且扩展名匹配媒体类型的文件，经 `/view` 下载，视频再用 FFprobe 校验。
+
+## 模型参数
+
+厂商特有参数（负向提示词、引导强度、种子等）由模型清单的 `parameters` 声明，节点按它生成表单，Agent 从 `getConfig` 的 `models[].parameters` 读取同一份声明。没声明 `parameters` 的模型行为不变。
+
+```json
+{
+  "id": "deployedModelName",
+  "label": "已部署的视频模型",
+  "type": "video",
+  "mode": ["text"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "negative_prompt": { "type": "string", "title": "负向提示词" },
+      "guidance": { "type": "number", "title": "引导强度", "default": 7.5, "minimum": 1, "maximum": 20 },
+      "seed": { "type": "integer", "title": "种子", "minimum": 0 },
+      "hd": { "type": "boolean", "title": "高清", "default": false },
+      "scheduler": { "type": "string", "title": "调度器", "enum": ["euler", "dpm"], "default": "euler" }
+    }
+  }
+}
+```
+
+这是 JSON Schema 的子集。顶层只有 `type: "object"` 和 `properties`，最多 64 个字段；字段只支持 `type`（`string`、`number`、`integer`、`boolean`）、`title`、`default`、`minimum`、`maximum`、`enum`。有 `enum` 时可省略 `type`。其他关键字（含 `required`）保存时直接拒绝，字段全部可选。字段名须匹配 `^[a-zA-Z][a-zA-Z0-9_]{0,95}$`，不能是凭据类名称，也不能占用协议字段：`videoBody` 已写入的输入字段、`inputMap` 的目标，以及 `model`、`size`（`openaiVideo`）或 `model`、`content`、`ratio`、`execution_expires_after`（`ark`）。
+
+- **节点：** 用户填的值存在节点数据的 `parameters`。换模型时未声明的字段丢弃，不合法的值退回 `default`，所以旧模型的值不会带到新模型。
+- **Agent：** `setConfig` 或 `generateVideo` 传 `parameters`，整体替换已保存的值；未声明、类型或范围不符的字段拒绝，配置和生成都不执行。`getConfig` 返回填入默认值后的实际值，`getGenerationPlan` 预览实际发送的值。
+- **HTTP：** `POST /api/ai/media/generate` 增加 `parameters` 对象。服务端按模型声明严格校验：未声明字段、类型不符、超出范围、不在 `enum` 内一律 400。整数不能超过 2^53，文本不超过 10000 字节且不能以 `data:` 开头。模型没声明 `parameters` 时带此字段同样拒绝。
+- **协议：** `openaiVideo`、`fal`、`replicate`、`ark` 把值合入请求体顶层（Replicate 在 `input` 内），覆盖 `video.defaults` 的同名字段。`comfyui` 只写入保存时已映射的字段，`parameters` 声明与 `comfy.inputs.parameters` 的映射必须一一对应，目标须是节点上的固定值且类型相符。未填写的参数保持工作流原值。
+- **未声明 `videoProtocol` 的供应商**（TF-router、APIMart、秘塔、优云智算和同步 HTTP 适配）不支持 `parameters`，保存时拒绝。这些适配的请求体是逐字段写死的，声明了也送不出去。
+
+在设置里导入 ComfyUI 工作流时，确认页会列出负向提示词和采样器的固定字段（`seed`、`noise_seed`、`steps`、`cfg`、`guidance`、`denoise`、`sampler_name`、`scheduler`），勾选的字段才生成 `parameters` 和映射。种子不设默认值，留空时每次随机。
 
 ## 自定义供应商
 

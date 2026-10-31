@@ -9,8 +9,9 @@ export type ComfyTarget = { node: string; field: string };
 export type ComfyRole = "firstFrame" | "lastFrame" | "reference" | "keep";
 export type ComfyLoader = ComfyTarget & { type: ComfyMediaType; title: string; role: ComfyRole };
 export type ComfyTextNode = { node: string; title: string; fields: string[] };
+export type ComfyParameter = ComfyTarget & { key: string; schema: { type: "string" | "number" | "integer"; title: string; default?: string | number; minimum?: number } };
 export type ComfyAnalysis = {
-  workflow: ComfyWorkflow; type: ComfyMediaType; textNodes: ComfyTextNode[]; promptNode: string; loaders: ComfyLoader[];
+  workflow: ComfyWorkflow; type: ComfyMediaType; textNodes: ComfyTextNode[]; promptNode: string; loaders: ComfyLoader[]; parameters: ComfyParameter[];
   size?: { width: number; height: number; targets: ComfyTarget[] }; frames?: { count: number; targets: ComfyTarget[] }; fps?: number;
 };
 
@@ -18,6 +19,7 @@ const mediaFiles: [ComfyMediaType, RegExp][] = [["image", /\.(png|jpe?g|webp|bmp
 const textFields = /^(text|text_?g|text_?l|prompt|positive_prompt|caption|clip_l|t5xxl|string(_a)?|value)$/i;
 const frameFields = ["length", "frames", "num_frames", "frame_count", "video_frames", "video_length"];
 const rateFields = ["fps", "frame_rate", "framerate"];
+const samplerFields = ["seed", "noise_seed", "steps", "cfg", "guidance", "denoise", "sampler_name", "scheduler"];
 const nodeOrder = (a: string, b: string) => Number(a) - Number(b) || a.localeCompare(b);
 const nodeTitle = (workflow: ComfyWorkflow, id: string) => `${workflow[id]?._meta?.title || workflow[id]?.class_type} #${id}`;
 const isLink = (value: unknown): value is [string, number] => Array.isArray(value) && typeof value[0] === "string";
@@ -63,6 +65,27 @@ function findFrames(workflow: ComfyWorkflow, ids: string[]) {
   return count ? { count, targets: matching } : undefined;
 }
 
+// 列出可以暴露到节点的固定值，用户确认后才写入模型；提示词节点在保存时排除。
+function findParameters(workflow: ComfyWorkflow, ids: string[], textNodes: ComfyTextNode[]) {
+  const negative = reachable(workflow, ["negative"]), keys = new Set<string>();
+  const parameter = (node: string, field: string, name: string, schema: Omit<ComfyParameter["schema"], "title">): ComfyParameter => {
+    const key = keys.has(name) ? `${name}${node.replace(/\W/g, "")}` : name;
+    keys.add(key);
+    return { node, field, key, schema: { ...schema, title: `${nodeTitle(workflow, node)} · ${field}`.slice(0, 200) } };
+  };
+  const camelCase = (field: string) => field.replace(/_(\w)/g, (_match, letter: string) => letter.toUpperCase());
+  return [
+    ...textNodes.flatMap(({ node, fields }) => fields.map(field => parameter(node, field, negative.has(node) ? "negativePrompt" : camelCase(field), { type: "string", default: workflow[node]!.inputs[field] as string }))),
+    ...ids.flatMap(node => samplerFields.flatMap(field => {
+      const value = workflow[node]!.inputs[field];
+      // 种子不设默认值：留空时服务端每次随机，否则 ComfyUI 直接返回缓存。
+      if (field === "seed" || field === "noise_seed") return typeof value === "number" ? [parameter(node, field, camelCase(field), { type: "integer", minimum: 0 })] : [];
+      if (typeof value === "string") return [parameter(node, field, camelCase(field), { type: "string", default: value })];
+      return typeof value === "number" ? [parameter(node, field, camelCase(field), { type: field === "steps" ? "integer" : "number", default: value })] : [];
+    })),
+  ];
+}
+
 export function analyzeComfyWorkflow(source: string): ComfyAnalysis {
   let value: unknown;
   try { value = JSON.parse(source); } catch { throw new Error("文件不是有效的 JSON"); }
@@ -82,7 +105,7 @@ export function analyzeComfyWorkflow(source: string): ComfyAnalysis {
   const outputs = Object.values(workflow).map(node => node.class_type).join(" ");
   const type: ComfyMediaType = /SaveVideo|SaveWEBM|VideoCombine/i.test(outputs) ? "video" : /SaveAudio/i.test(outputs) ? "audio" : "image";
   const fps = ids.flatMap(id => rateFields.map(field => workflow[id]!.inputs[field])).find((rate): rate is number => typeof rate === "number" && rate > 0);
-  return { workflow, type, textNodes, promptNode: promptNode(workflow, textNodes), loaders, size: findSize(workflow, ids), frames: fps ? findFrames(workflow, ids) : undefined, ...(fps ? { fps } : {}) };
+  return { workflow, type, textNodes, promptNode: promptNode(workflow, textNodes), loaders, parameters: findParameters(workflow, ids, textNodes), size: findSize(workflow, ids), frames: fps ? findFrames(workflow, ids) : undefined, ...(fps ? { fps } : {}) };
 }
 
 function greatestDivisor(a: number, b: number): number { return b ? greatestDivisor(b, a % b) : a; }
@@ -105,7 +128,7 @@ export function comfyDefaults({ size, frames, fps }: ComfyAnalysis) {
   return { ratios: size ? [`${size.width / divisor!}:${size.height / divisor!}`] : [], durations: frames && fps ? [Math.max(1, Math.round(frames.count / fps))] : [] };
 }
 
-export function buildComfyModel(analysis: ComfyAnalysis, draft: { id: string; label: string; type: ComfyMediaType; promptNode: string; loaders: ComfyLoader[]; ratios?: string[]; durations?: number[] }) {
+export function buildComfyModel(analysis: ComfyAnalysis, draft: { id: string; label: string; type: ComfyMediaType; promptNode: string; loaders: ComfyLoader[]; parameters: string[]; ratios?: string[]; durations?: number[] }) {
   const textNode = analysis.textNodes.find(item => item.node === draft.promptNode);
   if (!textNode) throw new Error("请选择接收提示词的节点");
   const target = ({ node, field }: ComfyTarget) => ({ node, field });
@@ -121,11 +144,13 @@ export function buildComfyModel(analysis: ComfyAnalysis, draft: { id: string; la
   if (durations.length) inputs.frames = frames!.targets;
   const short = size && `${Math.min(size.width, size.height)}p`;
   const frameStep = frames && (frames.count - 1) % 8 === 0 ? 8 : frames && (frames.count - 1) % 4 === 0 ? 4 : 1;
+  const exposed = analysis.parameters.filter(item => draft.parameters.includes(item.key) && item.node !== draft.promptNode);
   return {
     id: draft.id, label: draft.label, type: draft.type,
     ...(size && draft.type !== "audio" ? { imageRatios: ratios } : {}),
     ...(size && draft.type === "image" ? { imageSizes: [short!] } : {}),
     ...(video ? { mode: videoModes(draft.loaders), ...(durations.length ? { durationResolutionMap: [{ duration: durations, resolution: short ? [short] : [] }] } : {}) } : {}),
-    comfy: { workflow: analysis.workflow, inputs: Object.fromEntries(Object.entries(inputs).filter(([, targets]) => targets.length)), ...(durations.length ? { fps, frameStep } : {}) },
+    ...(exposed.length ? { parameters: { type: "object", properties: Object.fromEntries(exposed.map(item => [item.key, item.schema])) } } : {}),
+    comfy: { workflow: analysis.workflow, inputs: { ...Object.fromEntries(Object.entries(inputs).filter(([, targets]) => targets.length)), ...(exposed.length ? { parameters: Object.fromEntries(exposed.map(item => [item.key, [target(item)]])) } : {}) }, ...(durations.length ? { fps, frameStep } : {}) },
   };
 }

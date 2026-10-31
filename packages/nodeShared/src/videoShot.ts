@@ -93,7 +93,7 @@ export function videoShotPrompt(data: Record<string, unknown>, inputs: NodeInput
 }
 
 export function videoCreativeFingerprint(data: Record<string, unknown>, inputs: NodeInputValue[]) {
-  return JSON.stringify({ references: inputs, brief: readShotBrief(data), roles: data.referenceRoles ?? {}, ...Object.fromEntries(["prompt", "model", "ratio", "resolution", "duration", "mode", "generateAudio"].map(key => [key, data[key]])) });
+  return JSON.stringify({ references: inputs, brief: readShotBrief(data), roles: data.referenceRoles ?? {}, ...Object.fromEntries(["prompt", "model", "ratio", "resolution", "duration", "mode", "generateAudio", "parameters"].map(key => [key, data[key]])) });
 }
 
 export function videoReviewAllows(review: VideoReview | null, source: string, sourceRevision: string, start: number, end: number, taskId?: string) {

@@ -77,20 +77,57 @@ func validateComfyModel(model object) error {
 	if !valid {
 		return fail(400, "comfy.inputs 须为对象")
 	}
-	for slot, raw := range inputs {
-		if !comfyListSlots[slot] && slot != "prompt" && slot != "firstFrame" && slot != "lastFrame" && slot != "width" && slot != "height" && slot != "frames" {
-			return fail(400, "未知 ComfyUI 输入: "+slot)
-		}
+	literals := func(slot string, raw any) ([]any, error) {
 		targets, valid := raw.([]any)
 		if !valid || len(targets) == 0 || len(targets) > 64 {
-			return fail(400, "ComfyUI 输入 "+slot+" 须映射1至64个目标")
+			return nil, fail(400, "ComfyUI 输入 "+slot+" 须映射1至64个目标")
 		}
+		values := []any{}
 		for _, rawTarget := range targets {
 			target := asObject(rawTarget)
 			value, exists := asObject(asObject(workflow[str(target["node"])])["inputs"])[str(target["field"])]
 			if _, linked := value.([]any); !exists || linked {
-				return fail(400, "ComfyUI 输入 "+slot+" 须指向节点上的固定值，不能指向连线")
+				return nil, fail(400, "ComfyUI 输入 "+slot+" 须指向节点上的固定值，不能指向连线")
 			}
+			values = append(values, value)
+		}
+		return values, nil
+	}
+	for slot, raw := range inputs {
+		if slot == "parameters" {
+			continue
+		}
+		if !comfyListSlots[slot] && slot != "prompt" && slot != "firstFrame" && slot != "lastFrame" && slot != "width" && slot != "height" && slot != "frames" {
+			return fail(400, "未知 ComfyUI 输入: "+slot)
+		}
+		if _, err := literals(slot, raw); err != nil {
+			return err
+		}
+	}
+	// 声明与映射必须一一对应：没映射的参数写不进工作流，不能显示在节点上再静默丢弃。
+	declared := asObject(asObject(model["parameters"])["properties"])
+	mapped, valid := inputs["parameters"].(map[string]any)
+	if inputs["parameters"] != nil && !valid {
+		return fail(400, "comfy.inputs.parameters 须为对象")
+	}
+	for name, raw := range mapped {
+		field, exists := declared[name]
+		if !exists {
+			return fail(400, "ComfyUI 映射了未声明的参数: "+name)
+		}
+		values, err := literals("parameters."+name, raw)
+		if err != nil {
+			return err
+		}
+		for _, value := range values {
+			if !parameterTypeMatches(str(asObject(field)["type"]), value) {
+				return fail(400, "ComfyUI 参数类型与工作流字段不符: "+name)
+			}
+		}
+	}
+	for name := range declared {
+		if mapped[name] == nil {
+			return fail(400, "ComfyUI 参数须在 comfy.inputs.parameters 中映射: "+name)
 		}
 	}
 	if len(array(inputs["prompt"])) == 0 {
@@ -151,13 +188,22 @@ func (c comfyConnection) prepare(ctx context.Context, model, input, refs object)
 	options := asObject(model["comfy"])
 	inputs := asObject(options["inputs"])
 	workflow := asObject(clone(options["workflow"]))
-	assign := func(slot string, value any) {
-		for _, raw := range array(inputs[slot]) {
+	write := func(targets []any, value any) {
+		for _, raw := range targets {
 			target := asObject(raw)
 			asObject(asObject(workflow[str(target["node"])])["inputs"])[str(target["field"])] = value
 		}
 	}
+	assign := func(slot string, value any) { write(array(inputs[slot]), value) }
 	assign("prompt", input["prompt"])
+	fixed := map[string]bool{}
+	for name, value := range asObject(input["parameters"]) {
+		targets := array(asObject(inputs["parameters"])[name])
+		write(targets, value)
+		for _, raw := range targets {
+			fixed[str(asObject(raw)["node"])+"/"+str(asObject(raw)["field"])] = true
+		}
+	}
 	width, height, sized, err := comfyDimensions(options, input, str(model["type"]))
 	if err != nil {
 		return nil, err
@@ -198,11 +244,11 @@ func (c comfyConnection) prepare(ctx context.Context, model, input, refs object)
 			assign(slot, name)
 		}
 	}
-	// ComfyUI 对完全相同的图直接返回缓存，每次提交必须换种子才会真正重新生成。
-	for _, raw := range workflow {
+	// ComfyUI 对完全相同的图直接返回缓存，每次提交必须换种子才会真正重新生成；用户填了种子时以用户为准。
+	for id, raw := range workflow {
 		fields := asObject(asObject(raw)["inputs"])
 		for _, field := range []string{"seed", "noise_seed"} {
-			if _, literal := fields[field].(float64); literal {
+			if _, literal := fields[field].(float64); literal && !fixed[id+"/"+field] {
 				fields[field] = rand.Int64N(1 << 53)
 			}
 		}

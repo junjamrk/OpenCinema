@@ -55,6 +55,13 @@ func providerModel(provider object, id string) object {
 func validateVideoProvider(provider object) error {
 	protocol := videoProtocol(provider)
 	if protocol == "" {
+		// ACT: 既有适配（TF-router、APIMart 等）的请求体是逐字段写死的，声明了也送不出去，所以直接拒绝。
+		// 上限是这些供应商暂时不能暴露厂商参数；升级方式是给对应适配加合入逻辑后放开此处。
+		for _, raw := range array(provider["models"]) {
+			if asObject(raw)["parameters"] != nil {
+				return fail(400, "parameters 只支持声明了 videoProtocol 的供应商")
+			}
+		}
 		return nil
 	}
 	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" && protocol != "comfyui" {
@@ -93,6 +100,10 @@ func validateVideoProvider(provider object) error {
 	}
 	for _, raw := range array(provider["models"]) {
 		model := asObject(raw)
+		// 须在下面的 continue 之前：ComfyUI 的图片和音频模型不走后续校验。
+		if err := validateModelParameters(model); err != nil {
+			return err
+		}
 		if protocol == "comfyui" {
 			if err := validateComfyModel(model); err != nil {
 				return err
@@ -179,6 +190,21 @@ func validateVideoProvider(provider object) error {
 				return fail(400, "视频字段映射无效")
 			}
 		}
+		// ComfyUI 的参数按 comfy.inputs.parameters 写进工作流，不进请求体，不存在字段冲突。
+		if protocol != "comfyui" {
+			reserved := map[string]bool{}
+			for _, target := range videoFieldTargets(model, protocol) {
+				reserved[target] = true
+			}
+			for _, target := range videoReservedFields[protocol] {
+				reserved[target] = true
+			}
+			for name := range asObject(asObject(model["parameters"])["properties"]) {
+				if reserved[name] {
+					return fail(400, "模型参数与协议字段冲突: "+name)
+				}
+			}
+		}
 		for _, rawMode := range array(model["mode"]) {
 			valid := false
 			if mode, ok := rawMode.(string); ok {
@@ -215,6 +241,30 @@ func validateVideoProvider(provider object) error {
 		}
 	}
 	return nil
+}
+
+// videoReservedFields 列出协议在请求体里固定写入、又不经 inputMap 的字段。
+var videoReservedFields = map[string][]string{"ark": {"model", "content", "ratio", "execution_expires_after"}, "openaiVideo": {"model", "size"}}
+
+// videoFieldTargets 给出输入字段写入请求体时使用的字段名，inputMap 优先于协议默认值。
+func videoFieldTargets(model object, protocol string) map[string]string {
+	targets := map[string]string{"prompt": "prompt", "duration": "seconds"}
+	if protocol != "openaiVideo" {
+		targets["duration"], targets["ratio"], targets["resolution"], targets["generateAudio"] = "duration", "aspect_ratio", "resolution", "generate_audio"
+	}
+	for field, target := range asObject(asObject(model["video"])["inputMap"]) {
+		targets[field] = str(target)
+	}
+	return targets
+}
+
+// videoBaseBody 是请求体的起点：用户填的模型参数覆盖 defaults，与已映射字段重名时由调用方按冲突拒绝。
+func videoBaseBody(model, input object) object {
+	body := asObject(clone(asObject(model["video"])["defaults"]))
+	for key, value := range asObject(input["parameters"]) {
+		body[key] = value
+	}
+	return body
 }
 
 func videoInputField(key string) bool {
@@ -474,15 +524,9 @@ func videoBody(model, input, refs object, protocol string) (object, error) {
 		return arkVideoBody(model, input, refs)
 	}
 	options := asObject(model["video"])
-	body := asObject(clone(options["defaults"]))
+	body := videoBaseBody(model, input)
 	mapping := asObject(options["inputMap"])
-	defaults := map[string]string{"prompt": "prompt", "duration": "seconds"}
-	if protocol != "openaiVideo" {
-		defaults["duration"] = "duration"
-		defaults["ratio"] = "aspect_ratio"
-		defaults["resolution"] = "resolution"
-		defaults["generateAudio"] = "generate_audio"
-	}
+	targets := videoFieldTargets(model, protocol)
 	for _, field := range []string{"prompt", "duration", "ratio", "resolution", "generateAudio", "images", "videos", "audios", "firstFrame", "lastFrame"} {
 		value := input[field]
 		if protocol == "openaiVideo" && field == "generateAudio" && mapping[field] == nil && model["audio"] != "optional" {
@@ -497,10 +541,7 @@ func videoBody(model, input, refs object, protocol string) (object, error) {
 		if items, ok := value.([]any); ok && len(items) == 0 {
 			continue
 		}
-		target := str(mapping[field])
-		if target == "" {
-			target = defaults[field]
-		}
+		target := targets[field]
 		if target == "" {
 			if field == "ratio" || field == "resolution" {
 				continue
@@ -546,7 +587,7 @@ func videoBody(model, input, refs object, protocol string) (object, error) {
 }
 
 func arkVideoBody(model, input, refs object) (object, error) {
-	body := asObject(clone(asObject(model["video"])["defaults"]))
+	body := videoBaseBody(model, input)
 	if refs["executionExpiresAfter"] != nil {
 		if number(refs["executionExpiresAfter"]) != 3600 {
 			return nil, fail(400, "临时参考仅支持已声明的1小时方舟任务预算")
