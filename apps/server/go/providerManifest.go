@@ -62,7 +62,7 @@ func parseHTTPProvider(source string) (object, error) {
 	}
 	for _, key := range []string{"apiUrl", "modelsUrl"} {
 		value := str(provider[key])
-		if key == "modelsUrl" && value == "" {
+		if value == "" && (key == "modelsUrl" || videoProtocol(provider) == "adapter") {
 			continue
 		}
 		u, err := url.Parse(value)

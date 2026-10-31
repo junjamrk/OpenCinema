@@ -68,7 +68,7 @@ func validateVideoProvider(provider object) error {
 		}
 		return nil
 	}
-	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" && protocol != "comfyui" && protocol != "httpTask" {
+	if protocol != "openaiVideo" && protocol != "fal" && protocol != "replicate" && protocol != "ark" && protocol != "comfyui" && protocol != "httpTask" && protocol != "adapter" {
 		return fail(400, "不支持的视频执行协议")
 	}
 	if transport == "local" && !localProtocol(protocol) {
@@ -91,6 +91,11 @@ func validateVideoProvider(provider object) error {
 	}
 	if protocol == "httpTask" {
 		if err := validateHttpTask(provider); err != nil {
+			return err
+		}
+	}
+	if protocol == "adapter" {
+		if err := validateAdapterProvider(provider); err != nil {
 			return err
 		}
 	}
@@ -118,15 +123,13 @@ func validateVideoProvider(provider object) error {
 				continue
 			}
 		} else if kind != "video" && (!protocolCoversAllMedia(protocol) || (kind != "image" && kind != "audio")) {
-			return fail(400, protocol+" 协议只能声明 video 模型；图片和音频须用 fal、replicate 或 httpTask")
+			return fail(400, protocol+" 协议只能声明 video 模型；图片和音频须用 fal、replicate、httpTask 或 adapter")
 		}
-		if protocol == "httpTask" {
-			if len(taskSpec(provider, kind)) == 0 {
-				return fail(400, "模型 "+str(model["id"])+" 没有对应的 task."+kind+" 声明")
-			}
-			if model["video"] != nil {
-				return fail(400, "httpTask 用 task 模板映射字段，不使用 model.video")
-			}
+		if protocol == "httpTask" && len(taskSpec(provider, kind)) == 0 {
+			return fail(400, "模型 "+str(model["id"])+" 没有对应的 task."+kind+" 声明")
+		}
+		if (protocol == "httpTask" || protocol == "adapter") && model["video"] != nil {
+			return fail(400, protocol+" 自己映射字段，不使用 model.video")
 		}
 		if audio := model["audio"]; audio != nil && audio != "optional" {
 			if _, ok := audio.(bool); !ok {
@@ -286,7 +289,7 @@ func videoBaseBody(model, input object) object {
 
 // 这些协议的任务接口与媒体类型无关；openaiVideo 和 ark 的合同只覆盖视频。
 func protocolCoversAllMedia(protocol string) bool {
-	return protocol == "fal" || protocol == "replicate" || protocol == "httpTask"
+	return protocol == "fal" || protocol == "replicate" || protocol == "httpTask" || protocol == "adapter"
 }
 
 func localProtocol(protocol string) bool {
@@ -744,12 +747,17 @@ func arkVideoBody(model, input, refs object) (object, error) {
 	return body, nil
 }
 
-func submitVideo(ctx context.Context, provider, config, input, refs object) (object, object, error) {
-	protocol := videoProtocol(provider)
+func newRemoteJob(ctx context.Context, provider, config, input object) object {
 	job := currentVideoJob(ctx)
-	job["protocol"], job["providerId"], job["modelId"] = protocol, provider["id"], input["modelId"]
+	job["protocol"], job["providerId"], job["modelId"] = videoProtocol(provider), provider["id"], input["modelId"]
 	job["providerRevision"], job["configRevision"], job["cancelMode"] = provider["revision"], videoConfigRevision(config), providerCancelMode(provider, str(input["mediaType"]))
 	delete(job, "phase")
+	return job
+}
+
+func submitVideo(ctx context.Context, provider, config, input, refs object) (object, object, error) {
+	protocol := videoProtocol(provider)
+	job := newRemoteJob(ctx, provider, config, input)
 	if protocol == "httpTask" {
 		return submitHttpTask(ctx, provider, config, input, refs, job)
 	}
@@ -911,6 +919,8 @@ func videoOutputURLs(result, provider object, kind string) []string {
 	}
 	if protocol == "httpTask" {
 		collect(taskValue(result, str(taskSpec(provider, kind)["outputPath"])))
+	} else if protocol == "adapter" {
+		collect(result["outputs"])
 	} else if protocol == "ark" {
 		collect(asObject(result["content"])["video_url"])
 	} else if protocol == "replicate" {

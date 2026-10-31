@@ -94,7 +94,11 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 			}
 		}
 		var err error
-		job, response, err = submitVideo(ctx, provider, config, input, refs)
+		if videoProtocol(provider) == "adapter" {
+			job, response, err = s.submitAdapter(ctx, provider, config, input, refs)
+		} else {
+			job, response, err = submitVideo(ctx, provider, config, input, refs)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -108,11 +112,11 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 		}
 		deadline, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := cancelRemoteJob(deadline, provider, config, job); err != nil {
+		if err := s.cancelRemoteJob(deadline, provider, config, input, job); err != nil {
 			return
 		}
 		for {
-			result, err := videoJSON(deadline, provider, config, http.MethodGet, str(job["statusPath"]), nil)
+			result, err := s.pollRemoteJob(deadline, provider, config, input, job)
 			if err != nil {
 				return
 			}
@@ -144,7 +148,7 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 		}
 		if response == nil {
 			var err error
-			response, err = videoJSON(ctx, provider, config, http.MethodGet, str(job["statusPath"]), nil)
+			response, err = s.pollRemoteJob(ctx, provider, config, input, job)
 			if err != nil {
 				return nil, err
 			}
@@ -211,15 +215,6 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 			return nil, err
 		}
 	}
-}
-
-// 取消接口常回空正文，这里只看状态码；是否真的终止由取消后的状态查询确认。
-func cancelRemoteJob(ctx context.Context, provider, config, job object) error {
-	response, err := videoRequest(ctx, provider, config, str(job["cancelMethod"]), str(job["cancelPath"]), nil, "application/json")
-	if err != nil {
-		return err
-	}
-	return response.Body.Close()
 }
 
 func (s *server) runMediaTask(ctx context.Context, id string, task *mediaTask) {
