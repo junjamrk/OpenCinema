@@ -816,6 +816,11 @@ func providerBase(p, config object) string {
 	return strings.TrimRight(str(p["apiUrl"]), "/")
 }
 func providerJSON(ctx context.Context, base, path string, config object, body any) (object, error) {
+	return providerClientJSON(ctx, nil, base, path, config, body)
+}
+
+// client 为 nil 时走公网客户端且必须有 API Key；非 nil 只来自 localProviderClient，本地服务可以不设认证。
+func providerClientJSON(ctx context.Context, client *http.Client, base, path string, config object, body any) (object, error) {
 	baseURL, baseErr := url.Parse(base)
 	if baseErr != nil || baseURL.RawQuery != "" || baseURL.Fragment != "" || baseURL.User != nil {
 		return nil, fail(400, "供应商地址不能包含账号、查询凭据或锚点")
@@ -839,15 +844,20 @@ func providerJSON(ctx context.Context, base, path string, config object, body an
 		return nil, err
 	}
 	key := strings.TrimSpace(strings.TrimPrefix(str(config["apiKey"]), "Bearer "))
-	if key == "" {
+	if key == "" && client == nil {
 		return nil, fail(400, "请先配置媒体供应商 API Key")
 	}
-	request.Header.Set("Authorization", "Bearer "+key)
+	if key != "" {
+		request.Header.Set("Authorization", "Bearer "+key)
+	}
 	request.Header.Set("Content-Type", "application/json")
 	if method == "POST" {
 		markMediaSubmitted(ctx)
 	}
-	response, err := safeClient().Do(request)
+	if client == nil {
+		client = safeClient()
+	}
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -856,8 +866,14 @@ func providerJSON(ctx context.Context, base, path string, config object, body an
 	if err != nil {
 		return nil, err
 	}
+	redact := func(message string) string {
+		if key == "" {
+			return message
+		}
+		return strings.ReplaceAll(message, key, "[REDACTED]")
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		message := strings.ReplaceAll(string(data), key, "[REDACTED]")
+		message := redact(string(data))
 		if len(message) > 2000 {
 			message = message[:2000]
 		}
@@ -875,7 +891,7 @@ func providerJSON(ctx context.Context, base, path string, config object, body an
 		if message == "" {
 			message = "供应商拒绝请求"
 		}
-		message = strings.ReplaceAll(message, key, "[REDACTED]")
+		message = redact(message)
 		if len(message) > 2000 {
 			message = message[:2000]
 		}
@@ -1068,11 +1084,15 @@ func (s *server) generateMedia(ctx context.Context, directory string, v object) 
 			mimeType = strings.TrimSuffix(strings.TrimPrefix(parts[0], "data:"), ";base64")
 			data, err = base64.StdEncoding.DecodeString(parts[1])
 		} else {
-			request, e := http.NewRequestWithContext(ctx, "GET", result, nil)
+			client, target, e := resultClient(provider, config, result)
 			if e != nil {
 				return nil, e
 			}
-			response, e := safeClient().Do(request)
+			request, e := http.NewRequestWithContext(ctx, "GET", target, nil)
+			if e != nil {
+				return nil, e
+			}
+			response, e := client.Do(request)
 			if e != nil {
 				return nil, e
 			}
@@ -1483,7 +1503,7 @@ func generateCompshare(ctx context.Context, base string, config, v, refs object)
 		if strings.Contains(strings.ToLower(str(v["modelId"])), "gpt-image") {
 			return generateGptImage(ctx, base, config, v, refs)
 		}
-		return generateOpenAIImage(ctx, base, config, v, refs)
+		return generateOpenAIImage(ctx, nil, base, config, v, refs)
 	}
 	if strings.Contains(strings.ToLower(str(v["modelId"])), "minimax-h3") {
 		h3 := asObject(clone(config))
@@ -1547,7 +1567,7 @@ func extractURLs(value any) []string {
 	}
 	return urls
 }
-func generateOpenAIImage(ctx context.Context, base string, config, v, refs object) ([]string, error) {
+func generateOpenAIImage(ctx context.Context, client *http.Client, base string, config, v, refs object) ([]string, error) {
 	size, err := resolveProviderImageSize(str(v["modelId"]), str(v["size"]), str(v["ratio"]))
 	if err != nil {
 		return nil, err
@@ -1563,16 +1583,20 @@ func generateOpenAIImage(ctx context.Context, base string, config, v, refs objec
 	if strings.HasSuffix(base, "/v1") {
 		endpoint = "images/generations"
 	}
-	result, err := providerJSON(ctx, base, endpoint, config, body)
+	result, err := providerClientJSON(ctx, client, base, endpoint, config, body)
 	if err != nil {
 		return nil, err
 	}
 	return imageResultURLs(result), nil
 }
 func generateHttpProvider(ctx context.Context, base string, p, config, v, refs object) ([]string, error) {
+	client, base, err := localProviderClient(p, base)
+	if err != nil {
+		return nil, err
+	}
 	protocol := str(p["protocol"])
 	if protocol == "openai" && str(v["mediaType"]) == "image" {
-		return generateOpenAIImage(ctx, base, config, v, refs)
+		return generateOpenAIImage(ctx, client, base, config, v, refs)
 	}
 	endpoint := str(asObject(p["endpoints"])[str(v["mediaType"])])
 	if endpoint == "" {
@@ -1585,7 +1609,7 @@ func generateHttpProvider(ctx context.Context, base string, p, config, v, refs o
 	for key, value := range refs {
 		body[key] = value
 	}
-	result, err := providerJSON(ctx, base, endpoint, config, body)
+	result, err := providerClientJSON(ctx, client, base, endpoint, config, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1667,8 +1691,11 @@ func (s *server) providerRoute(w http.ResponseWriter, r *http.Request, v object)
 		if err != nil {
 			return err
 		}
-		base := u.Scheme + "://" + u.Host
-		result, err := providerJSON(r.Context(), base, u.RequestURI(), config, nil)
+		client, base, err := localProviderClient(provider, u.Scheme+"://"+u.Host)
+		if err != nil {
+			return err
+		}
+		result, err := providerClientJSON(r.Context(), client, base, u.RequestURI(), config, nil)
 		if err != nil {
 			return err
 		}
