@@ -561,7 +561,10 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
       }); } });
     context.registerTool({ name: "extractAudio", outputSchema: z.strictObject({ nodeId: z.string(), value: z.strictObject({ url: z.string(), mimeType: z.string() }) }), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "本地提取完整音轨并创建音频节点。", parameters: z.strictObject({}),
       execute(_args, { signal }) { return run("extractAudio", signal, async (current, path) => {
-        const childId = crypto.randomUUID(); const directory = await createMediaDirectory(workbench, childId); const target = `${directory}/audio.m4a`; const ffmpeg = await workbench.ffmpeg(current);
+        const ffmpeg = await workbench.ffmpeg(current);
+        const probe = await probeMedia(ffmpeg, path, current);
+        if (!probe.streams.some(stream => stream.codec_type === "audio")) throw new Error("该视频没有音轨");
+        const childId = crypto.randomUUID(); const directory = await createMediaDirectory(workbench, childId); const target = `${directory}/audio.m4a`;
         await runMediaCommand(ffmpeg(path).noVideo().audioCodec("aac").output(target), current);
         current.throwIfAborted();
         return createResultNode(workbench, document, id, "audio", { url: target, mimeType: "audio/mp4" }, `${String(readNodeData(document, id).label ?? "视频")} · 音轨`, childId, current);

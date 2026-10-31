@@ -2,6 +2,7 @@ import { openCinema, version } from "../package.json";
 import type { NodePluginDefinition } from "@toonflow/nodes-scaffold/contracts";
 import MotionNodeView from "./reactView";
 import { createMotionService } from "./reactService";
+import { motionOutputLabels } from "./editorView";
 export default {
   ...openCinema,
   version,
@@ -34,7 +35,7 @@ export default {
         ["combinedReview", "FILE"],
         ["productionPack", "FILE"],
         ["shotPlan", "FILE"],
-      ].map(([id, dataType]) => ({ id, type: "source", dataType, label: id })),
+      ].map(([id, dataType]) => ({ id, type: "source", dataType, label: motionOutputLabels[id!] })),
     ],
     historyFields: ["analysisSettings", "analysisInput", "outputs", "productionPlan"],
   }),

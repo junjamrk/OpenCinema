@@ -429,7 +429,7 @@ export function createMotionService(context: PluginActivationContext) {
           ? (depthStatus?.state ?? "unknown")
           : state,
       running: !!task,
-      phase: engine.phase.value || state,
+      phase: engine.phase.value || (task ? "正在处理" : state),
       progress,
       error: exportFailure?.message ?? error,
       result,

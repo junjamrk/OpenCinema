@@ -11,7 +11,7 @@ import {
 import { analysisSettingsSchema, type AnalysisSettings } from "./reactEngine";
 import type { MotionService } from "./reactService";
 import MotionPreview from "./reactMotionPreview";
-import { motionView, readProductionPlan } from "./editorView";
+import { motionOutputLabels, motionView, readProductionPlan } from "./editorView";
 import { useEditorSession } from "@toonflow/node-shared/editorSession";
 import "./reactStyles.scss";
 
@@ -188,10 +188,10 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
       {tab === "analysis" && (
         <>
           <div className="motionInput">
-            <span>VIDEO</span>
+            <span>参考视频</span>
             <small>
               {references.length === 1
-                ? ((references[0]!.value as any)?.url ?? "未产出")
+                ? ((references[0]!.value as any)?.url?.split("/").at(-1) ?? "未产出")
                 : references.length
                   ? `${references.length} 路输入，须明确保留一路`
                   : "未连接参考视频"}
@@ -378,7 +378,7 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
                 <button
                   key={name}
                   onClick={() => void download(output.value.url, output.value.mimeType)}>
-                  <span>{name}</span>
+                  <span>{motionOutputLabels[name] ?? name}</span>
                   <small>{output.value.url.split("/").at(-1)}</small>
                   <NodeIcon name="download" />
                 </button>
@@ -401,8 +401,8 @@ export default function MotionNodeView({ node, controller, readOnly }: Props) {
       {status?.operationId && (
         <>
           <small>
-            Depth {status.operationId} · {status.backendRegistered ? "已登记" : "本地准备"} ·{" "}
-            {status.executionSettled ? "执行已收尾" : "执行未确认收尾"}
+            深度任务 · {status.backendRegistered ? "已提交" : "本地准备"} ·{" "}
+            {status.executionSettled ? "已结束" : "未确认结束"}
           </small>
           {!status.running && (
             <div className="motionActions">

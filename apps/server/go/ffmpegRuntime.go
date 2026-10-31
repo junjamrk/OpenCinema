@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -456,6 +457,17 @@ func optionArgs(args []any) ([]string, error) {
 	}
 	return result, nil
 }
+// ffmpegDetail 只保留 stderr 末尾几行：节点里显示失败原因，不显示整段编码日志和本机绝对路径。
+func ffmpegDetail(tail []string, directory string, err error) string {
+	detail := strings.ReplaceAll(strings.Join(tail, "\n"), directory+string(filepath.Separator), "")
+	if detail == "" {
+		return err.Error()
+	}
+	if runes := []rune(detail); len(runes) > 600 {
+		return string(runes[len(runes)-600:])
+	}
+	return detail
+}
 func (s *server) executeFfmpeg(w http.ResponseWriter, r *http.Request) error {
 	var request ffRequest
 	decoder := json.NewDecoder(io.LimitReader(r.Body, 2*1024*1024))
@@ -821,8 +833,10 @@ func (s *server) executeFfmpeg(w http.ResponseWriter, r *http.Request) error {
 		failEvent(e)
 		return nil
 	}
-	if timeout := number(request.Options["timeout"]); timeout > 0 {
-		timer := time.AfterFunc(time.Duration(timeout)*time.Second, cancel)
+	var timedOut atomic.Bool
+	timeout := number(request.Options["timeout"])
+	if timeout > 0 {
+		timer := time.AfterFunc(time.Duration(timeout)*time.Second, func() { timedOut.Store(true); cancel() })
 		defer timer.Stop()
 	}
 	if e = command.Start(); e != nil {
@@ -832,6 +846,7 @@ func (s *server) executeFfmpeg(w http.ResponseWriter, r *http.Request) error {
 	emit("start", ffmpeg+" "+strings.Join(args, " "))
 	var wait sync.WaitGroup
 	var stderrText strings.Builder
+	stderrTail := []string{}
 	wait.Add(2)
 	go func() {
 		defer wait.Done()
@@ -841,6 +856,9 @@ func (s *server) executeFfmpeg(w http.ResponseWriter, r *http.Request) error {
 			line := scanner.Text()
 			if stderrText.Len() < 4*1024*1024 {
 				stderrText.WriteString(line + "\n")
+			}
+			if strings.TrimSpace(line) != "" {
+				stderrTail = append(stderrTail[max(0, len(stderrTail)-2):], line)
 			}
 			emit("stderr", line)
 		}
@@ -876,12 +894,11 @@ func (s *server) executeFfmpeg(w http.ResponseWriter, r *http.Request) error {
 	wait.Wait()
 	err = command.Wait()
 	if err != nil {
-		message := stderrText.String()
-		if ctx.Err() != nil {
+		message := "FFmpeg 处理失败：" + ffmpegDetail(stderrTail, directory, err)
+		if timedOut.Load() {
+			message = fmt.Sprintf("FFmpeg 处理超过 %.0f 秒，已自动停止；可缩短素材或降低分辨率后重试", timeout)
+		} else if ctx.Err() != nil {
 			message = "FFmpeg 已取消"
-		}
-		if message == "" {
-			message = err.Error()
 		}
 		failEvent(fail(400, message))
 	} else {
