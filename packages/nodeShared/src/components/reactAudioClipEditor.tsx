@@ -14,7 +14,7 @@ function readClips(groups: AudioRange[][]) {
   return groups.map(ranges => { let length = 0; const parts = ranges.map(range => { const part = { ...range, offset: length, length: range.end - range.start }; length += part.length; return part; }); const clip = { parts, offset, length }; offset += length; return clip; });
 }
 
-export default function AudioClipEditor({ node, controller, readOnly }: NodeViewProps) {
+export default function AudioClipEditor({ node, controller, readOnly, onExport }: NodeViewProps & { onExport(): void }) {
   const source = readMedia(node.data, "audio"); const { url, error } = useMediaUrl(controller, source);
   const draft = mediaEditor(controller.getNodeService(node.id));
   const { value: state } = useEditorSession(draft);
@@ -77,6 +77,7 @@ export default function AudioClipEditor({ node, controller, readOnly }: NodeView
     <div className="nodeClipTrack" role="group" aria-label="音频剪辑轨道">{clips.map((clip, index) => <button type="button" key={index} style={{ left: `${clip.offset / (total || 1) * 100}%`, width: `${clip.length / (total || 1) * 100}%` }} aria-pressed={state.selected === index} disabled={readOnly} aria-label={`片段 ${index + 1}，时长${clip.length.toFixed(2)}秒`} onClick={event => { const bounds = event.currentTarget.getBoundingClientRect(); setState(seek(clip.offset + (event.detail ? (event.clientX - bounds.left) / bounds.width * clip.length : 0))); }}><span>片段 {index + 1}</span>{peaks.length > 0 && clip.parts.map((part, partIndex) => <svg key={partIndex} style={{ left: `${part.offset / clip.length * 100}%`, width: `${part.length / clip.length * 100}%` }} viewBox={`${part.start / duration * 512} 0 ${part.length / duration * 512} 100`} preserveAspectRatio="none" aria-hidden="true">{peaks.map((peak, bar) => <rect key={bar} x={bar * 4 + 1} y={50 - Math.max(2, peak * 78) / 2} width="2" height={Math.max(2, peak * 78)} rx="1" />)}</svg>)}<small>{clip.length.toFixed(2)} 秒</small></button>)}{total > 0 && <i className="nodeClipPlayhead" style={{ left: `${state.playhead / total * 100}%` }} />}</div>
     <label className="nodeField"><span>剪辑游标 · {state.playhead.toFixed(2)} / {total.toFixed(2)} 秒</span><input type="range" min="0" max={total || 1} step=".01" value={state.playhead} disabled={readOnly || !valid} aria-label="剪辑游标" onChange={event => setState(seek(Number(event.target.value)))} /></label>
     <div className="nodeActions"><button type="button" disabled={readOnly || !draft.history.canUndo} onClick={undo}><NodeIcon name="undo" />撤销剪辑</button><button type="button" disabled={readOnly || !draft.history.canRedo} onClick={redo}><NodeIcon name="redo" />恢复剪辑</button><button type="button" disabled={readOnly || !canSplit} onClick={split}><NodeIcon name="cut" />分割</button><button type="button" disabled={readOnly || state.groups.length < 2} onClick={merge}><NodeIcon name="merge" />粘合</button><button type="button" disabled={readOnly || !state.groups[state.selected]} onClick={remove}><NodeIcon name="trash" />删除选中片段</button></div>
+    <div className="nodeActions"><button type="button" className="nodePrimary" disabled={readOnly || !valid} onClick={onExport}><NodeIcon name="merge" />导出剪辑为新节点</button></div>
     {error && <p className="nodeError" role="alert">{error}</p>}
   </div>;
 }

@@ -259,7 +259,7 @@ export function registerMediaEditingTools(context: PluginActivationContext, type
       if (!stream) throw new Error(type === "video" ? "文件不包含视频画面" : "文件不包含音轨");
       const duration = Number(probe.format.duration ?? stream.duration);
       const segments = "segments" in args && args.segments ? args.segments : [{ start: args.start!, end: args.end! }];
-      if (!Number.isFinite(duration) || duration <= 0 || segments.some(segment => segment.end > duration)) throw new Error("截取范围不能超过素材时长");
+      if (!Number.isFinite(duration) || duration <= 0 || segments.some(segment => segment.end > duration)) throw new Error(`截取范围超出素材时长（${Number.isFinite(duration) ? duration.toFixed(2) : "未知"} 秒），请调整终点`);
       const target = `${directory}/clip.${type === "video" ? "mp4" : "m4a"}`;
       const command = ffmpeg(path);
       if (type === "video") command.seekInput(segments[0].start).duration(segments[0].end - segments[0].start).videoCodec("libx264").audioCodec("aac").videoFilters("pad=ceil(iw/2)*2:ceil(ih/2)*2").outputOptions("-map", `0:${stream.index}`, "-map", "0:a:0?", "-pix_fmt", "yuv420p", "-movflags", "+faststart");
