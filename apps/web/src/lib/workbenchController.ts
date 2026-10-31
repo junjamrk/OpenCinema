@@ -22,7 +22,7 @@ import { inferMediaFileType } from "./mediaFileTypes";
 import { createInstalledPluginLoader } from "./installedPluginLoader";
 import { localApiUrl } from "./openCinemaTransport";
 import { assetLibraryClient, assetMediaKind, type AssetLibraryEntry } from "./assetLibraryClient";
-import { pluginPackageSchema, workbenchSettingsClient } from "./workbenchSettingsClient";
+import { pluginMarketClient, pluginMarketUrlOf, pluginPackageSchema, workbenchSettingsClient } from "./workbenchSettingsClient";
 import { isNodeOutput } from "@toonflow/nodes-scaffold/values";
 import { canvasNodePosition, createCanvasQueries, isCanvasRead, type CanvasQueryAvailability, type CanvasQueryRuntime } from "@/lib/canvasQueries";
 import { copyNodesToClipboard, readClipboardNodes } from "@/lib/nodeClipboard";
@@ -75,6 +75,8 @@ export function createWorkbenchController() {
   const pluginConfigs = new Map<string, Record<string, unknown>>();
   const pluginRequirements = new Map<string, Record<string, number>>();
   const pluginScopes = new Map<string, "node" | "workspace">();
+  const pluginDescriptions = new Map<string, string>();
+  const pluginTags = new Map<string, string[]>();
   const moduleErrors = new Map<string, string>();
   const nodeErrors = new Map<string, NodePluginError>();
   const workbenches = new Map<string, NodeWorkbenchService>();
@@ -237,8 +239,16 @@ export function createWorkbenchController() {
     return next;
   }
   function publishPlugins() {
-    publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => ({ type: `remote-${id}`, label, icon: definitions.get(id)?.icon ?? builtinPlugins[id]?.icon, composer: definitions.get(id)?.composer, category: /Generation/.test(id) ? "生成" : /Analysis|Info|Depth/.test(id) ? "分析" : /blockout|director/.test(id) ? "空间与摄影" : "文本与媒体", supported: !disabledPlugins.has(id) })),
+    publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => ({ type: `remote-${id}`, label, icon: definitions.get(id)?.icon ?? builtinPlugins[id]?.icon, composer: definitions.get(id)?.composer, category: pluginCategory(id), ...(pluginDescriptions.has(id) ? { description: pluginDescriptions.get(id) } : {}), supported: !disabledPlugins.has(id) })),
       workspacePlugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) === "workspace").map(([id, label]) => ({ id, label, enabled: !disabledPlugins.has(id) })) });
+  }
+  // 分类先看内置命名，再看 manifest.tags；第三方插件靠标签进入正确的菜单分组。
+  function pluginCategory(id: string) {
+    const tags = pluginTags.get(id) ?? [];
+    if (/Generation/.test(id) || tags.includes("generation")) return "生成";
+    if (/Analysis|Info|Depth/.test(id) || tags.includes("analysis")) return "分析";
+    if (/blockout|director/.test(id) || tags.some(tag => ["3d", "spatial", "camera", "previs"].includes(tag))) return "空间与摄影";
+    return "文本与媒体";
   }
   function pluginAvailability(pluginId: string, id?: string): CanvasQueryAvailability {
     const definition = definitions.get(pluginId), declared = pluginRequirements.get(pluginId);
@@ -495,7 +505,7 @@ export function createWorkbenchController() {
     const response = await fetch("/api/nodes/get", { headers: { "x-toonflow-workspace": "1" }, signal: controllerLifetime.signal, cache: "no-store" });
     const body = await response.json();
     if (!response.ok || body.code !== 200) throw new Error(body.message || "插件目录读取失败");
-    const catalog = z.array(z.object({ name: nodeId, id: nodeId.optional(), displayName: z.string().optional(), version: z.string().optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), requires: nodeRequirementsSchema.optional(), scope: z.enum(["node", "workspace"]).optional(), url: z.string().optional(), config: z.record(z.string(), z.json()).nullish() })).parse(body.data);
+    const catalog = z.array(z.object({ name: nodeId, id: nodeId.optional(), displayName: z.string().optional(), version: z.string().optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), requires: nodeRequirementsSchema.optional(), scope: z.enum(["node", "workspace"]).optional(), url: z.string().optional(), config: z.record(z.string(), z.json()).nullish(), description: z.string().optional(), tags: z.array(z.string()).optional() })).parse(body.data);
     const installedIds = new Set(catalog.map(entry => entry.id ?? entry.name));
     const changedIds = new Set([...pluginSources.keys()].filter(id => !installedIds.has(id)));
     for (const entry of catalog) {
@@ -510,13 +520,15 @@ export function createWorkbenchController() {
     const failures: string[] = [];
     for (const id of pluginSources.keys()) if (!installedIds.has(id)) {
       await runtime.unload(id); pluginSources.delete(id); definitions.delete(id); views.delete(id); views.delete(`remote-${id}`);
-      pluginLabels.delete(id); pluginScopes.delete(id); pluginRequirements.delete(id); workspaceSubscriptions.get(id)?.(); workspaceSubscriptions.delete(id); workspacePlugins.delete(id);
+      pluginLabels.delete(id); pluginScopes.delete(id); pluginRequirements.delete(id); pluginDescriptions.delete(id); pluginTags.delete(id); workspaceSubscriptions.get(id)?.(); workspaceSubscriptions.delete(id); workspacePlugins.delete(id);
     }
     for (const entry of catalog) {
       const id = entry.id ?? entry.name;
       if (entry.builtin && !builtinPlugins[id]) continue;
       pluginLabels.set(id, entry.displayName ?? builtinPlugins[id]?.label ?? id);
       pluginScopes.set(id, entry.scope ?? builtinPlugins[id]?.scope ?? "node");
+      if (entry.description) pluginDescriptions.set(id, entry.description); else pluginDescriptions.delete(id);
+      if (entry.tags?.length) pluginTags.set(id, entry.tags); else pluginTags.delete(id);
       pluginConfigs.set(id, entry.config ?? {});
       if (entry.requires) pluginRequirements.set(id, entry.requires); else pluginRequirements.delete(id);
       if ((!entry.builtin || entry.installed) && entry.url) {
@@ -1955,6 +1967,7 @@ export function createWorkbenchController() {
         const rules = plugin.configRules ?? [], config = plugin.config ?? {};
         const fields = [...new Set([...Object.keys(config), ...rules.flatMap(rule => typeof rule.field === "string" ? [rule.field] : [])])];
         return { id: plugin.id ?? plugin.name, label: plugin.displayName ?? plugin.name, version: plugin.version, scope: plugin.scope ?? "node", builtin: plugin.builtin, installed: !!plugin.installed, enabled: plugin.enabled, configRevision: plugin.configRevision, loadError: plugin.loadError,
+          description: plugin.description, tags: plugin.tags, license: plugin.license, homepage: plugin.homepage, ...(input.pluginId && plugin.agentGuide ? { agentGuide: plugin.agentGuide } : {}),
           configRules: rules.map(rule => secretField(String(rule.field ?? ""), rule) ? { field: rule.field ?? "", type: rule.type ?? "password", title: rule.title ?? rule.field ?? "", required: rule.required === true, secret: true } : publicConfiguration(rule)),
           configuration: Object.fromEntries(fields.map(field => { const rule = rules.find(rule => rule.field === field); return [field, !rule || secretField(field, rule) ? { configured: config[field] !== undefined && config[field] !== "", secret: true } : { value: publicConfiguration(config[field]), secret: false }]; })) };
       }).sort((a, b) => a.id.localeCompare(b.id));
@@ -2007,6 +2020,35 @@ export function createWorkbenchController() {
       await workbenchSettingsClient.installPlugin(reviewed.value, { force: install.replaceExisting, replaceBuiltin: install.replaceBuiltin }, signal);
       await controller.refreshPlugins(); requireSession(target);
       return { installed: true, pluginId: id, version: reviewed.value.manifest.version, fileRevision: reviewed.fileRevision, toolCatalogVersion: runtime.getVersion() };
+    }
+    if (name === "getPluginMarket") {
+      const input = peripheralToolSchemas.getPluginMarket.parse(args);
+      const [general, installed] = await Promise.all([workbenchSettingsClient.generalConfiguration(signal), workbenchSettingsClient.plugins(signal)]);
+      const market = await pluginMarketClient.index(pluginMarketUrlOf(general.general), signal);
+      const keyword = input.query?.trim().toLocaleLowerCase(), capabilities = runtime.getCapabilities();
+      const values = market.plugins.filter(entry => !keyword || [entry.id, entry.name, ...Object.values(entry.description), ...entry.tags].join(" ").toLocaleLowerCase().includes(keyword)).map(entry => {
+        const current = installed.find(plugin => (plugin.id ?? plugin.name) === entry.id);
+        return { id: entry.id, name: entry.name, version: entry.version, description: entry.description, author: entry.author, license: entry.license, homepage: entry.homepage, tags: entry.tags, scope: entry.scope, requires: entry.requires, size: entry.size, sha256: entry.sha256, url: entry.packageUrl,
+          installed: current ? { version: current.version, builtin: current.builtin, enabled: current.enabled } : null,
+          missingCapabilities: Object.entries(entry.requires).flatMap(([name, requiredVersion]) => (capabilities[name] ?? 0) < requiredVersion ? [{ name, requiredVersion, providedVersion: capabilities[name] ?? 0 }] : []) };
+      });
+      const { items, ...pagination } = boundedPage(values, input.offset, input.limit);
+      return { marketUrl: market.url, generatedAt: market.generatedAt, plugins: items, toolCatalogVersion: runtime.getVersion(), ...pagination };
+    }
+    if (name === "installMarketplacePlugin") {
+      const input = peripheralToolSchemas.installMarketplacePlugin.parse(args), target = currentSession();
+      const general = await workbenchSettingsClient.generalConfiguration(signal);
+      const market = await pluginMarketClient.index(pluginMarketUrlOf(general.general), signal);
+      const entry = market.plugins.find(item => item.id === input.pluginId && item.version === input.version);
+      if (!entry) throw new ToolExecutionError({ code: "marketEntryNotFound", message: "插件市场目录中没有该 id 与版本", phase: "validation", target: toolTarget(target), executionState: "notDispatched", recovery: { action: "readState", message: "重新读取插件市场目录，使用其中的 version 与 sha256", tool: "getPluginMarket", args: { query: input.pluginId } } });
+      if (entry.sha256 !== input.sha256) throw new ToolExecutionError({ code: "sha256Mismatch", message: "传入的 sha256 与市场目录不一致，未下载", phase: "validation", target: toolTarget(target), executionState: "notDispatched", recovery: { action: "readState", message: "使用 getPluginMarket 返回的 sha256 重新调用", tool: "getPluginMarket", args: { query: input.pluginId } } });
+      const downloaded = await pluginMarketClient.download(entry, signal);
+      const existing = (await workbenchSettingsClient.plugins(signal)).find(plugin => (plugin.id ?? plugin.name) === entry.id);
+      requireSession(target); requireWritable(target); signal.throwIfAborted();
+      if (existing && !input.replaceExisting || existing?.builtin && !input.replaceBuiltin) throw new Error("覆盖已安装或内置插件须明确对应的replaceExisting/replaceBuiltin");
+      await workbenchSettingsClient.installPlugin(downloaded.value, { force: input.replaceExisting, replaceBuiltin: input.replaceBuiltin }, signal);
+      await controller.refreshPlugins(); requireSession(target);
+      return { installed: true, pluginId: entry.id, version: entry.version, sha256: downloaded.sha256, toolCatalogVersion: runtime.getVersion() };
     }
     if (name === "getModelStatus") {
       const input = peripheralToolSchemas.getModelStatus.parse(args), target = session;

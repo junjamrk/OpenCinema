@@ -13,7 +13,7 @@ OpenCinema Studio 的 MCP 连接名为 `openCinemaStudio`。Go 提供服务与�
 
 `nodeTools.args.expectedRevision` 是外层画布数字修订；`nodeTools.args.args.expectedRevision` 按节点函数 Schema 解释，Director / Blockout 等函数可能要求专业资源字符串版本，必须从对应读取函数取得。不要把外层数字覆盖到内层资源版本；局部草稿和视图另有独立版本。
 
-顶层保留打开界面与常用编辑入口。分组、排列、素材、供应商及插件管理等扩展操作先通过 `getWorkbenchTools` 发现；未知名称时用 `query` 按名称或描述子串搜索（忽略大小写），已知名称用 `names` 精确筛选。分页保留筛选条件与 `catalogRevision`，该修订仅绑定此目录。使用 `workbenchTools({target, operationId?, args:{name, catalogRevision, arguments}})`，`arguments` 按发现的 `parameters` 填写；写操作必须提供外层稳定 operationId。执行仍复用原操作的权限、文档修订、保存和恢复，不以目录版本替代原操作所需版本。
+顶层保留打开界面与常用编辑入口。分组、排列、素材、供应商、插件管理与插件市场（`getPluginMarket` 只读目录，`installMarketplacePlugin` 按 sha256 安装；安装前先向用户确认）等扩展操作先通过 `getWorkbenchTools` 发现；插件的 `agentGuide` 通过 `getPluginConfiguration({ pluginId })` 读取，调用其节点函数前先读它。未知名称时用 `query` 按名称或描述子串搜索（忽略大小写），已知名称用 `names` 精确筛选。分页保留筛选条件与 `catalogRevision`，该修订仅绑定此目录。使用 `workbenchTools({target, operationId?, args:{name, catalogRevision, arguments}})`，`arguments` 按发现的 `parameters` 填写；写操作必须提供外层稳定 operationId。执行仍复用原操作的权限、文档修订、保存和恢复，不以目录版本替代原操作所需版本。
 
 调用格式以实时 Schema 为准。创建、复制、撤销重做、文件写入及未确认只读的动态 broker 需要外层 `operationId` UUID；同一次写调用重试保持 ID、目标和参数一致。每次有意再撤销或重做一步才使用新的 ID。已发现且目录版本一致的只读函数直接读取实时状态，不缓存轮询。超时或断线先 `getOperation` 查询原写调用 ID；`unknown`、`cancelRequested` 均不能证明副作用停止。媒体任务另按插件的 `taskId` / 状态 / 取消契约核实产物。
 

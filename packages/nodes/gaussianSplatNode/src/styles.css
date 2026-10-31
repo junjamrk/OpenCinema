@@ -1,0 +1,8 @@
+.openCinemaWorkbench .gaussianSplatNode .gaussianSplatViewport { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 120px; overflow: hidden; border-radius: var(--radiusControl, 8px); background: #101315; }
+.openCinemaWorkbench .gaussianSplatNode .gaussianSplatViewport canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; outline: none; }
+.openCinemaWorkbench .gaussianSplatNode .gaussianSplatViewport canvas:active { cursor: grabbing; }
+.openCinemaWorkbench .gaussianSplatNode .gaussianSplatViewport canvas:focus-visible { outline: var(--focusRing); outline-offset: -2px; }
+.openCinemaWorkbench .gaussianSplatNode .gaussianSplatOverlay { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; text-align: center; color: var(--textSecondary, #9da4ae); font-size: var(--fontSizeSmall, 12px); background: rgba(16, 19, 21, .6); pointer-events: none; }
+.openCinemaWorkbench .gaussianSplatNode .gaussianSplatMeta { font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.openCinemaWorkbench .gaussianSplatNode .gaussianSplatOutputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.openCinemaWorkbench .gaussianSplatNode .gaussianSplatOutputs img, .openCinemaWorkbench .gaussianSplatNode .gaussianSplatOutputs video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: var(--radiusControl, 8px); background: #000; }

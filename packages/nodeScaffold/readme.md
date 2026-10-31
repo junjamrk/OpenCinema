@@ -10,7 +10,9 @@ React 组件使用 @toonflow/nodes-scaffold/react 的 ReactNodeViewProps；框�
 
 ## 构建
 
-vite.config.ts 或 viteConfig.ts 调用 createNodeConfig（等同 createReactNodeConfig），传入 name、displayName、author、github、requires、可选 scope/configRules/resources。执行包内已有 build 脚本生成 build/nodes/<id>/index.js、manifest.json、样式和 install.json。
+vite.config.ts 或 viteConfig.ts 调用 createNodeConfig（等同 createReactNodeConfig），传入 name、displayName、author、github、requires，可选 description、license、homepage、tags、scope、configRules、resources 与 outDir。执行包内已有 build 脚本生成 index.js、manifest.json、样式和 install.json；仓库内默认输出到 build/nodes/<id>，第三方插件用 outDir 指定自己的目录。插件目录下的 readme.md 进入 manifest.readme，agent.md（写给 Agent 的操作指南，≤ 16 KiB）进入 manifest.agentGuide。安装包与市场目录的 JSON Schema 在 schema/ 目录。
+
+新建插件：`bun packages/nodeScaffold/scripts/createNode.ts <pluginId> "<显示名>"` 生成可直接编译、安装的骨架；约定与发布流程见 [docs/pluginDevelopment.md](../../docs/pluginDevelopment.md)。
 
 插件通过宿主 /pluginSdk.js 共用 React 与 Zod；第三方专业库按真实依赖打包。manifest 与安装资产包含版本、资源 MIME、SHA256 和大小，构建检查单项与总量边界。资源从本地依赖或插件目录解析，运行时不自动换模型。
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { WorkbenchController } from "./types";
 import NodeMenuSettings from "./nodeMenuSettings";
 import { canvasShortcutFields, defaultCanvasShortcuts, isShortcutAllowed, normalizeShortcut } from "@/lib/canvasShortcuts";
-import { ffmpegConfigurationSchema, ffmpegStatusSchema, mediaProviderSchema, pluginPackageSchema, pluginSchema, providerModelSchema, workbenchSettingsClient } from "@/lib/workbenchSettingsClient";
+import { defaultPluginMarketUrl, ffmpegConfigurationSchema, ffmpegStatusSchema, mediaProviderSchema, pluginMarketClient, pluginMarketUrlOf, pluginPackageSchema, pluginSchema, providerModelSchema, workbenchSettingsClient, type PluginMarket, type PluginMarketEntry } from "@/lib/workbenchSettingsClient";
 
 const depthSchema = z.object({ available: z.boolean(), runtimeAvailable: z.boolean(), message: z.string(), preparationProgress: z.object({ phase: z.string(), received: z.number(), total: z.number(), error: z.string().optional() }).optional() });
 const hostSessionSchema = z.object({ id: z.string(), name: z.string(), directory: z.string().optional() });
@@ -53,7 +53,11 @@ export default function SettingsPanel({ controller }: { controller: WorkbenchCon
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
-  const [pendingPackage, setPendingPackage] = useState<{ value: z.infer<typeof pluginPackageSchema>; size: number; existing: boolean; builtin: boolean }>();
+  const [pendingPackage, setPendingPackage] = useState<{ value: z.infer<typeof pluginPackageSchema>; size: number; existing: boolean; builtin: boolean; origin?: string }>();
+  const [market, setMarket] = useState<PluginMarket>();
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState("");
+  const [marketUrlDraft, setMarketUrlDraft] = useState("");
   const [depth, setDepth] = useState<z.infer<typeof depthSchema>>();
   const [hostSessions, setHostSessions] = useState<z.infer<typeof hostSessionSchema>[]>([]);
   const [hostSessionId, setHostSessionId] = useState(() => {
@@ -109,6 +113,22 @@ export default function SettingsPanel({ controller }: { controller: WorkbenchCon
     void refresh(); const timer = setInterval(() => void refresh(), 2000);
     return () => { active = false; clearInterval(timer); };
   }, [tab, snapshot.directory]);
+  useEffect(() => { const value = generalConfiguration?.general.pluginMarketUrl; setMarketUrlDraft(typeof value === "string" ? value : ""); }, [generalConfiguration?.configRevision]);
+  async function loadMarket() {
+    setMarketLoading(true); setMarketError("");
+    try {
+      const general = generalConfiguration ?? await workbenchSettingsClient.generalConfiguration(new AbortController().signal);
+      setMarket(await pluginMarketClient.index(pluginMarketUrlOf(general.general), new AbortController().signal));
+    } catch (value) { setMarketError(value instanceof Error ? value.message : String(value)); } finally { setMarketLoading(false); }
+  }
+  // 市场条目只下载并校验，安装仍走同一张“复核”卡片；用户看清 id、版本、大小后才执行。
+  async function reviewMarketEntry(entry: PluginMarketEntry) {
+    const downloaded = await pluginMarketClient.download(entry, new AbortController().signal);
+    const catalog = await workbenchSettingsClient.plugins(new AbortController().signal);
+    const existing = catalog.find(item => (item.id ?? item.name) === entry.id);
+    setPendingPackage({ value: downloaded.value, size: downloaded.size, existing: !!existing, builtin: !!existing?.builtin, origin: `来自插件市场 ${new URL(market?.url ?? defaultPluginMarketUrl).host} · SHA-256 已校验 ${downloaded.sha256.slice(0, 16)}…` });
+    setStatus("插件包已下载并通过校验，请确认安装");
+  }
   async function perform(action: () => Promise<void>) {
     if (busy) return;
     setBusy(true); setError(""); setStatus("");
@@ -182,11 +202,37 @@ export default function SettingsPanel({ controller }: { controller: WorkbenchCon
           setPendingPackage({ value, size: file.size, existing: !!existing, builtin: !!existing?.builtin });
         });
       }} />
-      {pendingPackage && <div className="pluginPackageReview"><strong>{pendingPackage.value.manifest.name ?? pendingPackage.value.manifest.id}</strong><span>{pendingPackage.value.manifest.id} · {pendingPackage.value.manifest.version}</span><span>{(pendingPackage.size / 1024 ** 2).toFixed(2)} MiB · {pendingPackage.value.assets?.length ?? 0} 个资源</span><div className="settingsActions"><button type="button" disabled={busy} onClick={() => void perform(async () => {
+      {pendingPackage && <div className="pluginPackageReview"><strong>{pendingPackage.value.manifest.name ?? pendingPackage.value.manifest.id}</strong><span>{pendingPackage.value.manifest.id} · {pendingPackage.value.manifest.version}</span><span>{(pendingPackage.size / 1024 ** 2).toFixed(2)} MiB · {pendingPackage.value.assets?.length ?? 0} 个资源</span>{pendingPackage.origin && <span>{pendingPackage.origin}</span>}{typeof pendingPackage.value.manifest.description === "string" && <span>{pendingPackage.value.manifest.description}</span>}<div className="settingsActions"><button type="button" disabled={busy} onClick={() => void perform(async () => {
         const value = pendingPackage;
         await api("nodes/install", { fileName: `${value.value.manifest.id}.js`, ...value.value, ...(value.existing ? { force: true, replaceBuiltin: value.builtin } : {}) });
         await controller.refreshPlugins(); setInstalledPlugins(await workbenchSettingsClient.plugins(new AbortController().signal)); setPendingPackage(undefined); setStatus("插件已安装并登记能力");
       })}>{pendingPackage.existing ? pendingPackage.builtin ? "更新内置插件" : "更新已安装插件" : "安装此插件"}</button><button type="button" disabled={busy} onClick={() => setPendingPackage(undefined)}>取消</button></div></div>}
+      <section className="pluginMarket" aria-label="插件市场">
+        <div className="pluginMarketBar"><strong>插件市场</strong><span>{market ? `${market.plugins.length} 个插件 · ${new URL(market.url).host} · 安装前按 SHA-256 校验` : "静态目录，默认来自 opencinema.site；下载后按目录中的 SHA-256 校验，再经本机服务安装。"}</span><button type="button" disabled={busy || marketLoading} onClick={() => void loadMarket()}>{marketLoading ? "正在读取…" : market ? "刷新市场" : "打开插件市场"}</button></div>
+        {marketError && <p className="settingsError" role="alert">{marketError}</p>}
+        {market?.plugins.length === 0 && <p>市场目录暂时没有插件。</p>}
+        {market?.plugins.map(entry => {
+          const current = installedPlugins.find(plugin => (plugin.id ?? plugin.name) === entry.id), same = current?.version === entry.version;
+          const description = entry.description["zh-CN"] ?? entry.description.zh ?? entry.description.en ?? Object.values(entry.description)[0] ?? "";
+          return <section className="pluginSettingsCard pluginMarketCard" key={`${entry.id}@${entry.version}`}>
+            <div className="pluginMarketHead"><strong>{entry.displayName?.["zh-CN"] ?? entry.name}</strong><small>{entry.id} · {entry.version} · {entry.author} · {entry.license} · {(entry.size / 1024 ** 2).toFixed(2)} MiB</small></div>
+            <p>{description}</p>
+            {(entry.tags.length > 0 || Object.keys(entry.requires).length > 0) && <div className="pluginMarketTags">{entry.tags.map(tag => <span key={tag}>{tag}</span>)}{Object.keys(entry.requires).map(name => <span key={`requires:${name}`} className="pluginMarketRequires" title="插件声明需要的宿主能力">{name}</span>)}</div>}
+            <div className="settingsActions">
+              <button type="button" disabled={busy || snapshot.transitioning || same} onClick={() => void perform(() => reviewMarketEntry(entry))}>{same ? `已安装 ${entry.version}` : current ? `下载更新 ${entry.version}` : "下载并复核"}</button>
+              {entry.homepage && <a href={entry.homepage} target="_blank" rel="noreferrer">主页</a>}
+            </div>
+          </section>;
+        })}
+        <details><summary>市场地址</summary>
+          <label>index.json 地址<input value={marketUrlDraft} placeholder={defaultPluginMarketUrl} disabled={busy || !generalConfiguration} spellCheck={false} onChange={event => setMarketUrlDraft(event.target.value)} /></label>
+          <div className="settingsActions"><button type="button" disabled={busy || !generalConfiguration} onClick={() => void perform(async () => {
+            if (!generalConfiguration) throw new Error("设置尚未读取");
+            const next = await workbenchSettingsClient.saveGeneralConfiguration({ pluginMarketUrl: marketUrlDraft.trim() }, generalConfiguration.configRevision, new AbortController().signal);
+            setGeneralConfiguration(next); setMarket(undefined); setStatus(marketUrlDraft.trim() ? "市场地址已保存" : "已恢复默认市场地址");
+          })}>保存地址</button><span>留空恢复默认。只接受 https；本机开发可用 http://127.0.0.1。</span></div>
+        </details>
+      </section>
       {installedPlugins.map(plugin => <section className="pluginSettingsCard" key={plugin.name}>
         <label className="pluginSetting"><span><strong>{plugin.displayName || plugin.name}</strong><small>{plugin.name} · {plugin.version ?? ""}{plugin.builtin ? " · 内置" : ""}</small></span><input type="checkbox" aria-label={`启用${plugin.displayName || plugin.name}`} checked={plugin.enabled} disabled={busy || snapshot.transitioning} onChange={event => void perform(async () => { await controller.setPluginEnabled(plugin.name, event.target.checked); setInstalledPlugins(await workbenchSettingsClient.plugins(new AbortController().signal)); })} /></label>
         {plugin.loadError && <p className="settingsError" role="alert">{plugin.loadError}</p>}

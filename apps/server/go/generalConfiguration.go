@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -22,7 +23,7 @@ func generalConfigurationState(settings object) object {
 }
 
 func allowedGeneralField(field string) bool {
-	return field == "nodeMenu" || field == "canvasShortcuts" || field == "canvasEdgeAnimationEnabled" || field == "canvasEdgeColorMode" || field == "canvasEdgeColor"
+	return field == "nodeMenu" || field == "canvasShortcuts" || field == "canvasEdgeAnimationEnabled" || field == "canvasEdgeColorMode" || field == "canvasEdgeColor" || field == "pluginMarketUrl"
 }
 
 func validateNodeMenu(value any) error {
@@ -238,6 +239,25 @@ func (s *server) generalConfiguration(w http.ResponseWriter, r *http.Request) er
 			if !canvasColor.MatchString(str(value)) {
 				return fail(400, "连线颜色须为 3、4、6 或 8 位十六进制颜色")
 			}
+		case "pluginMarketUrl":
+			// 空字符串恢复默认市场；否则只接受不含凭据的 https，本机开发可用环回地址的 http。
+			text, valid := value.(string)
+			if !valid || len(text) > 2048 {
+				return fail(400, "pluginMarketUrl 必须为不超过 2048 字节的文本")
+			}
+			text = strings.TrimSpace(text)
+			if text != "" {
+				parsed, err := url.Parse(text)
+				if err != nil || parsed.User != nil || parsed.Host == "" {
+					return fail(400, "插件市场地址须为不含凭据的 https 地址")
+				}
+				host := parsed.Hostname()
+				loopback := host == "127.0.0.1" || host == "localhost" || host == "::1"
+				if !(parsed.Scheme == "https" || (parsed.Scheme == "http" && loopback)) {
+					return fail(400, "插件市场地址须为 https；本机开发可用 http://127.0.0.1")
+				}
+			}
+			value = text
 		default:
 			return fail(403, "只能修改白名单内的画布设置")
 		}

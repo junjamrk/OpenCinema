@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url><loc>https://opencinema.site/</loc><lastmod>2026-10-31</lastmod><xhtml:link rel="alternate" hreflang="en" href="https://opencinema.site/"/><xhtml:link rel="alternate" hreflang="zh-CN" href="https://opencinema.site/zh/"/></url>
+  <url><loc>https://opencinema.site/market/</loc><lastmod>2026-10-31</lastmod><xhtml:link rel="alternate" hreflang="en" href="https://opencinema.site/market/"/><xhtml:link rel="alternate" hreflang="zh-CN" href="https://opencinema.site/zh/market/"/></url>
   <url><loc>https://opencinema.site/zh/</loc><lastmod>2026-10-31</lastmod><xhtml:link rel="alternate" hreflang="en" href="https://opencinema.site/"/><xhtml:link rel="alternate" hreflang="zh-CN" href="https://opencinema.site/zh/"/></url>
+  <url><loc>https://opencinema.site/zh/market/</loc><lastmod>2026-10-31</lastmod><xhtml:link rel="alternate" hreflang="en" href="https://opencinema.site/market/"/><xhtml:link rel="alternate" hreflang="zh-CN" href="https://opencinema.site/zh/market/"/></url>
 </urlset>

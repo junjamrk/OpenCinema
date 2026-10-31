@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://opencinema.site/schema/installPackage.schema.json",
+  "title": "OpenCinema node plugin install package",
+  "description": "install.json produced by createNodeConfig: one React ESM module, its manifest and hashed assets. Install it from Settings → 插件, from the plugin market, or with the installPluginPackage / installMarketplacePlugin workbench tools.",
+  "type": "object",
+  "required": ["manifest", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "manifest": { "$ref": "#/$defs/manifest" },
+    "source": { "type": "string", "minLength": 1, "description": "ESM source of the plugin entry (default export is the NodePluginDefinition). At most 20 MiB. Imports react, react-dom and zod resolve to the host /pluginSdk.js." },
+    "assets": {
+      "type": "array", "maxItems": 1000,
+      "items": {
+        "type": "object", "required": ["path", "base64", "sha256", "mimeType", "size"], "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1, "maxLength": 512, "description": "Relative path next to index.js, e.g. assets/a1b2.css or assets/model.wasm. No '..' and no hidden segments." },
+          "base64": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "mimeType": { "type": "string", "maxLength": 128 },
+          "size": { "type": "integer", "minimum": 1, "maximum": 33554432 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "manifest": {
+      "type": "object",
+      "required": ["apiVersion", "id", "renderer", "scope", "name", "displayName", "version", "author", "requires", "configRules"],
+      "properties": {
+        "apiVersion": { "const": 1 },
+        "id": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]{0,95}$", "description": "Lower camel case plugin id; also the node type (the canvas stores it as remote-<id>)." },
+        "renderer": { "const": "react" },
+        "scope": { "enum": ["node", "workspace"] },
+        "name": { "type": "string", "minLength": 1 },
+        "displayName": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1, "description": "Semantic version from the plugin package.json." },
+        "author": { "type": "string" },
+        "github": { "type": "string", "format": "uri" },
+        "description": { "type": "string", "maxLength": 500, "description": "One sentence: what the node does. Shown in the market, the node menu and to agents." },
+        "license": { "type": "string", "description": "SPDX identifier, e.g. MIT." },
+        "homepage": { "type": "string", "format": "uri" },
+        "tags": { "type": "array", "maxItems": 12, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" } },
+        "requires": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 }, "description": "Host capability versions the plugin needs, e.g. {\"workspaceFiles\":1,\"ffmpeg\":1,\"worker\":1}." },
+        "configRules": { "type": "array", "items": { "type": "object" }, "description": "Settings fields the host renders and agents may read/write through getPluginConfiguration / setPluginConfiguration." },
+        "readme": { "type": "string" },
+        "agentGuide": { "type": "string", "maxLength": 16384, "description": "Operating guide for agents (from agent.md): which tools to call in what order, how to confirm results, limits." },
+        "resources": { "type": "object" }
+      }
+    }
+  }
+}

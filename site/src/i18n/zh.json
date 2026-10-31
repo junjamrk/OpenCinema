@@ -16,7 +16,8 @@
     "film": "影片",
     "docs": "文档",
     "github": "GitHub",
-    "cta": "开始使用"
+    "cta": "开始使用",
+    "market": "插件市场"
   },
   "hero": {
     "eyebrow": "开源 · MIT · 0.4.0 开发中",
@@ -279,6 +280,10 @@
         "title": "扩展",
         "links": [
           {
+            "label": "插件市场",
+            "href": "/zh/market/"
+          },
+          {
             "label": "节点 SDK",
             "href": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md"
           },
@@ -303,5 +308,58 @@
   "dialog": {
     "close": "关闭",
     "title": "OpenCinema 发布影片"
+  },
+  "market": {
+    "metaTitle": "OpenCinema 插件市场 — 为画布安装新节点",
+    "metaDescription": "OpenCinema 节点插件的静态目录，仅供安装。每个包都是一份 install.json，安装前先按 SHA-256 校验，再由本机服务安装。",
+    "eyebrow": "插件市场 · 仅安装 · MVP",
+    "title": "给画布装上新能力。",
+    "lede": "节点插件为 Agent 增加可发现、可调用的工具。市场是一份静态目录：工作台下载插件包，对照这里的 SHA-256 校验，先让你看清它是什么，再在你的电脑上安装。",
+    "stepsLabel": "如何安装",
+    "steps": [
+      {
+        "n": "01",
+        "title": "打开市场",
+        "text": "在工作台中打开 设置 → 插件 → 打开插件市场，下面的列表会出现在应用里。"
+      },
+      {
+        "n": "02",
+        "title": "下载并复核",
+        "text": "插件包下载后按本目录中的 SHA-256 校验。复核卡片列出 id、版本、大小与描述，此时还没有执行任何代码。"
+      },
+      {
+        "n": "03",
+        "title": "安装",
+        "text": "确认后节点出现在节点菜单，它的工具可以通过 getNodeTools 发现。Agent 也可以用 getPluginMarket 与 installMarketplacePlugin 完成同样的事。"
+      }
+    ],
+    "listLabel": "插件",
+    "listTitle": "目录中的插件。",
+    "empty": "目录里还没有插件。",
+    "requires": "需要能力",
+    "size": "包大小",
+    "version": "版本",
+    "installJson": "install.json",
+    "readme": "说明",
+    "source": "源码",
+    "agentGuide": "附带 Agent 指南",
+    "publishLabel": "发布",
+    "publishTitle": "发布你自己的节点。",
+    "publishText": "一个节点就是一个包：插件定义、Zod 类型的工具、React 视图和一份 agent.md 指南。脚手架生成、构建，然后提交 Pull Request 把它加入目录。这个 MVP 不支持上传。",
+    "publishCodeTitle": "在仓库中",
+    "publishCode": "bun packages/nodeScaffold/scripts/createNode.ts myNode \"我的节点\"\ncd packages/nodes/myNode && bun run typecheck && bun run build\n# 然后把它加入 site/src/marketCatalog.json 并运行\nnode site/buildMarket.mjs",
+    "publishNote": "阅读插件开发指南了解约定：一个节点只做一件事；小动词工具；readOnly 标注；有类型的输出。",
+    "guide": "插件开发指南",
+    "guideHref": "https://github.com/junjamrk/OpenCinema/blob/main/docs/pluginDevelopment.md",
+    "schema": "目录 Schema",
+    "schemaHref": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/schema/marketIndex.schema.json",
+    "honest": [
+      "安装会在你的电脑上以工作区权限执行插件代码，只安装你信任的来源。",
+      "目录是通过 Pull Request 发布的静态 JSON，没有上传、账号或遥测。",
+      "插件包按大小与 SHA-256 对照本目录校验，文件被改动即拒绝。",
+      "需要 FFmpeg、WebGL 或供应商的插件仍取决于你的本机配置。"
+    ],
+    "indexNote": "机器可读目录",
+    "contributing": "参与贡献"
   }
 }

@@ -248,7 +248,15 @@ const plugin: NodePluginDefinition = {
 export default plugin;
 ~~~
 
-`vite.config.ts` is one line, `createNodeConfig({ name: "myNode", displayName: "My node", author, github }, import.meta.url)`. `bun run build` writes `build/nodes/myNode/install.json` (manifest, ESM and assets with SHA-256). Install it from the “Plugins” tab in settings, or let an agent call `reviewPluginPackage` → `installPluginPackage`. The full contract is in the [node SDK](packages/nodeScaffold/readme.md) (Chinese).
+`viteConfig.ts` is one line, `createNodeConfig({ name: "myNode", displayName: "My node", description, license, tags, author, github }, import.meta.url)`. `bun run build` writes `install.json` (manifest, ESM and assets with SHA-256). Install it from the “Plugins” tab in settings, or let an agent call `reviewPluginPackage` → `installPluginPackage`.
+
+Start from the scaffold: `bun packages/nodeScaffold/scripts/createNode.ts myNode "My node"` generates a skeleton that compiles and installs as-is, including an `agent.md` written for agents (shipped in the manifest, read through `getPluginConfiguration`). Conventions and the contract are in the [plugin development guide](docs/pluginDevelopmentEn.md) and the [node SDK](packages/nodeScaffold/readme.md) (Chinese).
+
+### Plugin market
+
+[opencinema.site/market](https://opencinema.site/market/) is a static catalog. In Settings → Plugins → Plugin market the workbench downloads a package, verifies it against the SHA-256 in the index, shows a review card and only then installs it through the local server; agents do the same with `getPluginMarket` → `installMarketplacePlugin`. It is install-only for now; publishing is a pull request that adds an entry to `site/src/marketCatalog.json`.
+
+The first plugin in the market is [Gaussian Splat](packages/nodes/gaussianSplatNode/readme.md): view 3D Gaussian Splatting scans (PLY, SPLAT, KSPLAT, SPZ) on the canvas, set a camera, render stills and turntable videos as references. It is not a built-in node; the whole three.js + GaussianSplats3D capability arrives through the plugin path, which is the proof that third-party nodes and built-in nodes share one road.
 
 ### Add a provider
 
