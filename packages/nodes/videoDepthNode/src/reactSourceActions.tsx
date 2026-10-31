@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { z } from "zod";
 import type { PluginActivationContext } from "@toonflow/nodes-scaffold/contracts";
-import { errorText, nodePreconditionError, pluginServices, readMedia, readNodeData, type NodeViewProps } from "@toonflow/node-shared/reactNode";
+import { errorText, isGenerationLocked, nodePreconditionError, pluginServices, readMedia, readNodeData, type NodeViewProps } from "@toonflow/node-shared/reactNode";
 import NodeIcon from "@toonflow/node-shared/reactIcon";
 import { createVideoDepthData } from "./reactService";
 
@@ -20,7 +20,7 @@ export function registerVideoDepthSourceTool(context: PluginActivationContext) {
         const handles = data.handles as { id: string; type: string; dataType: unknown }[] | undefined;
         const output = handles?.find(handle => handle.type === "source" && handle.dataType === "VIDEO" && outputs?.[handle.id]?.value?.url === source?.url);
         if (!source || !output || outputs?.[output.id]?.value?.controlType) throw nodePreconditionError(workbench, id, "请先选择或生成原始RGB视频，不能对深度结果再次提取");
-        if ([data.generation, data.mediaOperation].some(value => value && typeof value === "object" && "status" in value && ["running", "delegated", "cancelRequested", "unknown", "interrupted"].includes(String(value.status)))) throw nodePreconditionError(workbench, id, "原视频任务尚未收尾，请先确认任务状态");
+        if ([data.generation, data.mediaOperation].some(value => value && typeof value === "object" && "status" in value && isGenerationLocked(value.status))) throw nodePreconditionError(workbench, id, "原视频任务尚未收尾，请先确认任务状态");
         const layout = workbench.getLayout();
         const position = { x: layout.position.x + layout.width + 80, y: layout.position.y };
         const childId = crypto.randomUUID();
@@ -37,7 +37,7 @@ export default function VideoDepthAction({ node, controller, readOnly }: NodeVie
   if (!readMedia(node.data, "video")) return null;
   const outputs = node.data?.outputs as { video?: { value?: { controlType?: string } } } | undefined;
   if (outputs?.video?.value?.controlType) return null;
-  const blocked = [node.data?.generation, node.data?.mediaOperation].some(value => value && typeof value === "object" && "status" in value && ["running", "delegated", "cancelRequested", "unknown", "interrupted"].includes(String(value.status)));
+  const blocked = [node.data?.generation, node.data?.mediaOperation].some(value => value && typeof value === "object" && "status" in value && isGenerationLocked(value.status));
   return <><button type="button" className="nodeMediaTool" title={error || "视频深度白模"} aria-label="视频深度白模" aria-busy={busy} disabled={readOnly || busy || blocked} onClick={() => {
     if (busy) return;
     setBusy(true); setError("");

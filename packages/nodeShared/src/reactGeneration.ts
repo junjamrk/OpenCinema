@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { PluginActivationContext } from "@toonflow/nodes-scaffold/contracts";
 import { createMediaAiClient, type NodeMediaCost, type NodeMediaModel, type NodeModelParameter, type NodeImageRequest, type NodeVideoRequest, type NodeAudioRequest, type NodeMediaPriceRequest } from "@toonflow/nodes-scaffold/nodeAiClient";
 import type { NodeInputValue } from "@toonflow/nodes-scaffold/values";
-import { isExecutionUnknown, errorText, mediaValueSchema, pluginServices, readMedia, readNodeData, registerMediaTools, setMedia, type MediaType } from "./reactNode";
+import { isExecutionUnknown, errorText, mediaLabels, mediaValueSchema, pluginServices, readMedia, readNodeData, registerMediaTools, setMedia, type MediaType } from "./reactNode";
 import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchServices";
 import { readReferences, registerReferenceTools } from "./reactReferences";
 import { requestNodeHost } from "./reactHostRequest";
@@ -25,18 +25,20 @@ const generationStatusSchema = z.strictObject({ nodeId: z.string(), status: z.st
 const configOutputSchema = configSchema.safeExtend({ host: z.boolean() });
 const videoConfigSchema = z.strictObject({ providerId: configSchema.shape.providerId, modelId: configSchema.shape.modelId, ratio: configSchema.shape.ratio, resolution: configSchema.shape.resolution, duration: configSchema.shape.duration, mode: configSchema.shape.mode, generateAudio: configSchema.shape.generateAudio, parameters: configSchema.shape.parameters }).refine(value => (value.providerId === undefined) === (value.modelId === undefined), "providerId 与 modelId 须同时提供");
 const parameterSchema = z.strictObject({ type: z.enum(["string", "number", "integer", "boolean"]).optional(), title: z.string().optional(), default: parameterValueSchema.optional(), minimum: z.number().optional(), maximum: z.number().optional(), enum: z.array(parameterValueSchema).optional() });
-const modelSchema = z.strictObject({ id: z.string().optional().describe("供应商模型目录保留的原始ID；modelId为规范化调用ID"), supportsPrice: z.boolean().optional(), providerId: z.string(), providerLabel: z.string(), modelId: z.string(), label: z.string(), type: z.enum(["image", "video", "audio"]), mode: z.array(z.union([z.string(), z.array(z.string())])).optional(), imageSizes: z.array(z.string()).optional(), imageRatios: z.array(z.string()).optional(), durationResolutionMap: z.array(z.strictObject({ duration: z.array(z.number()), resolution: z.array(z.string()) })).optional(), audio: z.union([z.boolean(), z.literal("optional")]).optional(), voices: z.array(z.strictObject({ title: z.string(), voice: z.string() })).optional(), video: z.strictObject({ inputMap: z.record(z.string(), z.string()).optional(), defaults: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(), stringFields: z.array(z.string()).optional() }).optional(), execution: z.strictObject({ protocol: z.string(), location: z.enum(["local", "remote", "platform"]), cancelMode: z.enum(["none", "request"]) }).optional(), parameters: z.strictObject({ type: z.literal("object"), properties: z.record(z.string(), parameterSchema) }).optional() });
+const modelSchema = z.strictObject({ id: z.string().optional().describe("供应商模型目录保留的原始ID；modelId为规范化调用ID"), supportsPrice: z.boolean().optional(), credentialMissing: z.boolean().optional().describe("供应商尚未配置 API Key，生成会被拒绝"), providerId: z.string(), providerLabel: z.string(), modelId: z.string(), label: z.string(), type: z.enum(["image", "video", "audio"]), mode: z.array(z.union([z.string(), z.array(z.string())])).optional(), imageSizes: z.array(z.string()).optional(), imageRatios: z.array(z.string()).optional(), durationResolutionMap: z.array(z.strictObject({ duration: z.array(z.number()), resolution: z.array(z.string()) })).optional(), audio: z.union([z.boolean(), z.literal("optional")]).optional(), voices: z.array(z.strictObject({ title: z.string(), voice: z.string() })).optional(), video: z.strictObject({ inputMap: z.record(z.string(), z.string()).optional(), defaults: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(), stringFields: z.array(z.string()).optional() }).optional(), execution: z.strictObject({ protocol: z.string(), location: z.enum(["local", "remote", "platform"]), cancelMode: z.enum(["none", "request"]) }).optional(), parameters: z.strictObject({ type: z.literal("object"), properties: z.record(z.string(), parameterSchema) }).optional() });
+
+export function canAbandonGeneration(status: unknown) { return ["unknown", "interrupted", "resultReady", "delegated"].includes(String(status)); }
 
 export function getGenerationComposerState(data: Readonly<Record<string, unknown>>) {
   const generation = data.generation;
   const status = generation && typeof generation === "object" && "status" in generation ? String(generation.status) : "";
   const disabledReason = ({
     running: "此节点正在生成，请等待或取消当前任务",
-    delegated: "此节点已交给宿主，等待实际产物，请勿重复提交",
-    cancelRequested: "正在确认取消，请等待当前任务终止",
-    unknown: "当前任务尚未确认终止，请先在节点确认任务状态",
-    interrupted: "上次生成已中断，请先在节点确认任务终态",
-    resultReady: "原视频任务已完成，请先采用生成结果",
+    delegated: "此节点已交给 Agent，等待产物；不再等待可在节点放弃此任务",
+    cancelRequested: "正在取消，请等待服务确认",
+    unknown: "任务结果未确认，请在节点重新核对或放弃此任务",
+    interrupted: "上次生成已中断，请在节点重新核对或放弃此任务",
+    resultReady: "原任务已完成，请在节点采用结果或放弃此任务",
   } as Record<string, string>)[status];
   return { requiresHost: !data.model, ...(disabledReason ? { disabledReason } : {}) };
 }
@@ -162,8 +164,8 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
     const saved = readNodeData(document, id).generation as { status?: string } | undefined;
     if (saved?.status === "completed" && task && ["delegated", "unknown"].includes(task.state)) task.state = "completed";
     if (task?.state === "delegated" || saved?.status === "delegated") throw new Error("已交给宿主，等待实际产物，请勿重复提交");
-    if (task?.state === "unknown" || saved?.status === "unknown" || (!task && saved?.status === "running")) throw new Error("上次生成任务尚未确认终止，请先取消并确认终态");
-    if (task?.state === "resultReady" || saved?.status === "resultReady") throw new Error("原视频任务已完成，请先采用生成结果");
+    if (task?.state === "unknown" || saved?.status === "unknown" || (!task && saved?.status === "running")) throw new Error("上次生成任务结果未确认，请在节点重新核对或放弃此任务");
+    if (task?.state === "resultReady" || saved?.status === "resultReady") throw new Error("原任务已完成，请在节点采用结果或放弃此任务");
   }
   async function stop() {
     task?.controller.abort(new Error("节点即将变更")); await task?.promise;
@@ -285,7 +287,7 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
   async function remoteStatus(signal: AbortSignal) {
     const current = status();
     const data = readNodeData(document, id);
-    if (type !== "video" || !data.model || !current.taskId || !["running", "interrupted", "unknown", "cancelRequested", "resultReady", "failed"].includes(current.status)) return current;
+    if (!data.model || !current.taskId || !["running", "interrupted", "unknown", "cancelRequested", "resultReady", "failed"].includes(current.status)) return current;
     if (current.status === "failed" && (data.generation as { model?: unknown } | undefined)?.model !== data.model) return current;
     const observedTask = task;
     const generation = JSON.stringify(data.generation);
@@ -296,7 +298,7 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
     const saved = latest.generation as { taskId?: string; model?: unknown; originalOutput?: string } | undefined;
     if (task !== observedTask || saved?.taskId !== current.taskId || JSON.stringify(latest.generation) !== generation || latest.model !== data.model || JSON.stringify(readMedia(latest, type) ?? null) !== output) return status();
     // ACT: 后端状态读取会恢复原产物下载；失败后的回收保持显式检查，避免持续失败时自动轮询反复重开下载。
-    if (current.status === "failed" && (!remote.providerJobId || remote.status !== "completed")) return { ...current, providerId: remote.providerId, modelId: remote.modelId, providerJobId: remote.providerJobId, phase: remote.phase, progress: remote.progress, warning: remote.warning, cancelMode: remote.cancelMode, sideEffectMayContinue: remote.sideEffectMayContinue, cost: remote.cost ?? current.cost };
+    if (current.status === "failed" && remote.status !== "completed") return { ...current, providerId: remote.providerId, modelId: remote.modelId, providerJobId: remote.providerJobId, phase: remote.phase, progress: remote.progress, warning: remote.warning, cancelMode: remote.cancelMode, sideEffectMayContinue: remote.sideEffectMayContinue, cost: remote.cost ?? current.cost };
     if (task?.state !== "running" && current.status !== remote.status && remote.executionSettled && !remote.sideEffectMayContinue && ["failed", "cancelled"].includes(remote.status) && saved.model === latest.model && saved.originalOutput === output) {
       workbench.assertWritable();
       const { error: _error, ...previous } = latest.generation as Record<string, unknown>;
@@ -309,13 +311,13 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
     const ready = remote.status === "completed" && task?.state !== "running";
     return { ...latestStatus, status: ready ? "resultReady" : task?.state === "running" ? latestStatus.status : remote.status, executionSettled: remote.executionSettled, error: current.status === "failed" ? latestStatus.error ?? remote.result?.message : remote.result?.code !== 200 ? remote.result?.message : latestStatus.error, providerId: remote.providerId, modelId: remote.modelId, providerJobId: remote.providerJobId, phase: remote.phase, progress: remote.progress, warning: remote.warning, cancelMode: remote.cancelMode, sideEffectMayContinue: remote.sideEffectMayContinue, cost: remote.cost ?? current.cost };
   }
-  context.registerTool({ name: "getGenerationStatus", outputSchema: generationStatusSchema, annotations: { readOnlyHint: type !== "video", destructiveHint: false, idempotentHint: true, openWorldHint: type === "video" }, description: "读取真实生成任务、远端任务 ID、进度和当前输出。视频断线后仅恢复原任务观察和产物回收，不再次生成；resultReady 时用 applyGenerationResult 采用。delegated 尚无产物。", parameters: z.strictObject({}), execute: (_args, { signal }) => remoteStatus(signal) });
-  if (type === "video") context.registerTool({ name: "applyGenerationResult", outputSchema: generationStatusSchema, parameters: z.strictObject({}), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, description: "采用断线期间已完成的原视频任务产物；核对原模型、参考和当前输出，复用统一节点保存与历史。不会重新生成。", async execute(_args, { signal }) {
+  context.registerTool({ name: "getGenerationStatus", outputSchema: generationStatusSchema, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true }, description: "读取真实生成任务、远端任务 ID、进度和当前输出。断线后仅恢复原任务观察和产物回收，不再次生成；resultReady 时用 applyGenerationResult 采用。delegated 尚无产物。", parameters: z.strictObject({}), execute: (_args, { signal }) => remoteStatus(signal) });
+  context.registerTool({ name: "applyGenerationResult", outputSchema: generationStatusSchema, parameters: z.strictObject({}), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, description: `采用断线期间已完成的原${mediaLabels[type]}任务产物；核对原模型、参考和当前输出，复用统一节点保存与历史。不会重新生成。`, async execute(_args, { signal }) {
     workbench.assertWritable();
     if (task?.state === "running") throw new Error("当前生成仍在观察并自动采用，请等待");
     const data = readNodeData(document, id);
     const saved = data.generation as { taskId?: string; status?: string; inputFingerprint?: string; creativeFingerprint?: string; referenceVersions?: Record<string, string>; originalOutput?: string; model?: unknown } | undefined;
-    if (!saved?.taskId || !data.model) throw new Error("此节点没有可恢复的视频任务");
+    if (!saved?.taskId || !data.model) throw new Error(`此节点没有可恢复的${mediaLabels[type]}任务`);
     const observedTask = task;
     const generation = JSON.stringify(data.generation);
     const references = JSON.stringify(currentReferences());
@@ -326,11 +328,12 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
     const latestSaved = latest.generation as typeof saved;
     if (task !== observedTask || latestSaved?.taskId !== saved.taskId || JSON.stringify(latest.generation) !== generation || latest.model !== data.model || JSON.stringify(currentReferences()) !== references || JSON.stringify(readMedia(latest, type) ?? null) !== output) throw new Error("查询期间节点任务、模型、参考或输出已变化；原产物保留，未覆盖当前结果");
     const result = remote.result?.code === 200 ? remote.result.data?.[0] : undefined;
-    if (remote.status !== "completed" || !remote.executionSettled || remote.sideEffectMayContinue || !result) throw new Error("原任务尚未确认完成并产生可采用的视频");
+    if (remote.status !== "completed" || !remote.executionSettled || remote.sideEffectMayContinue || !result) throw new Error(`原任务尚未确认完成并产生可采用的${mediaLabels[type]}`);
     if (saved.status === "completed" && readMedia(latest, type)?.url === result.path) return status();
     if (saved.model !== latest.model || saved.inputFingerprint !== references || saved.creativeFingerprint && saved.creativeFingerprint !== videoCreativeFingerprint(latest, currentReferences()) || saved.originalOutput !== output) throw new Error("节点提示词、镜头计划、模型、参考或输出已变化；原产物保留在工程中，未覆盖当前结果");
     await requireReferenceVersions(saved.referenceVersions, signal);
-    await setMedia(context, type, { url: result.path, mimeType: result.mimeType }, signal, document.getRevision(), saved.taskId);
+    const adopted = transforms?.result ? await transforms.result(workbench, id, latest, result, signal) : result;
+    await setMedia(context, type, { url: adopted.path, mimeType: adopted.mimeType }, signal, document.getRevision(), saved.taskId);
     if (remote.cost) { await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), cost: remote.cost } }, signal); await document.save(); }
     if (task?.id === saved.taskId) task.state = "completed";
     return status();
@@ -362,12 +365,21 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
         const latest = readNodeData(document, id);
         if (task !== observedTask || JSON.stringify(latest.generation) !== generation || latest.model !== data.model || JSON.stringify(readMedia(latest, type) ?? null) !== output) return status();
         workbench.assertWritable();
-        const state = type === "video" && settled.status === "completed" ? "resultReady" : settled.status;
+        const state = settled.status === "completed" ? "resultReady" : settled.status;
         if (task?.id === saved.taskId) { task.state = state; task.error = undefined; }
         const { error: _error, ...previous } = latest.generation as Record<string, unknown>;
         await workbench.updateRuntimeData({ generation: { ...previous, status: state, ...(settled.cost ? { cost: settled.cost } : {}), finishedAt: new Date().toISOString() } });
         await document.save();
       }
+      return status();
+    } });
+  context.registerTool({ name: "abandonGeneration", outputSchema: generationStatusSchema, annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }, description: "放弃等待此节点结果未确认或尚未采用的任务，解除节点锁定。不会取消远端任务，原任务可能仍在运行，费用不会退回，再次生成可能重复计费。只有用户明确决定不再等待时才能调用，不能为了继续生成而自行调用。状态变为 failed 并保留 taskId，之后仍可用 getGenerationStatus 核对，用 applyGenerationResult 采用原产物。", parameters: z.strictObject({}),
+    async execute(_args, { signal }) {
+      workbench.assertWritable();
+      if (!canAbandonGeneration(status().status)) throw new Error("只有结果未确认或待采用的任务可以放弃；运行中的任务请先取消");
+      await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), status: "failed", abandoned: true, error: "已放弃等待此任务。原任务可能仍在运行或已经扣费，任务 ID 已保留。", finishedAt: new Date().toISOString() } }, signal);
+      task = undefined;
+      await document.save();
       return status();
     } });
   const name = `generate${type[0]!.toUpperCase()}${type.slice(1)}`;
@@ -392,9 +404,16 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
       const referenceVersions = type === "video" ? await readReferenceVersions(activeInputs, signal) : undefined;
       if (type === "video" && creativeFingerprint !== videoCreativeFingerprint({ ...readNodeData(document, id), ...(args.prompt !== undefined ? { prompt: args.prompt } : {}) }, currentReferences())) throw new Error("准备期间创作计划或参考已变化，未提交生成，请重新读取");
       const originalOutput = JSON.stringify(readMedia(initial, type) ?? null);
+      // 模型失效、参考不符合模型这些问题提交前就能发现，抛回输入框，不写运行状态。
+      const choice = initial.model ? selectedModel(initial, await models(signal), type) : undefined;
+      if (initial.model && !choice) throw new Error("配置的专项模型当前不可用，请重新选择");
+      const rawInput = choice && generationRequest({ ...initial, prompt: generationPrompt }, choice, type, inputs, workbench.directory, id);
+      const input = rawInput && transforms?.prepare ? transforms.prepare(rawInput, initial) : rawInput;
+      assertIdle();
       const controller = new AbortController();
       const combined = AbortSignal.any([context.signal, controller.signal]);
       const operation = { id: crypto.randomUUID(), controller, promise: Promise.resolve(), state: "running", error: undefined as string | undefined };
+      const previousGeneration = readNodeData(document, id).generation ?? null;
       task = operation;
       try {
         if (args.prompt !== undefined || type === "video") await workbench.updateData({ ...(args.prompt === undefined ? {} : { prompt: args.prompt, promptModel: args.prompt.split("\n").map(text => [{ type: "Write", text }]) }), ...(type === "video" ? { videoSourceHistory: readVideoSources(initial) } : {}) }, undefined, signal);
@@ -402,11 +421,16 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
         await workbench.updateRuntimeData({ generation: { taskId: operation.id, status: "running", startedAt: new Date().toISOString(), inputFingerprint, ...(creativeFingerprint ? { creativeFingerprint, referenceVersions } : {}), originalOutput, model: String(initial.model ?? "") } }, signal);
         await document.save();
       }
-      catch (error) { task = undefined; throw error; }
+      catch (error) {
+        // 受理记录没存下来，生成也没有发出；退回原状态，否则节点会停在“上次生成已中断”。
+        task = undefined;
+        await workbench.updateRuntimeData({ generation: previousGeneration }).catch(() => {});
+        throw error;
+      }
       operation.promise = (async () => {
         try {
           let result: { path: string; mimeType: string } | undefined;
-          if (!initial.model) {
+          if (!input) {
             const inpaint = initial.inpaint as { original?: string; guide?: string } | undefined;
             const imageReferences = inpaint ? [inpaint.original, inpaint.guide].filter(Boolean).map(url => ({ dataType: "IMAGE", value: { url, mimeType: "image/png" } })) : [];
             // 模型参数只对专项模型有效，换成宿主后保留的旧值不进创作参数。
@@ -414,16 +438,11 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
             const effectivePrompt = type === "video" ? videoShotPrompt({ ...initial, prompt: generationPrompt }, inputs) : generationPrompt;
             if (type === "video") { await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), request: { prompt: effectivePrompt, references, config, brief: readShotBrief(initial), referenceRoles: initial.referenceRoles ?? {} } } }, combined); await document.save(); }
             if (type === "video") await requireReferenceVersions(referenceVersions, combined);
-            const response = await requestNodeHost(workbench, id, { kind: "edit", prompt: `请为节点 ${id} 生成${type === "image" ? "图片" : type === "audio" ? "音频" : "视频"}。\n${inpaint ? "这是局部重绘：前两张参考为原图和红色选区引导，只修改红色选区并输出完整图片。\n" : ""}${effectivePrompt}\n创作参数：${JSON.stringify(config)}。\n请使用你的媒体能力，并用此节点的 set${type[0]!.toUpperCase()}${type.slice(1)} 工具写入工作区产物，并携带taskId ${operation.id} 确认这项任务已实际完成。不要仅返回描述，不要将受理声明为完成。`, references: [...imageReferences, ...references], metadata: { nodeId: id, mediaType: type, taskId: operation.id, config } }, combined);
+            const response = await requestNodeHost(workbench, id, { kind: "edit", prompt: `请为节点 ${id} 生成${mediaLabels[type]}。\n${inpaint ? "这是局部重绘：前两张参考为原图和红色选区引导，只修改红色选区并输出完整图片。\n" : ""}${effectivePrompt}\n创作参数：${JSON.stringify(config)}。\n请使用你的媒体能力，并用此节点的 set${type[0]!.toUpperCase()}${type.slice(1)} 工具写入工作区产物，并携带taskId ${operation.id} 确认这项任务已实际完成。不要仅返回描述，不要将受理声明为完成。`, references: [...imageReferences, ...references], metadata: { nodeId: id, mediaType: type, taskId: operation.id, config } }, combined);
             combined.throwIfAborted();
             const latest = readNodeData(document, id); const receipt = latest.generation as { taskId?: string; status?: string } | undefined;
             operation.state = receipt?.taskId === operation.id && receipt.status === "completed" || response.status === "completed" && JSON.stringify(readMedia(latest, type) ?? null) !== originalOutput ? "completed" : "delegated";
           } else {
-            const available = await models(combined);
-            const choice = selectedModel(initial, available, type);
-            if (!choice) throw new Error("配置的专项模型当前不可用，请重新选择");
-            const rawInput = generationRequest({ ...initial, prompt: generationPrompt }, choice, type, inputs, workbench.directory, id);
-            const input = transforms?.prepare ? transforms.prepare(rawInput, initial) : rawInput;
             if (type === "video") { await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), request: { ...input, brief: readShotBrief(initial), referenceRoles: initial.referenceRoles ?? {} } } }, combined); await document.save(); }
             workbench.assertWritable(); combined.throwIfAborted();
             if (type === "video") await requireReferenceVersions(referenceVersions, combined);

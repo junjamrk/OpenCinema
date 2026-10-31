@@ -19,7 +19,7 @@
 
 也可先 `setConfig`，再从底部输入框生成。手工和 Agent 使用同一节点函数。MCP 外层仍提供目标、作品修订、目录版本与稳定 `operationId`；返回的专业 `taskId` 用于继续观察，工具完成不表示视频已生成。
 
-`getGenerationStatus` 返回状态及已知的远端任务 ID、阶段、进度、取消方式和成本（见下文「成本记录」）。视频状态查询可能恢复原任务观察及产物回收，明确声明为可能写入和访问外部服务，不会重发生成 POST。`resultReady` 表示断线期间视频已落盘，手工“采用已完成视频”或 Agent `applyGenerationResult` 会校验原模型、参考和当前输出，再通过共享历史和保存入口采用。
+`getGenerationStatus` 返回状态及已知的远端任务 ID、阶段、进度、取消方式和成本（见下文「成本记录」）。状态查询可能恢复原任务观察及产物回收，明确声明为可能写入和访问外部服务，不会重发生成 POST。`resultReady` 表示断线期间产物已落盘，图片、音频和视频相同：手工“采用已完成视频”或 Agent `applyGenerationResult` 会校验原模型、参考和当前输出，再通过共享历史和保存入口采用。结果未确认、待采用或交给宿主后，用户可以“放弃此任务”，Agent 对应 `abandonGeneration`：节点解锁并记为失败，保留 taskId，不取消远端任务，仍可重新核对找回产物；原任务可能已扣费，重新生成可能重复计费。
 
 底层 HTTP 复用 `POST /api/ai/media/generate`，另带 `mediaType:"video"`、工程绝对 `directory`、工程相对 `outputDirectory` 和 UUID `operationId`（与 `taskId` 是同一凭据，两者同时提供时必须相同）。同 ID、同请求回读原任务，不同参数拒绝；模型参数也算在内，字段顺序不影响判定。未知状态保留原 ID，不换 ID 重派。
 
@@ -46,7 +46,7 @@
 
 部分账号的 Files API 不返回 `download_url`，此时参考准备会明确失败，不提交生成。File ID 不可代替 `asset://` 或视频 URL；需要配置可读的素材链接。TOS 使用 AK/SK 或 STS，不接受 Ark API Key。[官方凭据边界](https://console.volcengine.com/ark/region:cn-beijing/docs/iam-api-key-best-practices)
 
-API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应商原始错误正文不进入回执，仅保留有界错误码。生成结果下载不附带 Ark API Key。白模在该模型中属于运动、布局、镜头节奏的普通视频参考，不能宣称为逐像素深度约束或 ControlNet；生成后仍须核对主体运动、构图与连贯性。[官方查询任务](https://docs.volcengine.com/docs/ark/get-video-generation-task-api?lang=zh)
+API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应商原始错误正文不进入回执，仅保留有界错误码；任务状态声明的失败原因替换凭据后保留最多 300 字符。生成结果下载不附带 Ark API Key。白模在该模型中属于运动、布局、镜头节奏的普通视频参考，不能宣称为逐像素深度约束或 ControlNet；生成后仍须核对主体运动、构图与连贯性。[官方查询任务](https://docs.volcengine.com/docs/ark/get-video-generation-task-api?lang=zh)
 
 ## ComfyUI 工作流
 
@@ -341,7 +341,7 @@ API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应�
 - 新协议提交前原子记录请求和配置摘要，收到远端 ID 后持久化。恢复绑定原 Provider、配置摘要和 job ID；配置变化后拒绝改投其他连接。图片和音频走这些协议时同样如此。
 - 远端已确认完成但结果无效（fal 返回错误、没有产物）直接落成失败。产物下载失败时最多再试 3 次。
 - Ark 参考视频上传在生成提交之前单独记录 `preparingReferences` 阶段和 File ID。重启恢复先读原文件状态，生成提交前持久切换阶段；生成提交结果未知时仍禁止自动重发。参考文件上传不等于视频模型任务已受理。
-- 视频下载入工程，经 FFprobe 核对可解码、尺寸／时长有效，产生 SHA256 和 assetId 后才发布成功。视频不会因页面断线两分钟而自动取消。
+- 视频下载入工程，经 FFprobe 核对可解码、尺寸／时长有效，产生 SHA256 和 assetId 后才发布成功。图片、音频和视频都不会因页面断线而自动取消。
 - OpenAI 风格服务默认 `cancelMode:"none"`；只有核实 DELETE 确实请求中止时才能设为 `request`。SGLang 的删除记录接口不等于停止 GPU。
 - fal／Replicate／httpTask／adapter 取消后在 10 秒内核对远端状态；未确认终止仍为 unknown／sideEffectMayContinue；取消输给完成时保留产物，下次状态查询取回。提交超时且没有 job ID 时禁止自动重发。服务重启后取消，由恢复的任务向远端发出取消。
 - 火山方舟 `expired` 视为远端确认失败。其 DELETE 可删除已完成记录，因此当前 `cancelMode:"none"`，停止本地观察保留原任务凭据，不把删除记录当作停止生成。[官方取消／删除语义](https://docs.volcengine.com/docs/ark/cancel-or-delete-video-generation-tasks-api)

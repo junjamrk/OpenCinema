@@ -51,10 +51,23 @@ type mediaTask struct {
 
 type mediaSubmissionKey struct{}
 
-func markMediaSubmitted(ctx context.Context) {
-	if submitted, ok := ctx.Value(mediaSubmissionKey{}).(*atomic.Bool); ok {
+// 返回这次请求是否算生成提交：报价、查询、素材审核的上下文清掉了标记，不算提交。
+func markMediaSubmitted(ctx context.Context) bool {
+	submitted, ok := ctx.Value(mediaSubmissionKey{}).(*atomic.Bool)
+	if ok {
 		submitted.Store(true)
 	}
+	return ok
+}
+
+// 旧生成器没有可恢复的 job。供应商已确认任务结束时记下这一点，任务落成失败，不停在未确认。
+func failMediaRemote(ctx context.Context, message string) error {
+	if value, _ := ctx.Value(videoTaskKey{}).(*videoTaskContext); value != nil {
+		value.server.tasksMu.Lock()
+		value.task.remoteSettled = true
+		value.server.tasksMu.Unlock()
+	}
+	return fail(502, message)
 }
 func mediaTaskState(id string, task *mediaTask) object {
 	settled := !task.settled.IsZero()
@@ -96,6 +109,9 @@ func mediaTaskState(id string, task *mediaTask) object {
 
 func safeClient() *http.Client { return outboundHTTPClient }
 
+// 连接没有建立，请求不可能发出去。自定义拨号不返回 net.OpError，这里单独标记。
+var errProviderUnreachable = errors.New("无法连接远程服务")
+
 var outboundHTTPClient = &http.Client{Timeout: 5 * time.Minute, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 	if len(via) > 5 {
 		return fmt.Errorf("重定向过多")
@@ -111,7 +127,7 @@ var outboundHTTPClient = &http.Client{Timeout: 5 * time.Minute, CheckRedirect: f
 	}
 	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", errProviderUnreachable, err)
 	}
 	for _, ip := range ips {
 		if !ip.IP.IsGlobalUnicast() || ip.IP.IsLoopback() || ip.IP.IsPrivate() || ip.IP.IsLinkLocalUnicast() || ip.IP.IsUnspecified() || reservedIP(ip.IP) {
@@ -126,7 +142,7 @@ var outboundHTTPClient = &http.Client{Timeout: 5 * time.Minute, CheckRedirect: f
 			return conn, nil
 		}
 	}
-	return nil, fmt.Errorf("无法连接远程服务")
+	return nil, errProviderUnreachable
 }, IdleConnTimeout: 90 * time.Second, MaxIdleConns: 32, MaxIdleConnsPerHost: 4}}
 
 func reservedIP(ip net.IP) bool {
@@ -185,11 +201,14 @@ func providerSnapshot(value object) object {
 }
 func (s *server) mediaModels() []any {
 	models := []any{}
+	configs := asObject(s.settings()["mediaProviderConfigs"])
 	for _, raw := range s.providers() {
 		p := asObject(raw)
 		if videoProtocol(p) == "comfyui" && !s.comfyEnabled(p) {
 			continue
 		}
+		// 只看生成实际读取的 apiKey：优云智算的 minimaxApiKey 只影响一个模型，不能让其他模型都显示未配置。
+		credentialMissing := str(p["transport"]) != "local" && videoProtocol(p) != "adapter" && strings.TrimSpace(str(asObject(configs[str(p["id"])])["apiKey"])) == ""
 		for _, rawModel := range array(p["models"]) {
 			model := asObject(clone(rawModel))
 			delete(model, "comfy")
@@ -197,19 +216,18 @@ func (s *server) mediaModels() []any {
 			model["providerLabel"] = p["label"]
 			model["modelId"] = model["id"]
 			model["supportsPrice"] = p["supportsPrice"]
-			if model["type"] == "video" {
-				protocol, location := videoProtocol(p), "platform"
-				if protocol == "" {
-					protocol = "builtin"
-				}
-				if protocol == "openaiVideo" || protocol == "httpTask" || protocol == "adapter" {
-					location = "remote"
-				}
-				if p["transport"] == "local" {
-					location = "local"
-				}
-				model["execution"] = object{"protocol": protocol, "location": location, "cancelMode": providerCancelMode(p, "video")}
+			model["credentialMissing"] = credentialMissing
+			protocol, location := videoProtocol(p), "platform"
+			if protocol == "" {
+				protocol = "builtin"
 			}
+			if protocol == "openaiVideo" || protocol == "httpTask" || protocol == "adapter" {
+				location = "remote"
+			}
+			if p["transport"] == "local" {
+				location = "local"
+			}
+			model["execution"] = object{"protocol": protocol, "location": location, "cancelMode": providerCancelMode(p, str(model["type"]))}
 			models = append(models, model)
 		}
 	}
@@ -327,9 +345,6 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 		for id, task := range s.tasks {
 			if !task.settled.IsZero() && now.Sub(task.settled) > 5*time.Minute {
 				delete(s.tasks, id)
-			} else if task.settled.IsZero() && now.Sub(task.touched) > 2*time.Minute && str(task.request["mediaType"]) != "video" {
-				task.cancelRequested = true
-				task.cancel()
 			}
 		}
 		waiting := []chan struct{}{}
@@ -343,8 +358,8 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 					s.tasksMu.Unlock()
 					return fail(429, "生成取消记录过多")
 				}
-				task := &mediaTask{directory: directory, inputHash: "cancelledBeforeRegistration", done: make(chan struct{}), cancel: func() {}, unknown: true, touched: now, settled: now, cancelRequested: true, result: object{"code": 409, "data": nil, "message": "取消时任务尚未登记或不可确认，已阻止此ID后续提交；请保留原ID"}}
-				task.submitted.Store(true)
+				// 生成请求在同一把锁下登记，这里查不到就说明它还没到，这条记录会挡住之后才到的提交，所以结果是确定的。
+				task := &mediaTask{directory: directory, inputHash: "cancelledBeforeRegistration", done: make(chan struct{}), cancel: func() {}, touched: now, settled: now, cancelRequested: true, result: object{"code": 499, "data": nil, "message": "取消时任务尚未登记，未派发生成；已阻止此ID后续提交"}}
 				if err := s.saveMediaTask(str(raw), task, true); err != nil {
 					s.tasksMu.Unlock()
 					return err
@@ -851,9 +866,7 @@ func providerClientJSON(ctx context.Context, client *http.Client, base, path str
 		request.Header.Set("Authorization", "Bearer "+key)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	if method == "POST" {
-		markMediaSubmitted(ctx)
-	}
+	submitting := method == "POST" && markMediaSubmitted(ctx)
 	if client == nil {
 		client = safeClient()
 	}
@@ -873,11 +886,7 @@ func providerClientJSON(ctx context.Context, client *http.Client, base, path str
 		return strings.ReplaceAll(message, key, "[REDACTED]")
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		message := redact(string(data))
-		if len(message) > 2000 {
-			message = message[:2000]
-		}
-		return nil, fail(502, fmt.Sprintf("供应商 HTTP %d: %s", response.StatusCode, message))
+		return nil, providerResponseError(submitting, response.StatusCode, redact(string(data)))
 	}
 	var result object
 	if err = json.Unmarshal(data, &result); err != nil {
@@ -891,13 +900,77 @@ func providerClientJSON(ctx context.Context, client *http.Client, base, path str
 		if message == "" {
 			message = "供应商拒绝请求"
 		}
-		message = redact(message)
-		if len(message) > 2000 {
-			message = message[:2000]
+		// 业务码不一定是 HTTP 状态；不在 4xx、5xx 范围的，只知道供应商说了失败，按拒绝处理。
+		status := int(code)
+		if status < 400 || status >= 600 {
+			status = 400
 		}
-		return nil, fail(502, message)
+		return nil, providerResponseError(submitting, status, redact(message))
 	}
 	return result, nil
+}
+
+// 4xx 说明请求没被受理；408 是读请求超时，服务端可能已经收到，和 5xx 一样算结果未知。
+func providerRejected(status int) bool { return status >= 400 && status < 500 && status != 408 }
+
+func providerResponseError(submitting bool, status int, detail string) error {
+	if submitting && providerRejected(status) {
+		return &videoRequestRejected{status: status, detail: detail}
+	}
+	return fail(502, providerFailureText(status, detail))
+}
+
+const remoteFailureText = "供应商确认生成失败，可调整提示词或参数后重新生成"
+
+// 第一行给用户看，说明原因和下一步；供应商原文放后面几行，节点折叠显示。
+func withFailureDetail(summary, detail string) string {
+	runes := []rune(strings.TrimSpace(detail))
+	if len(runes) == 0 {
+		return summary
+	}
+	if len(runes) > 300 {
+		runes = append(runes[:300], '…')
+	}
+	return summary + "\n" + string(runes)
+}
+
+func providerFailureText(status int, detail string) string {
+	summary := "供应商拒绝了这次请求，请检查提示词、参考素材和参数"
+	switch {
+	case status == 401 || status == 403:
+		summary = "供应商拒绝了 API Key，请在模型设置里检查 Key 和权限"
+	case status == 402:
+		summary = "供应商账户余额不足，请充值后重试"
+	case status == 404 || status == 405:
+		summary = "供应商地址或模型不可用，请在模型设置里检查"
+	case status == 408:
+		summary = "供应商响应超时，任务可能仍在执行"
+	case status == 429:
+		summary = "请求过于频繁或额度已用完，请稍后重试"
+	case status >= 500:
+		summary = "供应商服务异常，任务可能仍在执行"
+	}
+	return withFailureDetail(fmt.Sprintf("%s（HTTP %d）", summary, status), detail)
+}
+
+// 接口层错误已经是给用户看的话，其余是网络或系统原文，换成一句话，原文放详情。
+func mediaFailureText(err error, unknown bool) string {
+	var api *apiError
+	var rejected *videoRequestRejected
+	if errors.As(err, &api) || errors.As(err, &rejected) {
+		return err.Error()
+	}
+	if unknown {
+		return withFailureDetail("没有收到供应商的明确结果，任务可能仍在执行，可以稍后重新核对", err.Error())
+	}
+	if errors.Is(err, context.Canceled) {
+		return "生成已取消"
+	}
+	var network net.Error
+	if errors.Is(err, errProviderUnreachable) || errors.As(err, &network) {
+		return withFailureDetail("连不上媒体供应商，请检查网络和供应商地址后重试", err.Error())
+	}
+	return withFailureDetail("生成失败，请重试", err.Error())
 }
 func waitContext(ctx context.Context) error {
 	timer := time.NewTimer(3 * time.Second)
@@ -1284,8 +1357,10 @@ func generateTfRouter(ctx context.Context, base string, config, v, refs object) 
 	if kind == "audio" {
 		query = "tts/getAudioStatus"
 	}
+	// 查询也是 POST：被拒绝只说明这次查询失败，任务已经受理了。
+	polling := context.WithValue(ctx, mediaSubmissionKey{}, nil)
 	for {
-		result, err := providerJSON(ctx, base, query, config, object{"taskICode": id})
+		result, err := providerJSON(polling, base, query, config, object{"taskICode": id})
 		if err != nil {
 			return nil, err
 		}
@@ -1298,12 +1373,12 @@ func generateTfRouter(ctx context.Context, base string, config, v, refs object) 
 			recordVendorCost(ctx, data)
 			url := str(data["data"])
 			if url == "" {
-				return nil, fail(502, "TF-router 未返回媒体结果")
+				return nil, failMediaRemote(ctx, "TF-router 未返回媒体结果")
 			}
 			return []string{url}, nil
 		}
 		if status == "failed" || status == "error" || status == "rejected" {
-			return nil, fail(502, "TF-router 生成失败: "+str(data["failReason"]))
+			return nil, failMediaRemote(ctx, withFailureDetail(remoteFailureText, str(data["failReason"])))
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1333,7 +1408,6 @@ func uploadApiMart(ctx context.Context, base string, config object, dataURL stri
 	}
 	request.Header.Set("Authorization", "Bearer "+str(config["apiKey"]))
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	markMediaSubmitted(ctx)
 	response, err := safeClient().Do(request)
 	if err != nil {
 		return "", err
@@ -1450,12 +1524,12 @@ func generateApiMart(ctx context.Context, base string, config, v, refs object) (
 				}
 			}
 			if len(urls) == 0 {
-				return nil, fail(502, "APIMart 未返回生成结果")
+				return nil, failMediaRemote(ctx, "APIMart 未返回生成结果")
 			}
 			return urls, nil
 		}
 		if status == "failed" || status == "failure" {
-			return nil, fail(502, "APIMart 生成失败")
+			return nil, failMediaRemote(ctx, remoteFailureText)
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1486,12 +1560,12 @@ func generateMetaso(ctx context.Context, base string, config, v, refs object) ([
 		if status == "success" || status == "succeeded" || status == "completed" {
 			output := str(asObject(task["content"])["url"])
 			if output == "" {
-				return nil, fail(502, "未返回视频结果")
+				return nil, failMediaRemote(ctx, "未返回视频结果")
 			}
 			return []string{output}, nil
 		}
 		if status == "fail" || status == "failed" || status == "failure" || status == "blocked" || status == "cancelled" {
-			return nil, fail(502, "视频生成失败")
+			return nil, failMediaRemote(ctx, remoteFailureText)
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err
@@ -1535,12 +1609,12 @@ func generateCompshare(ctx context.Context, base string, config, v, refs object)
 		if status == "SUCCEEDED" || status == "success" || status == "Success" {
 			urls := extractURLs(output)
 			if len(urls) == 0 {
-				return nil, fail(502, "ModelVerse 未返回视频结果")
+				return nil, failMediaRemote(ctx, "ModelVerse 未返回视频结果")
 			}
 			return urls, nil
 		}
 		if status == "FAILED" || status == "CANCELED" || status == "Failure" || status == "Expired" || status == "Cancelled" || status == "Canceled" {
-			return nil, fail(502, "ModelVerse 生成失败")
+			return nil, failMediaRemote(ctx, remoteFailureText)
 		}
 		if err = waitContext(ctx); err != nil {
 			return nil, err

@@ -149,6 +149,13 @@ export default function NodeView({ id, data, selected, isConnectable }: NodeProp
     returnFocus.current = null;
     void changeEditor(false).catch(reportError);
   }), [controller, expanded]);
+  // 展开编辑器盖在设置面板上面，从节点跳到设置时要先收起来。
+  useEffect(() => {
+    if (!expanded) return;
+    const close = () => { returnFocus.current = null; void changeEditor(false).catch(reportError); };
+    window.addEventListener("openCinema:open-settings", close);
+    return () => window.removeEventListener("openCinema:open-settings", close);
+  }, [expanded]);
   function expand() {
     void changeEditor(true).catch(reportError);
   }

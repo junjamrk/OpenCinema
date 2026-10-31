@@ -19,7 +19,7 @@ function ReferenceCard({ input, index, total, controller, readOnly, actionError,
       <span className="nodeReferenceBadge">{index + 1}</span>
     </button>
     {expanded && <MediaDialog title={`连线参考 ${index + 1}`} onClose={() => setExpanded(false)}>
-      {error ? <p className="nodeError" role="alert">{error}</p> : url && input.dataType === "IMAGE" ? <img src={url} alt={`参考 ${index + 1}`} /> : url && input.dataType === "VIDEO" ? <video src={url} controls autoPlay playsInline /> : url && input.dataType === "AUDIO" ? <audio src={url} controls /> : <pre>{title}</pre>}
+      {error ? <p className="nodeError" role="alert">{error}</p> : url && input.dataType === "IMAGE" ? <img src={url} alt={`参考 ${index + 1}`} /> : url && input.dataType === "VIDEO" ? <video src={url} controls playsInline aria-label={`视频参考 ${index + 1}`} /> : url && input.dataType === "AUDIO" ? <audio src={url} controls aria-label={`音频参考 ${index + 1}`} /> : <pre>{title}</pre>}
       {role && onRole && <label className="nodeField"><span>生成职责</span><select value={role} disabled={readOnly} onChange={event => onRole(event.target.value as ReferenceRole)}>{Object.entries(referenceRoleLabels).filter(([key]) => ["general", "exclude"].includes(key) || key === "instruction" && input.dataType === "STRING" || key === "identity" && input.dataType === "IMAGE" || key === "motion" && input.dataType === "VIDEO" || key === "composition" && ["IMAGE", "VIDEO"].includes(String(input.dataType))).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
       {role === "motion" && <p className="nodeStatus">普通视频参考不能锁定深度或运动，生成后仍需逐镜审阅。</p>}
       <div className="nodeActions nodeReferenceActions" role="toolbar" aria-label={`参考 ${index + 1} 操作`}>
