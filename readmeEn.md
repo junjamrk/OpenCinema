@@ -31,10 +31,13 @@
 
 ## Why OpenCinema
 
-- **A project is a folder.** Canvases are JSON and assets live in `assets/`. They are ordinary files you can back up, sync or process with other tools.
-- **You and your Agent share one toolset.** A button on a node and an Agent call run the same function, with the same validation, undo and save behavior.
-- **You choose the models.** Bring your own API keys or local services. Credentials stay on your machine and never enter the project.
+Generation tools answer how to produce a clip. OpenCinema answers how to finish a film.
+
 - **Previs first, then generate, then fix only what needs fixing.** Block out movement and cameras in 3D, review each shot, and replace a single shot without redoing the film.
+- **From storyboard to final cut on one canvas.** Shot plans, candidate review and edit plans connect, so every shot moves through the same process.
+- **Swap the generation backend.** Cloud models, local services and your existing ComfyUI workflows all plug into the same generation node.
+
+A project is an ordinary folder on disk, you and your Agent share one toolset, and credentials stay on your machine.
 
 Current version: **0.4.0, in development**, with no stable release yet. See [Known Limitations](#known-limitations).
 
