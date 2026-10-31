@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { uploadNodeFile } from "@toonflow/nodes-scaffold/nodeFiles";
-import { errorText, useMediaUrl, mediaValueSchema, type NodeViewProps } from "@toonflow/node-shared/reactNode";
+import { errorText, mediaAccept, mediaByteLimit, mediaFileType, useMediaUrl, mediaValueSchema, type NodeViewProps } from "@toonflow/node-shared/reactNode";
 import type { AnalysisResult } from "./videoAnalysis";
 import AnalysisReport from "./reactAnalysisReport";
 import NodeIcon from "@toonflow/node-shared/reactIcon";
@@ -41,9 +41,9 @@ export default function FrameAnalysisNodeView({ node, controller, readOnly }: No
   return <div className="nodeControls nodrag nopan nowheel">
     {url && <video ref={player} className="nodeMedia" src={url} controls playsInline preload="metadata" onError={() => setPreviewError("当前格式无法预览，仍可尝试本地处理")} />}
     {url && <button type="button" onClick={() => void player.current?.requestFullscreen().catch(reason => setError(errorText(reason)))}><NodeIcon name="expand" />全屏视频</button>}
-    <label className="nodeField"><span>{url ? "替换视频" : "视频素材"}</span><input type="file" accept="video/*,.mkv,.mov,.avi,.m4v,.ts" disabled={readOnly || busy || running || inputs.length > 0} onChange={event => {
+    <label className="nodeField"><span>{url ? "替换视频" : "视频素材"}</span><input type="file" accept={mediaAccept("video")} disabled={readOnly || busy || running || inputs.length > 0} onChange={event => {
       const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
-      setBusy(true); setError(""); void (async () => { const extension = file.name.split(".").at(-1)?.toLowerCase() ?? ""; const types: Record<string, string> = { mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", mkv: "video/x-matroska", webm: "video/webm", avi: "video/x-msvideo", ts: "video/mp2t" }; const mimeType = file.type.startsWith("video/") ? file.type : types[extension]; if (!file.size || !mimeType) throw new Error("请选择非空视频文件"); const path = await uploadNodeFile(controller.getNodeService(node.id).files, node.id, file); await controller.callNodeTool(node.id, "setSource", { url: path, mimeType }); })().catch(reason => setError(errorText(reason))).finally(() => setBusy(false));
+      setBusy(true); setError(""); void (async () => { const mimeType = mediaFileType(file, "video"); if (!file.size || !mimeType) throw new Error("请选择非空视频文件"); if (file.size > mediaByteLimit("video")) throw new Error("视频须为 2 GiB 以内"); const path = await uploadNodeFile(controller.getNodeService(node.id).files, node.id, file); await controller.callNodeTool(node.id, "setSource", { url: path, mimeType }); })().catch(reason => setError(errorText(reason))).finally(() => setBusy(false));
     }} /></label>
     <div className="nodeActions">{([['frames','分镜'],['clips','动态'],['audio','原音轨']] as const).map(([key,label]) => <label key={key}><input type="checkbox" checked={!!settings[key]} disabled={readOnly || busy || running} onChange={event => void call("setAnalysisConfig", { [key]: event.target.checked })} />{label}</label>)}</div>
     <div className="nodeFields"><label className="nodeField"><span>检测算法</span><select value={String(settings.method)} disabled={readOnly || running} onChange={event => void call("setAnalysisConfig", { method: event.target.value, threshold: event.target.value === "adaptive" ? 3 : 27 })}><option value="adaptive">自适应变化</option><option value="content">固定变化阈值</option></select></label>

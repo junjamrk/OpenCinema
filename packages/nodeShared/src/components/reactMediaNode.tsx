@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { uploadNodeFile } from "@toonflow/nodes-scaffold/nodeFiles";
-import { errorText, listMediaHistory, readMedia, useMediaUrl, type MediaType, type NodeViewProps } from "../reactNode";
+import { errorText, listMediaHistory, mediaAccept, mediaByteLimit, mediaFileType, readMedia, useMediaUrl, type MediaType, type NodeViewProps } from "../reactNode";
 import type { NodeMediaValue } from "@toonflow/nodes-scaffold/values";
 import MediaDialog from "./reactMediaDialog";
 import AudioPlayer from "./reactAudioPlayer";
@@ -75,15 +75,16 @@ export default function MediaNode(props: NodeViewProps & { mediaType: MediaType;
     {!history.length && <span>暂无媒体历史</span>}
   </div>;
   return <div className={`nodeControls nodeMediaControls nodrag nopan nowheel${url ? " nodeMediaHasPreview" : ""}`} data-media-type={mediaType} onDoubleClick={event => event.stopPropagation()}>
-    <input ref={input} className="nodeFileInput" type="file" accept={`${mediaType}/*`} aria-label={`选择${title}`} disabled={disabled}
+    <input ref={input} className="nodeFileInput" type="file" accept={mediaAccept(mediaType)} aria-label={`选择${title}`} disabled={disabled}
       onChange={event => {
         const file = event.target.files?.[0]; event.target.value = "";
         if (!file) return;
         void perform(async () => {
-          if (!file.type.startsWith(`${mediaType}/`)) throw new Error(`请选择${title}文件`);
-          if (!file.size || file.size > 100 * 1024 ** 2) throw new Error("文件须为 100 MiB 以内的非空文件");
+          const mimeType = mediaFileType(file, mediaType);
+          if (!mimeType) throw new Error(`请选择${title}文件`);
+          if (!file.size || file.size > mediaByteLimit(mediaType)) throw new Error(`文件须为 ${mediaType === "video" ? "2 GiB" : "100 MiB"} 以内的非空文件`);
           const path = await uploadNodeFile(controller.getNodeService(node.id).files, node.id, file);
-          await select({ url: path, mimeType: file.type });
+          await select({ url: path, mimeType });
         });
       }} />
     <div className="nodeMediaFrame"><div className={`nodeMediaStage${props.stageOverlay ? " nodeMediaStageGenerating" : ""}`} aria-busy={!!props.stageOverlay || !!(value || props.fallbackPreview) && !url && !previewError}>

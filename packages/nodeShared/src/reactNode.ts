@@ -55,6 +55,8 @@ export function pluginServices(context: PluginActivationContext) {
   };
 }
 
+export function mediaByteLimit(type: MediaType) { return (type === "video" ? 2 * 1024 : 100) * 1024 ** 2; }
+
 export async function setMedia(context: PluginActivationContext, type: MediaType, value: NodeMediaValue, signal: AbortSignal, expectedRevision?: number, taskId?: string) {
   const { id, document, workbench } = pluginServices(context);
   const source = mediaValueSchema.parse(value);
@@ -62,7 +64,7 @@ export async function setMedia(context: PluginActivationContext, type: MediaType
   const revision = expectedRevision ?? document.getRevision();
   const head = workbench.files.readRange ? await workbench.files.readRange(source.url, 0, 1, undefined, signal) : undefined;
   if (head && !head.size) throw new Error("媒体文件不能为空");
-  if (head && head.size > (type === "video" ? 2 * 1024 : 100) * 1024 ** 2) throw new Error(type === "video" ? "视频须为 2 GiB 以内" : "媒体文件须为 100 MiB 以内");
+  if (head && head.size > mediaByteLimit(type)) throw new Error(type === "video" ? "视频须为 2 GiB 以内" : "媒体文件须为 100 MiB 以内");
   signal.throwIfAborted();
   const data = readNodeData(document, id);
   if (!taskId && ["running", "delegated", "unknown", "cancelRequested"].includes(String((data.generation as { status?: string } | undefined)?.status))) throw new Error("生成任务仍在等待终态；提交实际产物时须提供原taskId");
@@ -84,6 +86,15 @@ const mimeTypes: Record<string, string> = {
   mp4: "video/mp4", m4v: "video/mp4", webm: "video/webm", mov: "video/quicktime", mkv: "video/x-matroska", avi: "video/x-msvideo", ogv: "video/ogg", ts: "video/mp2t",
   mp3: "audio/mpeg", wav: "audio/wav", m4a: "audio/mp4", aac: "audio/aac", ogg: "audio/ogg", flac: "audio/flac", opus: "audio/opus", aif: "audio/aiff", aiff: "audio/aiff", au: "audio/basic", caf: "audio/x-caf",
 };
+
+export function mediaFileType(file: File, type: MediaType) {
+  const mimeType = file.type.startsWith(`${type}/`) ? file.type : mimeTypes[file.name.split(".").at(-1)?.toLowerCase() ?? ""];
+  return mimeType?.startsWith(`${type}/`) ? mimeType : undefined;
+}
+
+export function mediaAccept(type: MediaType) {
+  return [`${type}/*`, ...Object.keys(mimeTypes).filter(extension => mimeTypes[extension]!.startsWith(`${type}/`)).map(extension => `.${extension}`)].join(",");
+}
 
 export async function listMediaHistory(workbench: NodeWorkbenchService, nodeId: string, type: MediaType, current?: NodeMediaValue) {
   const entries = await workbench.files.list(`assets/${nodeId}`).catch(error => {

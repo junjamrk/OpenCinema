@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -29,6 +30,8 @@ func within(root, path string) bool {
 	relative, err := filepath.Rel(root, path)
 	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) && !filepath.IsAbs(relative)
 }
+const uploadByteLimit = 2 * 1024 * 1024 * 1024
+
 func atomicWrite(path string, content []byte, exclusive bool, mode os.FileMode) error {
 	return atomicWriteStream(path, bytes.NewReader(content), exclusive, mode)
 }
@@ -577,6 +580,19 @@ func (s *server) workspaceRoute(w http.ResponseWriter, r *http.Request) error {
 		if err = s.protectCollaboration(root, str(input["path"])); err != nil {
 			return err
 		}
+		revision := r.URL.Query().Get("expectedRevision")
+		if revision == "" && r.URL.Query().Get("encoding") == "" {
+			err = atomicWriteStream(target, http.MaxBytesReader(w, r.Body, uploadByteLimit), r.URL.Query().Get("exclusive") == "true", 0600)
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				return fail(413, "文件超过2GiB")
+			}
+			if err != nil {
+				return err
+			}
+			success(w, nil)
+			return nil
+		}
 		data, err := io.ReadAll(io.LimitReader(r.Body, 100*1024*1024+1))
 		if err != nil {
 			return err
@@ -584,7 +600,6 @@ func (s *server) workspaceRoute(w http.ResponseWriter, r *http.Request) error {
 		if len(data) > 100*1024*1024 {
 			return fail(413, "文件超过100MiB")
 		}
-		revision := r.URL.Query().Get("expectedRevision")
 		if revision != "" {
 			previous, err := os.ReadFile(target)
 			if err != nil || hash(previous) != revision {
