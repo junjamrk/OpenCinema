@@ -62,6 +62,7 @@ const mediaPriceCache = mediaPriceCacheHost[mediaPriceCacheKey] ??= (() => {
     const invalidate = (event: Event) => {
       if (event.type === "toonflow:plugin-installed" && (event as CustomEvent<{ type?: string }>).detail?.type !== "provider") return;
       cache.prices.clear();
+      modelCache.delete("/api/ai/media/models");
     };
     window.addEventListener("toonflow:provider-config-changed", invalidate);
     window.addEventListener("toonflow:plugin-installed", invalidate);
