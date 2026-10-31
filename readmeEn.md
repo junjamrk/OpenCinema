@@ -183,13 +183,13 @@ Image, video and audio generation can each go through your host Agent or a confi
 | Compshare | ✓ | ✓ | | |
 | Metaso MiniMax H3 | | ✓ | | |
 | Volcengine Ark Seedance | | ✓ | | Multimodal image and video references |
-| fal | | ✓ | | Add more models on the same protocol in Settings |
-| Replicate | | ✓ | | Add more models on the same protocol in Settings |
+| fal | ✓ | ✓ | ✓ | Add more models on the same protocol in Settings |
+| Replicate | ✓ | ✓ | ✓ | Add more models on the same protocol in Settings |
 | Local / LAN video service | | ✓ | | Connects to an OpenAI-style service on your machine or network |
 | ComfyUI workflows | ✓ | ✓ | ✓ | ComfyUI on your machine or network. Import a workflow and use it as a model, see [Use ComfyUI workflows](#use-comfyui-workflows) |
 | Custom | ✓ | ✓ | ✓ | JSON manifest, see [Adding a provider](#adding-a-provider) |
 
-Generation jobs are persisted. After a disconnect or server restart, fal, Replicate, Ark, OpenAI-style and ComfyUI jobs resume observation of the original task instead of submitting a new paid request. Results are downloaded into the project and verified with FFprobe before they count as complete. See the [video provider docs](docs/videoProvider.md).
+Generation jobs are persisted. After a disconnect or server restart, fal, Replicate, Ark, OpenAI-style, ComfyUI, `httpTask` and `adapter` jobs resume observation of the original task instead of submitting a new paid request. Results are downloaded into the project and verified with FFprobe before they count as complete. See the [video provider docs](docs/videoProvider.md).
 
 ### Previs and shot analysis
 
@@ -396,10 +396,11 @@ Workflows run as black boxes:
 - Only the inputs you confirmed are replaced. Models, samplers and other parameters keep their workflow values.
 - The prompt must be mapped. The number of connected references must match the mapped nodes, or nothing is submitted.
 - `seed` and `noise_seed` change on every submission. Otherwise ComfyUI returns its cached result.
-- An imported workflow offers only its original size and duration. To add choices, edit `imageRatios` and `durationResolutionMap` in the model's advanced declaration.
+- At import you can add extra ratios and durations, and tick fields to adjust on the node, such as the negative prompt and sampler settings.
+- To connect a second ComfyUI server, use the **其他 ComfyUI 服务模板** (other ComfyUI service) template under **添加自定义供应商** (add custom provider).
 - The workflow must output through a save node. Temporary files from preview nodes are not collected. Supported outputs are mp4 and webm for video, png, jpg and webp for images, and flac, wav and mp3 for audio.
 
-> Workflows run on ComfyUI, and custom nodes can execute arbitrary code. Only import workflows you trust.
+> Workflows run on ComfyUI, and custom nodes can execute arbitrary code. Only import workflows you trust. Agent tools cannot add or change workflows, so only you can import them in settings.
 
 See the [video provider docs](docs/videoProvider.md#comfyui-工作流) for the full model format.
 
@@ -412,6 +413,8 @@ If a service matches one of these protocols, a JSON manifest is all you need:
 | `videoProtocol: "openaiVideo"` | Video jobs with multipart submit, poll by ID and content download; local or self-hosted |
 | `videoProtocol: "fal"` | fal queue |
 | `videoProtocol: "replicate"` | Replicate predictions |
+| `videoProtocol: "httpTask"` | Any task-style HTTP service. Declare auth, submit, polling, state mapping and output paths in the manifest, with no code |
+| `videoProtocol: "adapter"` | Your own local program that exchanges JSON over stdin and stdout, for flows such as request signing |
 | `protocol: "openai"` | `images/generations` style image API |
 | `endpoints.image`, etc. | Synchronous JSON API returning result URLs |
 
@@ -440,9 +443,11 @@ Open **Settings → 媒体服务** and add a custom provider. Start from the vid
 }
 ```
 
-For a local or LAN service, set `transport` to `"local"` and use an explicit IP and port.
+For a local or LAN service, set `transport` to `"local"` and use an explicit IP and port. The API key is optional, and image, video and audio all work.
 
-If a service does not fit, for example because of a different auth scheme or job API, add a protocol adapter in [`apps/server/go/videoProvider.go`](apps/server/go/videoProvider.go) and open a pull request.
+Models can declare `parameters`, a subset of JSON Schema. Nodes generate a form from it, and Agents read and write the same values through the same tools.
+
+If `httpTask` cannot describe a service, for example because it needs request signing, write an `adapter`. The executable must be placed by hand in `providerAdapters/<provider id>/` under the data directory, and a manifest cannot declare commands. See the [video provider docs](docs/videoProvider.md).
 
 ### Making a plugin built-in
 
@@ -486,10 +491,9 @@ See the full [contributing guide](contributing.md). Report vulnerabilities priva
 ## Known Limitations
 
 - Node and canvas tools run inside the workbench page. With the page closed, Agents can work with project files but cannot run nodes.
-- Plugins must currently be developed inside this repository, and installed plugins are not sandboxed.
-- fal and Replicate are wired for video models only. Image and audio are not supported yet.
-- Only one ComfyUI server can be connected, generation shows no progress percentage, and uploaded references stay in its `input` folder. ComfyUI loses job records on restart. Such a job shows as unconfirmed and is never resubmitted automatically.
-- Pricing and balance queries are available for TF-router only.
+- Installed plugins are not sandboxed. `requires` only limits `getService`, and plugins still run in the page.
+- ComfyUI progress reflects the current node, not the whole workflow. Uploaded references stay in its `input` folder because ComfyUI has no delete API. ComfyUI loses job records on restart. Such a job shows as unconfirmed and is never resubmitted automatically.
+- Pricing and balance queries are available for TF-router only. Actual cost comes from the balance difference and shows as unknown when tasks on the same account overlap.
 - Release archives must match your OS and CPU architecture. Hosts, providers and platforms are verified separately, so a passing build does not mean everything works.
 
 See [changelog.md](changelog.md) for changes and the [release guide](docs/releaseGuide.md) for packaging.

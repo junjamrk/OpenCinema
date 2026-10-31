@@ -183,13 +183,13 @@ codex plugin add opencinema@openCinemaStandalone --json
 | 优云智算 | ✓ | ✓ | | |
 | 秘塔 MiniMax H3 | | ✓ | | |
 | 火山方舟 Seedance | | ✓ | | 图片与视频全模态参考 |
-| fal | | ✓ | | 可在设置中添加同协议模型 |
-| Replicate | | ✓ | | 可在设置中添加同协议模型 |
+| fal | ✓ | ✓ | ✓ | 内置视频模型，图片和音频模型在设置中添加 |
+| Replicate | ✓ | ✓ | ✓ | 内置视频模型，图片和音频模型在设置中添加 |
 | 本地／局域网视频服务 | | ✓ | | 连接本机或内网的 OpenAI 风格服务 |
 | ComfyUI 工作流 | ✓ | ✓ | ✓ | 本机或内网的 ComfyUI，导入工作流就能当模型用，见[接入 ComfyUI 工作流](#接入-comfyui-工作流) |
 | 自定义 | ✓ | ✓ | ✓ | 用 JSON 清单接入，见[接入生成服务](#接入生成服务) |
 
-生成任务会持久化：页面断线或服务重启后，fal、Replicate、方舟、OpenAI 风格服务和 ComfyUI 可以恢复观察原任务，不会重复提交收费请求。产物下载到工程内，经 FFprobe 校验后才算成功。协议细节见 [视频供应商文档](docs/videoProvider.md)。
+生成任务会持久化：页面断线或服务重启后，fal、Replicate、方舟、OpenAI 风格服务、ComfyUI、`httpTask` 和 `adapter` 可以恢复观察原任务，不会重复提交收费请求。产物下载到工程内，经 FFprobe 校验后才算成功。协议细节见 [视频供应商文档](docs/videoProvider.md)。
 
 ### 预演与镜头分析
 
@@ -396,10 +396,11 @@ ComfyUI 负责生成，OpenCinema 把工作流当成一个模型来用。图片�
 - 只替换你确认的输入，模型、采样器等参数保持工作流原值。
 - 提示词必须映射。连线的参考素材数量要和映射的节点数一致，否则不提交生成。
 - 每次提交自动更换 `seed` 和 `noise_seed`，否则 ComfyUI 会直接返回缓存结果。
-- 导入时默认只提供工作流原来的尺寸和时长。要增加可选项，到模型的 **高级能力声明** 里修改 `imageRatios`、`durationResolutionMap`。
+- 导入时可以填写额外的画幅和时长，还能勾选要在节点上调整的字段，例如负向提示词和采样器参数。
+- 要接第二台 ComfyUI，在 **添加自定义供应商** 里用 **其他 ComfyUI 服务模板**。
 - 工作流必须用保存节点输出。预览节点的临时文件不会回收。视频支持 mp4、webm，图片支持 png、jpg、webp，音频支持 flac、wav、mp3。
 
-> 工作流在 ComfyUI 上执行，自定义节点可以运行任意代码。请只导入你信任的工作流。
+> 工作流在 ComfyUI 上执行，自定义节点可以运行任意代码。请只导入你信任的工作流。Agent 工具不能新增或修改工作流，只能由你在设置页导入。
 
 完整的模型格式见 [视频供应商文档](docs/videoProvider.md#comfyui-工作流)。
 
@@ -412,6 +413,8 @@ ComfyUI 负责生成，OpenCinema 把工作流当成一个模型来用。图片�
 | `videoProtocol: "openaiVideo"` | multipart 提交、按 ID 查询、下载内容的视频任务接口；本地或自建服务都可以 |
 | `videoProtocol: "fal"` | fal 队列 |
 | `videoProtocol: "replicate"` | Replicate predictions |
+| `videoProtocol: "httpTask"` | 任意任务式 HTTP 服务：在清单里声明鉴权、提交、轮询、状态映射和产物路径，不写代码 |
+| `videoProtocol: "adapter"` | 你自己写的本机程序，通过 stdin/stdout 交换 JSON，用于请求签名等特殊流程 |
 | `protocol: "openai"` | `images/generations` 风格的图片接口 |
 | `endpoints.image` 等 | 同步 JSON 接口，返回结果 URL |
 
@@ -440,9 +443,11 @@ ComfyUI 负责生成，OpenCinema 把工作流当成一个模型来用。图片�
 }
 ```
 
-连接本机或局域网服务时，把 `transport` 设为 `"local"`，地址用明确的 IP 和端口。
+连接本机或局域网服务时，把 `transport` 设为 `"local"`，地址用明确的 IP 和端口，API Key 可以不填。图片、视频、音频都支持。
 
-如果服务不符合这些协议，例如鉴权方式或任务接口不同，需要在 [`apps/server/go/videoProvider.go`](apps/server/go/videoProvider.go) 增加协议适配并提交 PR。
+模型可以声明 `parameters`（JSON Schema 子集），节点会自动生成对应的表单，Agent 也通过同一工具读写。
+
+如果 `httpTask` 也声明不了，例如需要请求签名，就写一个 `adapter`。可执行文件只能手动放到数据目录的 `providerAdapters/<供应商 ID>/`，清单不能声明命令。详见 [视频供应商文档](docs/videoProvider.md)。
 
 ### 把插件贡献到官方
 
@@ -486,10 +491,9 @@ bun run build
 ## 已知限制
 
 - 节点和画布工具运行在工作台页面里。页面关闭后，Agent 只能操作工程文件，不能运行节点。
-- 插件目前要在本仓库内开发，安装后没有沙箱隔离。
-- fal 和 Replicate 目前只接入视频模型，图片和音频尚未支持。
-- 目前只能连接一个 ComfyUI 服务，不显示生成进度百分比，上传的参考素材会留在它的 `input` 目录。ComfyUI 重启后任务记录会丢失，此时任务显示为未确认，不会自动重新提交。
-- 报价和余额查询只支持 TF-router。
+- 插件安装后没有沙箱隔离。`requires` 只限制 `getService`，插件仍在页面里运行。
+- ComfyUI 的进度只反映当前节点，不是整个工作流。上传的参考素材会留在它的 `input` 目录，ComfyUI 没有删除接口。它重启后任务记录会丢失，此时任务显示为未确认，不会自动重新提交。
+- 报价和余额查询只支持 TF-router，实际扣费按余额差计算，同账户任务重叠时显示未知。
 - 发行包的系统和 CPU 架构必须与本机一致。各宿主、供应商和平台分别验证，构建通过不代表全部可用。
 
 变更记录见 [changelog.md](changelog.md)，发行流程见 [发行指南](docs/releaseGuide.md)。
