@@ -257,12 +257,7 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		if err = s.checkPluginProviders(name, providers); err != nil {
 			return err
 		}
-		if boolean(v["force"]) {
-			if err = s.forgetProviderConfigs(staleProviderIDs(s.pluginOwnProviders(name), providers)); err != nil {
-				return err
-			}
-		}
-		installed, err := s.installNodeModule(name, source, manifest, v)
+		installed, err := s.installNodeModule(name, source, manifest, v, staleProviderIDs(s.pluginOwnProviders(name), providers))
 		if err != nil {
 			return err
 		}
