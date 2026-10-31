@@ -52,7 +52,7 @@ func mediaAccountFor(provider, config object) *mediaAccount {
 }
 func (s *server) refreshBalance(ctx context.Context, provider, config object) (object, error) {
 	account := mediaAccountFor(provider, config)
-	if str(provider["id"]) != "tfRouter" {
+	if !boolean(provider["supportsBalance"]) {
 		accountMu.Lock()
 		defer accountMu.Unlock()
 		return accountSnapshot(account), nil
@@ -95,7 +95,7 @@ func (s *server) refreshBalance(ctx context.Context, provider, config object) (o
 // 上限是本进程看不到同账户在其他设备上的消费，也看不到延迟入账；升级方式是由厂商在任务结果里返回扣费。
 func (s *server) beginMediaCost(ctx context.Context, id string, task *mediaTask) (func(bool), error) {
 	provider, config, err := s.provider(str(task.request["providerId"]))
-	if err != nil || str(provider["id"]) != "tfRouter" {
+	if err != nil || !boolean(provider["supportsPrice"]) {
 		return func(bool) {}, nil
 	}
 	account := mediaAccountFor(provider, config)
