@@ -1,11 +1,11 @@
-import { Component, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Component, Suspense, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "motion/react";
 import { Handle, NodeResizer, NodeToolbar, Position, useUpdateNodeInternals } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { IconActivity, IconAdjustmentsHorizontal, IconAlertTriangle, IconBox, IconBoxMultiple, IconClipboard, IconCopy, IconDots, IconFileText, IconInfoCircle, IconLoader2, IconMovie, IconMusic, IconPhoto, IconPuzzle, IconTrash, IconVideo, IconX } from "@tabler/icons-react";
-import type { NodeEditorViewAdapter, NodeEditorViewState, WorkbenchController, WorkbenchNode } from "./types";
+import type { NodeEditorViewAdapter, NodeEditorViewState, WorkbenchController, WorkbenchNode, WorkbenchPlugin } from "./types";
 import { trapOverlayFocus } from "./overlayFocus";
 import { MotionLayer } from "./uiMotion";
 
@@ -36,13 +36,24 @@ class NodeViewBoundary extends Component<{ children: ReactNode }, { error: strin
   }
 }
 
+function PluginUnavailable({ pluginId, plugin, error, locked, onEnable }: { pluginId: string; plugin?: WorkbenchPlugin; error?: string; locked: boolean; onEnable(): void }) {
+  const openPlugins = () => window.dispatchEvent(new CustomEvent("openCinema:open-settings", { detail: { tab: "plugins", pluginId } }));
+  const notice = error ? { message: error, action: "查看插件设置", run: openPlugins }
+    : !plugin ? { message: `缺少插件 ${pluginId}`, action: "在插件市场查找", run: openPlugins }
+    : plugin.supported === false ? { message: `插件「${plugin.label}」已停用`, action: "启用插件", run: onEnable }
+    : { message: "节点插件尚未就绪，请在插件设置中检查安装与启用状态", action: "查看插件设置", run: openPlugins };
+  return <div className="nodeUnavailable" role="status"><IconPuzzle aria-hidden="true" focusable="false" size={22} /><span>{notice.message}</span><button type="button" className="nodrag" disabled={locked && notice.run === onEnable} onClick={notice.run}>{notice.action}</button></div>;
+}
+
 export default function NodeView({ id, data, selected, isConnectable }: NodeProps<CanvasNode>) {
   const { documentNode: node, controller, reportError } = data;
   const snapshot = controller.getSnapshot();
   const locked = snapshot.readOnly || snapshot.transitioning;
   const interactionLocked = locked || !data.interactionsEnabled;
   const group = node.type === "group" || node.type === "canvasGroup";
-  const plugin = snapshot.plugins.find(item => item.type.replace(/^remote-/, "") === node.type?.replace(/^remote-/, ""));
+  const pluginId = node.type?.replace(/^remote-/, "") ?? "";
+  // 节点数据不随插件目录变化，这里单独订阅，安装或启用后才会刷新。
+  const plugin = useSyncExternalStore(controller.subscribe, () => controller.getSnapshot().plugins).find(item => item.type.replace(/^remote-/, "") === pluginId);
   const NodeIcon = nodeIcons[plugin?.icon ?? ""] ?? IconPuzzle;
   const PluginView = controller.getNodeView?.(node.type ?? "");
   const pluginError = controller.getNodeError?.(id);
@@ -170,7 +181,7 @@ export default function NodeView({ id, data, selected, isConnectable }: NodeProp
 
   const content = <NodeViewBoundary key={`${id}:${node.type}:${pluginError ?? ""}`}>
     {PluginView && pluginError && <p className="nodePluginError" role="alert">节点插件更新失败，当前保留原版本。{pluginError}</p>}
-    {PluginView ? <Suspense fallback={<div className="nodeLoading" role="status"><IconLoader2 aria-hidden="true" focusable="false" className="spin" size={18} /><span>加载节点视图</span></div>}><PluginView node={node} controller={controller} readOnly={locked} toolbarMount={toolbarMount} /></Suspense> : !group && (snapshot.transitioning && !pluginError ? <div className="nodeLoading" role="status"><IconLoader2 aria-hidden="true" focusable="false" className="spin" size={18} /><span>读取节点</span></div> : <div className="nodeUnavailable" role="status"><IconPuzzle aria-hidden="true" focusable="false" size={22} /><span>{pluginError ?? "节点插件尚未就绪，请在插件设置中检查安装与启用状态"}</span></div>)}
+    {PluginView ? <Suspense fallback={<div className="nodeLoading" role="status"><IconLoader2 aria-hidden="true" focusable="false" className="spin" size={18} /><span>加载节点视图</span></div>}><PluginView node={node} controller={controller} readOnly={locked} toolbarMount={toolbarMount} /></Suspense> : !group && (snapshot.transitioning && !pluginError ? <div className="nodeLoading" role="status"><IconLoader2 aria-hidden="true" focusable="false" className="spin" size={18} /><span>读取节点</span></div> : <PluginUnavailable pluginId={pluginId} plugin={plugin} error={pluginError ?? controller.getPluginError(pluginId)} locked={locked} onEnable={() => void controller.setPluginEnabled(pluginId, true).catch(reportError)} />)}
   </NodeViewBoundary>;
 
   return <article className={`nodeFrame${selected ? " nodeFrameSelected" : ""}${group ? " groupFrame" : data.sized ? " nodeFrameSized" : ""}`} aria-label={node.data?.label || plugin?.label || node.type || "节点"}>
