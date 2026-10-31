@@ -32,8 +32,9 @@ import type { WorkbenchController, WorkbenchNodeViewProps, WorkbenchSnapshot } f
 
 type View = ComponentType<WorkbenchNodeViewProps>;
 type TextDraft = { text: string; session: DocumentSession };
+type PluginDetails = { category?: string; description?: string; icon?: string };
 type NodePluginError = { pluginId: string; message: string; definition?: NodePluginDefinition<View> };
-const builtinPlugins = builtinNodes as unknown as Record<string, { displayName: string; description?: string; icon?: string; scope: "node" | "workspace"; load(): Promise<PluginModule<View>> }>;
+const builtinPlugins = builtinNodes as unknown as Record<string, PluginDetails & { displayName: string; scope: "node" | "workspace"; load(): Promise<PluginModule<View>> }>;
 const relativePath = z.string().min(1).max(4096).refine(value => !/^(?:[\\/]|[a-z][a-z\d+.-]*:)/i.test(value)
   && !value.includes("\0") && value.replaceAll("\\", "/").split("/").every(part => !!part && part !== "." && part !== ".."), "路径必须位于工作区内");
 
@@ -55,6 +56,7 @@ export function createWorkbenchController() {
   const activatedConfigs = new Map<string, string>();
   const definitions = new Map<string, NodePluginDefinition<View>>();
   const pluginLabels = new Map(Object.entries(builtinPlugins).map(([id, item]) => [id, item.displayName]));
+  const pluginDetails = new Map<string, PluginDetails>(Object.entries(builtinPlugins));
   const disabledPlugins = new Set<string>();
   const loadingPlugins = new Map<string, Promise<NodePluginDefinition<View>>>();
   const pluginSources = new Map<string, string>();
@@ -223,7 +225,10 @@ export function createWorkbenchController() {
     return next;
   }
   function publishPlugins() {
-    publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => ({ type: `remote-${id}`, label, description: builtinPlugins[id]?.description, icon: definitions.get(id)?.icon ?? builtinPlugins[id]?.icon, composer: definitions.get(id)?.composer, category: /Generation/.test(id) ? "生成" : /Analysis|Info|Depth/.test(id) ? "分析" : /blockout|director/.test(id) ? "空间与摄影" : "文本与媒体", supported: !disabledPlugins.has(id) })),
+    publish({ plugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) !== "workspace").map(([id, label]) => {
+      const details = { ...pluginDetails.get(id), ...definitions.get(id) };
+      return { type: `remote-${id}`, label, description: details.description, icon: details.icon, composer: details.composer, category: details.category, supported: !disabledPlugins.has(id) };
+    }),
       workspacePlugins: [...pluginLabels].filter(([id]) => (definitions.get(id)?.scope ?? pluginScopes.get(id) ?? builtinPlugins[id]?.scope) === "workspace").map(([id, label]) => ({ id, label, enabled: !disabledPlugins.has(id) })) });
   }
   function pluginAvailability(pluginId: string, id?: string): CanvasQueryAvailability {
@@ -481,7 +486,7 @@ export function createWorkbenchController() {
     const response = await fetch("/api/nodes/get", { headers: { "x-toonflow-workspace": "1" }, signal: controllerLifetime.signal, cache: "no-store" });
     const body = await response.json();
     if (!response.ok || body.code !== 200) throw new Error(body.message || "插件目录读取失败");
-    const catalog = z.array(z.object({ name: nodeId, id: nodeId.optional(), displayName: z.string().optional(), version: z.string().optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), requires: nodeRequirementsSchema.optional(), scope: z.enum(["node", "workspace"]).optional(), url: z.string().optional(), config: z.record(z.string(), z.json()).nullish() })).parse(body.data);
+    const catalog = z.array(z.object({ name: nodeId, id: nodeId.optional(), displayName: z.string().optional(), version: z.string().optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), requires: nodeRequirementsSchema.optional(), scope: z.enum(["node", "workspace"]).optional(), category: z.string().optional().catch(undefined), description: z.string().optional().catch(undefined), icon: z.string().optional().catch(undefined), url: z.string().optional(), config: z.record(z.string(), z.json()).nullish() })).parse(body.data);
     const installedIds = new Set(catalog.map(entry => entry.id ?? entry.name));
     const changedIds = new Set([...pluginSources.keys()].filter(id => !installedIds.has(id)));
     for (const entry of catalog) {
@@ -496,12 +501,13 @@ export function createWorkbenchController() {
     const failures: string[] = [];
     for (const id of pluginSources.keys()) if (!installedIds.has(id)) {
       await runtime.unload(id); pluginSources.delete(id); definitions.delete(id); views.delete(id); views.delete(`remote-${id}`);
-      pluginLabels.delete(id); pluginScopes.delete(id); pluginRequirements.delete(id); workspaceSubscriptions.get(id)?.(); workspaceSubscriptions.delete(id); workspacePlugins.delete(id);
+      pluginLabels.delete(id); pluginDetails.delete(id); pluginScopes.delete(id); pluginRequirements.delete(id); workspaceSubscriptions.get(id)?.(); workspaceSubscriptions.delete(id); workspacePlugins.delete(id);
     }
     for (const entry of catalog) {
       const id = entry.id ?? entry.name;
       if (entry.builtin && !builtinPlugins[id]) continue;
       pluginLabels.set(id, entry.displayName ?? builtinPlugins[id]?.displayName ?? id);
+      pluginDetails.set(id, { category: entry.category, description: entry.description, icon: entry.icon });
       pluginScopes.set(id, entry.scope ?? builtinPlugins[id]?.scope ?? "node");
       pluginConfigs.set(id, entry.config ?? {});
       if (entry.requires) pluginRequirements.set(id, entry.requires); else pluginRequirements.delete(id);

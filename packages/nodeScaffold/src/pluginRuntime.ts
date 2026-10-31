@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { nodeRequirementsSchema } from "./nodeCapabilities";
+import { nodeMetadataSchema, nodeRequirementsSchema } from "./nodeCapabilities";
 import { createNodeResources, nodeResourceManifestSchema } from "./nodeResources";
 import { ToolExecutionError, serializeToolError, toolAnnotationsSchema } from "./toolErrors";
 import type {
@@ -72,6 +72,7 @@ export function createPluginRuntime<View = unknown>(options: PluginRuntimeOption
     pluginIdentitySchema.parse({ apiVersion: definition.apiVersion, id: definition.id, name: definition.name, version: definition.version });
     const requires = nodeRequirementsSchema.parse(definition.requires ?? {});
     z.enum(["node", "workspace"]).optional().parse(definition.scope);
+    nodeMetadataSchema.pick({ category: true, description: true }).parse({ category: definition.category, description: definition.description });
     z.strictObject({ label: z.string().trim().min(1).max(80), placeholder: z.string().trim().min(1).max(256), tool: toolNameSchema, maxLength: z.number().int().min(1).max(100000).optional(), defaultAction: z.boolean().optional(), getState: z.custom<NonNullable<NodePluginDefinition["composer"]>["getState"]>(value => typeof value === "function").optional() }).optional().parse(definition.composer);
     for (const [name, version] of Object.entries(requires)) {
       if ((capabilities[name] ?? 0) < version) throw new Error(`插件 ${definition.id} 需要能力 ${name}@${version}`);

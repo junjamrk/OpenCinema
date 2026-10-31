@@ -6,6 +6,7 @@
   "openCinema": {
     "id": "motionAnalysisNode",
     "name": "Motion",
+    "category": "分析",
     "order": 11,
     "icon": "motion",
     "description": "分析二维运动、姿态和相对深度，导出制作参考包",

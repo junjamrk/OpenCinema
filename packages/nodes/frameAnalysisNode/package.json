@@ -6,6 +6,7 @@
   "openCinema": {
     "id": "frameAnalysisNode",
     "name": "视频分析",
+    "category": "分析",
     "order": 9,
     "icon": "frames",
     "description": "本地检测切点，输出关键帧、镜头片段和音轨"

@@ -6,6 +6,7 @@
   "openCinema": {
     "id": "director3dNode",
     "name": "3D 导演",
+    "category": "空间与摄影",
     "order": 8,
     "icon": "spatial",
     "description": "用文字生成 3D 动画和运镜，再手动取景导出"

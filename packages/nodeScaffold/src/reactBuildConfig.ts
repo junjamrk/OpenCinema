@@ -49,8 +49,10 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
   const info = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   if (typeof info.version !== "string" || !info.version.trim()) throw new Error("插件 package.json 缺少版本");
   const metadata = nodeMetadataSchema.parse(info.openCinema);
-  const { id, requires = {} } = metadata;
+  const { id, requires = {}, category, description, icon } = metadata;
   const scope = metadata.scope ?? "node";
+  // 未声明的字段不写入发行物，运行时才能回退到插件源码自己的声明。
+  const display = JSON.parse(JSON.stringify({ category, description, icon }));
   const output = fileURLToPath(new URL(`../../../build/nodes/${id}`, import.meta.url));
   const sourceEntry = resolve(root, "src/reactPlugin.ts");
   const entryName = "virtual:openCinemaReactEntry";
@@ -85,7 +87,7 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
         resolveId(id) { if (id === entryName) return entryId; },
         async load(value) {
           if (value !== entryId) return;
-          return `import plugin from ${JSON.stringify(sourceEntry)}; if (plugin.id !== ${JSON.stringify(id)} || plugin.renderer !== "react" || plugin.apiVersion !== 1) throw new Error("插件源码合同与发行入口不一致"); export default { ...plugin, version: ${JSON.stringify(info.version)}, name: ${JSON.stringify(metadata.name)}, scope: ${JSON.stringify(scope)}, requires: { ...${JSON.stringify(requires)}, ...plugin.requires } };`;
+          return `import plugin from ${JSON.stringify(sourceEntry)}; if (plugin.id !== ${JSON.stringify(id)} || plugin.renderer !== "react" || plugin.apiVersion !== 1) throw new Error("插件源码合同与发行入口不一致"); export default { ...plugin, version: ${JSON.stringify(info.version)}, name: ${JSON.stringify(metadata.name)}, ...${JSON.stringify(display)}, scope: ${JSON.stringify(scope)}, requires: { ...${JSON.stringify(requires)}, ...plugin.requires } };`;
         },
         async generateBundle(_options, bundle) {
           const readme = await readFile(resolve(root, "readme.md"), "utf8").catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return ""; throw error; });
@@ -97,7 +99,7 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
           }
           nodeResourceManifestSchema.parse(resources);
           if (Object.keys(resources).length && !requires.pluginResources) throw new Error("包含资源的插件须声明 pluginResources 宿主能力");
-          manifest = { apiVersion: 1, id, renderer: "react", scope, name: metadata.name, displayName: metadata.name, version: info.version, author: config.author, github: config.github, requires, configRules: config.configRules ?? [], readme, resources };
+          manifest = { apiVersion: 1, id, renderer: "react", scope, name: metadata.name, displayName: metadata.name, ...display, version: info.version, author: config.author, github: config.github, requires, configRules: config.configRules ?? [], readme, resources };
           const module = bundle["index.js"];
           if (!module || module.type !== "chunk") throw new Error("未生成 React ESM 插件入口");
           const styles = Object.values(bundle).filter(asset => asset.type === "asset" && asset.fileName.endsWith(".css"));

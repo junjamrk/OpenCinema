@@ -6,6 +6,7 @@
   "openCinema": {
     "id": "imageGenerationNode",
     "name": "图片生成",
+    "category": "生成",
     "order": 4,
     "icon": "image",
     "description": "用提示词和参考图生成图片，可选 Agent 或专项模型"
