@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OpenCinema launch film</title>
+<style>
+  :root { --paper: #F7F7F4; --ink: #101315; --mint: #4FDBC8; --panel: #121316; --node: #20232A; --scale: 1; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); }
+  body { transform-origin: 0 0; transform: scale(var(--scale)); }
+  * { box-sizing: border-box; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); font-family: Inter, system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; display: none; }
+  .world { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+  .dim { color: rgba(255,255,255,.45); }
+  canvas { display: block; }
+
+  /* kinetic headline, bottom-left */
+  .headline { position: absolute; left: 120px; bottom: 84px; font-family: "Inter Display", Inter, sans-serif; font-weight: 600; font-size: 84px; line-height: 1.06; letter-spacing: -0.025em; color: var(--ink); visibility: hidden; }
+  .headline .line { display: block; white-space: nowrap; }
+  .headline .w { display: inline-block; will-change: transform, opacity, filter; }
+
+  .chipLight { position: absolute; font-family: "JetBrains Mono", monospace; font-size: 19px; letter-spacing: .10em; color: rgba(16,19,21,.55); text-transform: uppercase; white-space: nowrap; }
+  .chip { position: absolute; font-family: "JetBrains Mono", monospace; font-size: 16px; letter-spacing: .10em; text-transform: uppercase; padding: 7px 12px; border-radius: 9px; background: rgba(255,255,255,.09); color: rgba(255,255,255,.80); white-space: nowrap; line-height: 1.2; }
+  .chip.mint { background: rgba(79,219,200,.12); color: var(--mint); border: 1px solid rgba(79,219,200,.5); }
+  .chip.onInk { background: rgba(247,247,244,.92); color: var(--ink); }
+  .chip.solid { background: rgba(18,19,22,.88); color: #fff; }
+  .chip.mint.solid { background: rgba(18,19,22,.88); color: var(--mint); }
+  .chip.static { position: static; display: inline-block; }
+  .chip.big { font-size: 20px; padding: 10px 16px; }
+  .panel { position: absolute; background: var(--panel); border-radius: 24px; border: 1px solid rgba(255,255,255,.06); box-shadow: 0 40px 90px rgba(16,19,21,.16); overflow: hidden; color: #fff; }
+  .panelHead { position: absolute; left: 0; top: 0; right: 0; height: 64px; display: flex; align-items: center; gap: 16px; padding: 0 28px; font-size: 21px; font-weight: 600; }
+  .panelHead .mono { font-weight: 400; font-size: 15px; letter-spacing: .06em; }
+  .btn { position: absolute; font-size: 18px; font-weight: 600; padding: 11px 18px; border-radius: 11px; background: rgba(255,255,255,.10); color: #fff; white-space: nowrap; }
+  .btn.mint { background: var(--mint); color: var(--ink); }
+
+  /* scene 1 */
+  .composer.hero { position: absolute; left: 220px; top: 440px; width: 1480px; height: 200px; background: var(--panel); border-radius: 34px; box-shadow: 0 40px 90px rgba(16,19,21,.18); display: flex; align-items: center; padding: 0 56px 0 64px; color: #fff; }
+  .composer.hero .prompt { flex: 1; font-size: 62px; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; }
+  .caret { display: inline-block; width: 4px; height: 60px; background: var(--mint); vertical-align: -8px; margin-left: 8px; border-radius: 2px; }
+  .send { position: relative; width: 78px; height: 78px; border-radius: 50%; background: var(--mint); display: grid; place-items: center; color: var(--ink); flex: none; }
+  .send svg { width: 34px; height: 34px; }
+  .send .pulseRing { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid var(--mint); opacity: 0; }
+  .agents { position: absolute; left: 224px; top: 676px; font-family: "JetBrains Mono", monospace; font-size: 21px; letter-spacing: .06em; color: rgba(16,19,21,.55); }
+
+  /* canvas nodes */
+  .node { position: absolute; background: var(--node); border-radius: 18px; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 18px 40px rgba(16,19,21,.14); color: #fff; transform-origin: 50% 50%; }
+  .nodeHead { display: flex; align-items: center; gap: 10px; padding: 13px 18px 9px; font-size: 20px; font-weight: 600; white-space: nowrap; }
+  .nodeHead .ico { width: 22px; height: 22px; color: rgba(255,255,255,.72); flex: none; }
+  .nodeBody { padding: 0 18px; }
+  .nodeBody canvas { width: 100%; border-radius: 10px; background: #0B0D12; }
+  .nodeText { font-size: 18px; line-height: 1.35; color: rgba(255,255,255,.72); }
+  .nodeFoot { position: absolute; left: 18px; bottom: 9px; font-size: 13px; letter-spacing: .06em; color: rgba(255,255,255,.38); }
+  .port { position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #2E333C; border: 2px solid #4A5160; transform: translate(-50%, -50%); }
+  .port.in { left: 0; } .port.out { left: 100%; }
+  .port.on { background: var(--mint); border-color: var(--mint); }
+  .ring { position: absolute; inset: -6px; border-radius: 23px; border: 2.5px solid var(--mint); box-shadow: 0 0 0 6px rgba(79,219,200,.16), 0 0 34px rgba(79,219,200,.38); opacity: 0; pointer-events: none; }
+  .minis { display: flex; gap: 8px; } .minis canvas { flex: 1; width: 0; }
+  .blocks { display: flex; gap: 8px; } .blocks div { flex: 1; height: 44px; border-radius: 8px; background: #2C313A; font-family: "JetBrains Mono", monospace; font-size: 12px; display: grid; place-items: center; color: rgba(255,255,255,.55); letter-spacing: .08em; }
+  .blocks div.hot { background: rgba(79,219,200,.18); color: var(--mint); border: 1px solid rgba(79,219,200,.5); }
+  .edges { position: absolute; left: 0; top: 0; overflow: visible; }
+  .edges path.edge { fill: none; stroke: var(--mint); stroke-width: 2.5px; stroke-linecap: round; }
+  .edges path.arrow { fill: var(--mint); }
+  .edges circle.dot { fill: var(--mint); }
+  .edges circle.halo { fill: rgba(79,219,200,.35); }
+  .marquee { position: absolute; border: 2px dashed var(--mint); background: rgba(79,219,200,.08); border-radius: 6px; display: none; }
+  .cursor { position: absolute; width: 30px; height: 30px; transform-origin: 4px 3px; }
+  .composer.bar { position: absolute; left: 980px; top: 948px; width: 820px; height: 82px; border-radius: 41px; background: var(--panel); display: flex; align-items: center; gap: 18px; padding: 0 14px 0 16px; color: #fff; box-shadow: 0 24px 60px rgba(16,19,21,.16); }
+  .pill { display: inline-flex; align-items: center; height: 44px; padding: 0 16px; border-radius: 22px; border: 1.5px solid var(--mint); color: var(--mint); font-family: "JetBrains Mono", monospace; font-size: 19px; letter-spacing: .04em; white-space: pre; }
+  .pill .num { display: inline-block; min-width: 1.2ch; text-align: center; }
+  .ph { flex: 1; font-size: 23px; color: rgba(255,255,255,.5); white-space: nowrap; overflow: hidden; }
+  .send.small { width: 54px; height: 54px; } .send.small svg { width: 24px; height: 24px; }
+
+  /* scene 4 image editor */
+  .rail { position: absolute; left: 0; top: 64px; bottom: 0; width: 84px; display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 14px; border-right: 1px solid rgba(255,255,255,.06); }
+  .tool { width: 50px; height: 50px; border-radius: 12px; display: grid; place-items: center; color: rgba(255,255,255,.6); }
+  .tool svg { width: 24px; height: 24px; }
+  .tool.on { background: rgba(79,219,200,.14); color: var(--mint); box-shadow: inset 0 0 0 1px rgba(79,219,200,.5); }
+  .viewport { position: absolute; overflow: hidden; border-radius: 14px; background: #000; }
+  .viewport canvas { position: absolute; left: 0; top: 0; }
+  .brushCursor { position: absolute; width: 84px; height: 84px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.9); box-shadow: 0 0 0 1px rgba(0,0,0,.4); transform: translate(-50%, -50%); display: none; }
+
+  /* scene 5 / 6 */
+  .wipeLine { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--mint); box-shadow: 0 0 18px rgba(79,219,200,.9); display: none; }
+  .statusRow { position: absolute; left: 1210px; width: 250px; height: 40px; display: flex; align-items: center; gap: 12px; font-family: "JetBrains Mono", monospace; font-size: 15px; letter-spacing: .10em; color: rgba(255,255,255,.4); text-transform: uppercase; }
+  .statusRow i { width: 10px; height: 10px; border-radius: 50%; background: #3A404B; flex: none; }
+  .statusRow.on { color: rgba(255,255,255,.9); } .statusRow.on i { background: var(--mint); box-shadow: 0 0 12px rgba(79,219,200,.8); }
+  .strip { position: absolute; background: #1A1D23; border-radius: 8px; overflow: hidden; }
+  .seg { position: absolute; top: 8px; bottom: 8px; background: #2C313A; border-radius: 5px; font-family: "JetBrains Mono", monospace; font-size: 13px; color: rgba(255,255,255,.55); display: grid; place-items: center; letter-spacing: .1em; }
+  .marker { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--mint); box-shadow: 0 0 10px rgba(79,219,200,.8); transform: scaleY(0); }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; }
+
+  /* scene 7 plan */
+  .plan { position: absolute; left: 310px; top: 150px; width: 1300px; height: 560px; background: var(--node); border-radius: 24px; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 40px 90px rgba(16,19,21,.16); color: #fff; overflow: hidden; }
+  .planHead { position: absolute; left: 32px; right: 32px; top: 26px; display: flex; align-items: center; justify-content: space-between; font-size: 24px; font-weight: 600; }
+  .prompt.mono { position: absolute; left: 32px; right: 32px; top: 92px; margin: 0; font-size: 19px; line-height: 1.55; color: rgba(255,255,255,.82); white-space: pre-wrap; }
+  .refs { position: absolute; left: 32px; right: 32px; top: 262px; display: flex; gap: 20px; }
+  .ref { flex: 1; display: flex; gap: 16px; align-items: center; background: rgba(255,255,255,.04); border-radius: 14px; padding: 12px; }
+  .ref canvas { width: 176px; height: 99px; border-radius: 8px; flex: none; }
+  .ref .meta { display: flex; flex-direction: column; gap: 10px; }
+  .refName { font-size: 18px; color: rgba(255,255,255,.85); }
+  .planFoot { position: absolute; left: 32px; right: 32px; bottom: 26px; display: flex; align-items: center; gap: 36px; font-family: "JetBrains Mono", monospace; font-size: 15px; letter-spacing: .06em; color: rgba(255,255,255,.45); }
+  .planFoot .go { margin-left: auto; font-family: Inter, sans-serif; font-size: 19px; font-weight: 600; letter-spacing: 0; color: var(--ink); background: var(--mint); border-radius: 12px; padding: 13px 22px; position: relative; }
+  .planFoot .go .pulseRing { position: absolute; inset: -3px; border-radius: 14px; border: 2px solid var(--mint); opacity: 0; }
+  .planSummary { position: absolute; left: 32px; right: 32px; top: 0; height: 72px; display: flex; align-items: center; gap: 18px; font-size: 21px; font-weight: 600; opacity: 0; }
+  .cand { position: absolute; width: 420px; height: 296px; background: var(--node); border-radius: 18px; border: 1px solid rgba(255,255,255,.08); box-shadow: 0 24px 60px rgba(16,19,21,.14); color: #fff; overflow: hidden; }
+  .cand canvas { width: 420px; height: 236px; }
+  .candBar { position: absolute; left: 0; right: 0; bottom: 0; height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 18px; font-weight: 600; }
+
+  /* scene 8 review */
+  .clipBox { position: absolute; left: 40px; top: 40px; width: 800px; height: 450px; border-radius: 14px; overflow: hidden; background: #000; }
+  .clipBox canvas { position: absolute; left: 0; top: 0; }
+  .checks { position: absolute; left: 890px; top: 40px; width: 570px; }
+  .checks h3 { margin: 0 0 10px; font-size: 22px; font-weight: 600; }
+  .check { height: 50px; display: flex; align-items: center; justify-content: space-between; font-size: 20px; color: rgba(255,255,255,.85); border-bottom: 1px solid rgba(255,255,255,.06); }
+  .mark { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; opacity: 0; transform: scale(.5); }
+  .mark.pass { background: var(--mint); color: var(--ink); } .mark.fail { background: rgba(255,255,255,.22); color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55); }
+  .mark svg { width: 16px; height: 16px; }
+  .note { position: absolute; left: 890px; top: 400px; width: 570px; height: 56px; border-radius: 12px; background: rgba(255,255,255,.05); display: flex; align-items: center; gap: 14px; padding: 0 16px; font-family: "JetBrains Mono", monospace; font-size: 17px; color: rgba(255,255,255,.85); }
+  .note .lbl { color: rgba(255,255,255,.4); letter-spacing: .1em; }
+  .note .caret { height: 20px; width: 2px; vertical-align: -3px; margin-left: 2px; }
+  .tl { position: absolute; left: 210px; top: 620px; width: 1500px; height: 180px; }
+  .tlHead { position: absolute; left: 28px; right: 28px; top: 0; height: 52px; display: flex; align-items: center; gap: 16px; font-size: 19px; font-weight: 600; }
+  .clip { position: absolute; top: 60px; width: 330px; height: 80px; border-radius: 10px; overflow: hidden; background: #0B0D12; }
+  .clip canvas { position: absolute; left: 0; top: 0; }
+  .clip .lbl { position: absolute; left: 10px; top: 8px; font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .1em; color: rgba(255,255,255,.9); text-shadow: 0 1px 6px rgba(0,0,0,.7); }
+  .clip .lock { position: absolute; right: 10px; top: 8px; width: 16px; height: 16px; color: rgba(255,255,255,.9); filter: drop-shadow(0 1px 4px rgba(0,0,0,.7)); }
+  .audioTrack { position: absolute; left: 40px; top: 148px; width: 1368px; height: 22px; border-radius: 6px; background: rgba(79,219,200,.10); border: 1px solid rgba(79,219,200,.35); overflow: hidden; }
+  .audioTrack canvas { position: absolute; left: 0; top: 0; }
+  .tlPlayhead { position: absolute; top: 54px; height: 122px; width: 2px; background: var(--mint); box-shadow: 0 0 14px rgba(79,219,200,.9); }
+  .tlPlayhead::before { content: ""; position: absolute; left: -6px; top: -8px; border: 7px solid transparent; border-top: 9px solid var(--mint); border-bottom: 0; }
+
+  /* scene 9 */
+  .endLines { position: absolute; left: 0; right: 0; top: 378px; text-align: center; font-family: "Inter Display", Inter, sans-serif; font-weight: 600; font-size: 96px; line-height: 1.12; letter-spacing: -0.03em; color: var(--ink); }
+  .endLines .l { will-change: transform, opacity, filter; }
+  #s9logo { position: absolute; left: 600px; top: 566px; width: 720px; height: auto; opacity: 0; }
+  .endMeta { position: absolute; left: 0; right: 0; top: 806px; text-align: center; opacity: 0; }
+  .endMeta .tag { font-family: "JetBrains Mono", monospace; font-size: 21px; letter-spacing: .08em; color: rgba(16,19,21,.55); }
+  .endMeta .url { margin-top: 14px; font-size: 30px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <filter id="mblur" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB"><feGaussianBlur id="mblurStd" stdDeviation="0 0"/></filter>
+  </defs></svg>
+  <section class="scene" id="s1"></section>
+  <section class="scene" id="s2"></section>
+  <section class="scene" id="s4"></section>
+  <section class="scene" id="s5"></section>
+  <section class="scene" id="s6"></section>
+  <section class="scene" id="s7"></section>
+  <section class="scene" id="s8"></section>
+  <section class="scene" id="s9"></section>
+</div>
+<script src="engine.js"></script>
+<script src="harbor.js"></script>
+<script src="previs.js"></script>
+<script src="scenes.js"></script>
+</body>
+</html>
