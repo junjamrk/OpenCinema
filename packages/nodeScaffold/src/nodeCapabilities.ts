@@ -12,6 +12,7 @@ export const nodeMetadataSchema = z.strictObject({
   order: z.number().int().nonnegative().optional(),
   scope: z.enum(["node", "workspace"]).optional(),
   icon: z.string().trim().min(1).max(64).optional(),
+  category: z.string().trim().min(1).max(64).optional(),
   description: z.string().trim().min(1).max(512).optional(),
   requires: nodeRequirementsSchema.optional(),
 });

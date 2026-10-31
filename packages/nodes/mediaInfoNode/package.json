@@ -6,6 +6,7 @@
   "openCinema": {
     "id": "mediaInfoNode",
     "name": "媒体信息",
+    "category": "分析",
     "order": 10,
     "icon": "info",
     "description": "本地读取编码、时长、帧率和轨道信息",

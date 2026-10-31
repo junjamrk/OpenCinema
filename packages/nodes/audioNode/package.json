@@ -6,6 +6,7 @@
   "openCinema": {
     "id": "audioNode",
     "name": "音频",
+    "category": "文本与媒体",
     "order": 3,
     "icon": "audio",
     "description": "导入音频，试听、波形剪辑、拼接、变速和转写"

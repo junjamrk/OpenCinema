@@ -6,6 +6,7 @@
   "openCinema": {
     "id": "imageNode",
     "name": "图片",
+    "category": "文本与媒体",
     "order": 1,
     "icon": "image",
     "description": "导入图片，做局部重绘、裁剪、宫格、打光、机位与全景"

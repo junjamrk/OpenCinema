@@ -6,6 +6,7 @@
   "openCinema": {
     "id": "videoNode",
     "name": "视频",
+    "category": "文本与媒体",
     "order": 2,
     "icon": "video",
     "description": "导入视频，截帧、剪辑、变速、提取音轨和审片"

@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var pluginName = regexp.MustCompile(`^[a-z][a-zA-Z0-9]{0,95}$`)
@@ -234,6 +236,13 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		for _, builtin := range builtinNodes() {
 			if item := asObject(builtin); str(item["id"]) == name && item["scope"] != manifest["scope"] {
 				return fail(400, "内置插件更新不能改变原有 scope")
+			}
+		}
+		for field, limit := range map[string]int{"category": 64, "description": 512, "icon": 64} {
+			if value, declared := manifest[field]; declared {
+				if text, valid := value.(string); !valid || strings.TrimSpace(text) == "" || utf8.RuneCountInString(text) > limit {
+					return fail(400, fmt.Sprintf("插件 %s 须为不超过 %d 字符的非空字符串", field, limit))
+				}
 			}
 		}
 		if !strings.Contains(source, "export") {
