@@ -198,7 +198,7 @@ func (s *server) mediaModels() []any {
 				if protocol == "" {
 					protocol = "builtin"
 				}
-				if protocol == "openaiVideo" || protocol == "httpTask" {
+				if protocol == "openaiVideo" || protocol == "httpTask" || protocol == "adapter" {
 					location = "remote"
 				}
 				if p["transport"] == "local" {
@@ -773,11 +773,17 @@ func (s *server) validateMedia(v object, allowEmptyPrompt bool) error {
 				if err != nil {
 					return err
 				}
-				if _, err := videoClient(p, config); err != nil {
-					return err
-				}
-				if str(p["transport"]) != "local" && strings.TrimSpace(str(config["apiKey"])) == "" {
-					return fail(400, "请先配置媒体供应商 API Key")
+				if videoProtocol(p) == "adapter" {
+					if _, err := s.adapterExecutable(p); err != nil {
+						return err
+					}
+				} else {
+					if _, err := videoClient(p, config); err != nil {
+						return err
+					}
+					if str(p["transport"]) != "local" && strings.TrimSpace(str(config["apiKey"])) == "" {
+						return fail(400, "请先配置媒体供应商 API Key")
+					}
 				}
 				if !allowEmptyPrompt && kind == "video" {
 					if _, err := s.toolPath("ffprobe"); err != nil {
