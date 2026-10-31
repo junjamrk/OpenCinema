@@ -11,6 +11,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -307,6 +308,7 @@ func respond(w http.ResponseWriter, status int, v any) {
 func failure(w http.ResponseWriter, err error) {
 	status := 500
 	code := ""
+	message := err.Error()
 	var a *apiError
 	if errors.As(err, &a) {
 		status = a.status
@@ -314,12 +316,15 @@ func failure(w http.ResponseWriter, err error) {
 	} else if os.IsNotExist(err) {
 		status = 404
 		code = "ENOENT"
+		message = pathMessage(err, "文件或文件夹不存在")
 	} else if os.IsExist(err) {
 		status = 409
 		code = "EEXIST"
+		message = pathMessage(err, "目标已存在")
 	} else if os.IsPermission(err) {
 		status = 403
 		code = "EACCES"
+		message = pathMessage(err, "没有访问权限")
 	}
 	var data any
 	var toolError *mcpCallError
@@ -336,7 +341,14 @@ func failure(w http.ResponseWriter, err error) {
 			data = object{"code": code}
 		}
 	}
-	respond(w, status, object{"code": status, "data": data, "message": err.Error()})
+	respond(w, status, object{"code": status, "data": data, "message": message})
+}
+func pathMessage(err error, reason string) string {
+	var pathError *fs.PathError
+	if errors.As(err, &pathError) && pathError.Path != "" {
+		return reason + "：" + pathError.Path
+	}
+	return reason
 }
 func decode(r *http.Request) (object, error) {
 	defer r.Body.Close()
