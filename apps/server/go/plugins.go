@@ -95,6 +95,12 @@ func (s *server) nodeList() ([]any, error) {
 		} else if !moduleRevision.MatchString(str(manifest["revision"])) {
 			manifest["revision"] = hash(script)
 		}
+		if previous := previousRevisions(filepath.Join(directory, name), str(manifest["revision"])); len(previous) > 0 {
+			var earlier object
+			if data, err := os.ReadFile(filepath.Join(directory, name, previous[0], "manifest.json")); err == nil && json.Unmarshal(data, &earlier) == nil {
+				manifest["previousVersion"] = str(earlier["version"])
+			}
+		}
 		if !strings.Contains(str(manifest["url"]), "/modules/") {
 			manifest["url"] = "/api/nodes/files?name=" + name + "&revision=" + str(manifest["revision"])
 		}
@@ -322,6 +328,14 @@ func (s *server) nodesRoute(w http.ResponseWriter, r *http.Request) error {
 		return fail(400, "插件名称无效")
 	}
 	switch operation {
+	case "rollback":
+		pluginProviderChange.Lock()
+		defer pluginProviderChange.Unlock()
+		manifest, err := s.rollbackNodeModule(name)
+		if err != nil {
+			return err
+		}
+		success(w, manifest)
 	case "setEnabled":
 		if _, ok := v["enabled"].(bool); !ok {
 			return fail(400, "enabled 必须为布尔值")

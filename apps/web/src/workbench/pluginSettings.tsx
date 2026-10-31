@@ -136,6 +136,11 @@ export default function PluginSettings({ controller, busy, perform, onStatus, on
     try { await controller.refreshPlugins(); } finally { await refreshInstalled(); }
     onStatus(await controller.probePlugin(pluginIdOf(plugin)) ? "仍然无法加载，原因见插件卡片" : "插件已加载");
   }
+  async function rollback(plugin: Plugin) {
+    await workbenchSettingsClient.rollbackPlugin(plugin.name, signal());
+    try { await controller.refreshPlugins(); } finally { await refreshInstalled(); }
+    onStatus(await controller.probePlugin(pluginIdOf(plugin)) ? "已回退，但没有加载成功，原因见插件卡片" : `已回退到 ${plugin.previousVersion}`);
+  }
   async function exportPackage(plugin: Plugin) {
     const value = await workbenchSettingsClient.pluginPackage(plugin.name, plugin.revision!, signal());
     const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
@@ -213,6 +218,7 @@ export default function PluginSettings({ controller, busy, perform, onStatus, on
           {updatable && <button type="button" disabled={busy || transitioning} onClick={() => void perform(() => reviewEntry(update))}>查看更新</button>}
           {issue && <button type="button" disabled={busy || transitioning} onClick={() => void perform(() => retry(plugin))}>重试加载</button>}
           {!!plugin.configRules?.length && <button type="button" disabled={busy || plugin.canConfigure === false} onClick={() => { setConfiguring(plugin); setConfigValues(plugin.config ?? {}); }}>配置</button>}
+          {plugin.installed && plugin.previousVersion && <button type="button" disabled={busy || transitioning} onClick={() => void perform(() => rollback(plugin))}>回退到 {plugin.previousVersion}</button>}
           {plugin.installed && <><button type="button" disabled={busy || !plugin.enabled || !plugin.revision || !!plugin.loadError} onClick={() => void perform(() => exportPackage(plugin))}>导出插件包</button><button type="button" disabled={busy} onClick={() => setRemoving(plugin.name)}>{plugin.builtin ? "恢复内置版本" : "卸载"}</button></>}
         </div>
         {removing === plugin.name && <div className="settingConfirmation"><p>{plugin.builtin ? "移除已安装的更新并恢复内置版本。" : "卸载插件后，现有节点和素材会保留；重新安装后可继续编辑。"}</p><div className="settingsActions"><button type="button" disabled={busy} onClick={() => void perform(() => uninstall(plugin))}>{plugin.builtin ? "确认恢复" : "确认卸载"}</button><button type="button" disabled={busy} onClick={() => setRemoving(undefined)}>取消</button></div></div>}
