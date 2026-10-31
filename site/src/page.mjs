@@ -73,6 +73,7 @@ export function renderPage(t, v) {
       <a href="#features">${esc(t.nav.features)}</a>
       <a href="#how">${esc(t.nav.how)}</a>
       <a href="#film">${esc(t.nav.film)}</a>
+      <a href="/${t.dir}market/">${esc(t.nav.market)}</a>
       <a href="${REPO}#readme" rel="noopener">${esc(t.nav.docs)}</a>
     </nav>
     <div class="navActions">

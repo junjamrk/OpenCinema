@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en" class="noJs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenCinema Plugin Market — install new nodes for the canvas</title>
+<meta name="description" content="Install-only catalog of OpenCinema node plugins. Every package is a static install.json verified by SHA-256 before the local server installs it.">
+<link rel="canonical" href="https://opencinema.site/market/">
+<link rel="alternate" hreflang="en" href="https://opencinema.site/market/">
+<link rel="alternate" hreflang="zh-CN" href="https://opencinema.site/zh/market/">
+<link rel="alternate" hreflang="x-default" href="https://opencinema.site/market/">
+<link rel="alternate" type="application/json" href="https://opencinema.site/market/index.json" title="Machine-readable index">
+<meta name="theme-color" content="#F7F7F4">
+<meta name="color-scheme" content="light">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenCinema">
+<meta property="og:title" content="OpenCinema Plugin Market — install new nodes for the canvas">
+<meta property="og:description" content="Install-only catalog of OpenCinema node plugins. Every package is a static install.json verified by SHA-256 before the local server installs it.">
+<meta property="og:url" content="https://opencinema.site/market/">
+<meta property="og:image" content="https://opencinema.site/assets/img/og.png?v=dc2d350ae8">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/img/mark.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/img/icon32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/assets/img/icon180.png">
+<link rel="preload" href="/assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dc2d350ae8">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","name":"OpenCinema Plugin Market — install new nodes for the canvas","url":"https://opencinema.site/market/","description":"Install-only catalog of OpenCinema node plugins. Every package is a static install.json verified by SHA-256 before the local server installs it.","isPartOf":{"@type":"WebSite","name":"OpenCinema","url":"https://opencinema.site"},"hasPart":[{"@type":"SoftwareApplication","name":"Gaussian Splat","softwareVersion":"1.0.0","applicationCategory":"MultimediaApplication","license":"MIT","author":"OpenCinema","description":"View 3D Gaussian Splatting scans (PLY, SPLAT, KSPLAT, SPZ) on the canvas, set a camera, and render stills and turntable videos as references for downstream nodes.","downloadUrl":"https://opencinema.site/market/plugins/gaussianSplatNode/1.0.0/install.json"}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav" id="nav">
+  <div class="wrap navRow">
+    <a class="brand" href="/" aria-label="OpenCinema"><img src="/assets/img/logo.svg" alt="OpenCinema" width="151" height="40"></a>
+    <nav class="navLinks" aria-label="Primary">
+      <a href="/#features">Features</a>
+      <a href="/#how">How it works</a>
+      <a href="/market/" aria-current="page">Market</a>
+      <a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">Docs</a>
+    </nav>
+    <div class="navActions">
+      <a class="lang" href="/zh/market/" lang="zh" hreflang="zh">中文</a>
+      <a class="iconLink" href="https://github.com/junjamrk/OpenCinema" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="stars" data-stars hidden></span></a>
+      <a class="btn btnInk btnSm" href="/#start">Get started</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero heroCompact">
+    <div class="wrap heroText">
+      <p class="eyebrow mono reveal">Plugin market · install only · MVP</p>
+      <h1 class="heroTitle reveal"><span class="line" style="--i:0">Give the canvas new abilities.</span></h1>
+      <p class="lede reveal">Node plugins add tools your agent can discover and call. The market is a static catalog: the workbench downloads a package, checks its SHA-256 against this index, shows you what it is, and only then installs it on your machine.</p>
+    </div>
+  </section>
+
+  <section class="how marketHow">
+    <div class="wrap">
+      <p class="label mono reveal">How to install</p>
+      <ol class="steps stepsText">
+        <li class="step reveal"><p class="mono stepN">01</p><h3>Open the market</h3><p>In the workbench open Settings → Plugins → Open plugin market. The list below appears in the app.</p></li><li class="step reveal"><p class="mono stepN">02</p><h3>Download and review</h3><p>The package is downloaded and verified against the SHA-256 in this index. A review card shows id, version, size and description before anything runs.</p></li><li class="step reveal"><p class="mono stepN">03</p><h3>Install</h3><p>Confirm. The node shows up in the node menu and its tools become discoverable through getNodeTools. Agents can do the same with getPluginMarket and installMarketplacePlugin.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="plugins" id="plugins">
+    <div class="wrap">
+      <p class="label mono reveal">Plugins · 1</p>
+      <h2 class="h2 reveal">In the catalog.</h2>
+      <div class="marketGrid"><article class="pluginCard reveal">
+      <div class="pluginCardHead">
+        <span class="pluginIcon" aria-hidden="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5l7 3.8v7.4l-7 3.8-7-3.8V6.3z M3 6.3l7 3.8 7-3.8 M10 10.1v7.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+        <div><h3>Gaussian Splat</h3><p class="mono pluginId">gaussianSplatNode · v1.0.0</p></div>
+      </div>
+      <p class="pluginDesc">View 3D Gaussian Splatting scans (PLY, SPLAT, KSPLAT, SPZ) on the canvas, set a camera, and render stills and turntable videos as references for downstream nodes.</p>
+      <ul class="tagRow"><li>3d</li><li>gaussian-splatting</li><li>viewer</li><li>reference</li><li>render</li><li class="tagMint"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Agent guide included</li></ul>
+      <dl class="pluginMeta">
+        <div><dt>Package</dt><dd>1.03 MiB</dd></div>
+        <div><dt>Requires</dt><dd>workspaceFiles, workspaceReadRange, nodeHistory, ffmpeg, worker</dd></div>
+        <div><dt>License</dt><dd>MIT · OpenCinema</dd></div>
+        <div><dt>SHA-256</dt><dd class="mono sha" title="108dde64e16da2ff36d49a6d2edc8cd22fca6f7084d66533868637b41a50697a">108dde64e16da2ff…</dd></div>
+      </dl>
+      <div class="pluginActions">
+        <a class="btn btnInk btnSm" href="/market/plugins/gaussianSplatNode/1.0.0/install.json" download="gaussianSplatNode-1.0.0.install.json"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 15.5h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>install.json</span></a>
+        <a class="btn btnGhost btnSm" href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodes/gaussianSplatNode/readme.md" rel="noopener">Readme</a>
+        <a class="textLink" href="https://github.com/junjamrk/OpenCinema/tree/main/packages/nodes/gaussianSplatNode" rel="noopener">Source <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+      </div>
+    </article></div>
+      <p class="indexLink reveal mono"><a href="/market/index.json">Machine-readable index · /market/index.json</a> · <a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/schema/marketIndex.schema.json" rel="noopener">Index schema</a></p>
+    </div>
+  </section>
+
+  <section class="start" id="publish">
+    <div class="wrap">
+      <p class="label mono reveal">Publish</p>
+      <h2 class="h2 reveal">Ship a node of your own.</h2>
+      <p class="sectionLede reveal">A node is one package: a plugin definition, Zod-typed tools, a React view and an agent.md guide. Scaffold it, build it, open a pull request that adds it to the catalog. Uploads are not supported in this MVP.</p>
+      <div class="codeGrid codeGridSingle">
+        <div class="codeCard reveal">
+          <p class="mono codeTitle">From the repository</p>
+          <pre><code>bun packages/nodeScaffold/scripts/createNode.ts myNode &quot;My Node&quot;
+cd packages/nodes/myNode &amp;&amp; bun run typecheck &amp;&amp; bun run build
+# then add it to site/src/marketCatalog.json and run
+node site/buildMarket.mjs</code></pre>
+          <p class="codeNote">Read the plugin development guide for conventions: one node, one job; small verb tools; readOnly annotations; typed outputs.</p>
+        </div>
+      </div>
+      <ul class="docLinks reveal">
+        <li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/pluginDevelopmentEn.md" rel="noopener">Plugin development guide <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li>
+        <li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" rel="noopener">Node SDK <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li>
+        <li><a href="https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" rel="noopener">Contributing <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="honest">
+    <div class="wrap"><ul class="honestList mono"><li>Installing runs plugin code on your machine with workspace access. Install only sources you trust.</li><li>The catalog is static JSON published by pull request. There is no upload, account or telemetry.</li><li>Packages are verified by size and SHA-256 against this index; a changed file is refused.</li><li>Plugins that need FFmpeg, WebGL or a provider still depend on your local setup.</li></ul></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footerGrid">
+    <div class="footerBrand">
+      <img src="/assets/img/logo.svg" alt="OpenCinema" width="151" height="40">
+      <p>A local video workbench your agent operates.</p>
+      <a class="lang" href="/zh/market/" lang="zh" hreflang="zh">中文</a>
+    </div>
+    <div class="footerCol"><p class="mono">Project</p><ul><li><a href="https://github.com/junjamrk/OpenCinema" rel="noopener">GitHub</a></li><li><a href="https://github.com/junjamrk/OpenCinema/issues" rel="noopener">Issues</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/changelog.md" rel="noopener">Changelog</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/security.md" rel="noopener">Security</a></li></ul></div><div class="footerCol"><p class="mono">Docs</p><ul><li><a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">Readme</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" rel="noopener">Architecture</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/claudeSetup.md" rel="noopener">Claude setup</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/releaseGuide.md" rel="noopener">Release guide</a></li></ul></div><div class="footerCol"><p class="mono">Extend</p><ul><li><a href="/market/" rel="noopener">Plugin market</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" rel="noopener">Node SDK</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/mcp/README.md" rel="noopener">MCP SDK</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/openCinema/readme.md" rel="noopener">Plugin notes</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" rel="noopener">Contributing</a></li></ul></div>
+  </div>
+  <div class="wrap footerLegal">
+    <p>MIT License. Blockout and Motion adapted from Sam Wasserman&#39;s tools (Apache-2.0). Fonts: Inter and JetBrains Mono (OFL).</p>
+    <p>© <span data-year></span> OpenCinema contributors</p>
+  </div>
+</footer>
+<script src="/assets/site.js?v=dc2d350ae8" defer></script>
+</body>
+</html>

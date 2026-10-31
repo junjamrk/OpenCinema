@@ -10,15 +10,31 @@ import { nodeRequirementsSchema } from "./nodeCapabilities.ts";
 import { nodeResourceManifestSchema, type NodeResource } from "./nodeResources.ts";
 
 export interface NodeConfig {
+  /** 小驼峰插件 ID，与 src/reactPlugin.ts 导出的 id 一致。 */
   name: string;
   displayName: string;
   author: string;
   github: string;
+  /** 一句话说明节点做什么；进入 manifest，供插件市场、节点菜单与 Agent 发现使用。 */
+  description?: string;
+  /** SPDX 许可标识，例如 "MIT"。 */
+  license?: string;
+  homepage?: string;
+  /** 小写短横线标签，最多 12 个，供市场筛选与 Agent 匹配能力。 */
+  tags?: string[];
+  /**
+   * 发行包输出目录。默认写到仓库 build/nodes/<id>；仓库外的第三方插件应显式指定，
+   * 相对路径按插件目录解析。
+   */
+  outDir?: string;
   configRules?: Record<string, unknown>[];
   scope?: "canvas" | "workspace";
   requires?: Record<string, number>;
   resources?: Record<string, Omit<NodeResource, "size"> & { path: string }>;
 }
+
+const tagSchema = z.array(z.string().regex(/^[a-z0-9][a-z0-9-]{0,31}$/, "标签须为小写字母、数字与短横线")).max(12).refine(value => new Set(value).size === value.length, "标签不能重复");
+const maximumGuideBytes = 16 * 1024;
 
 function namespaceBridge(namespace: object, host: string) {
   const names = Object.keys(namespace).filter(name => name !== "default" && /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name));
@@ -50,10 +66,17 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
     const github = new URL(config.github);
     if (github.origin !== "https://github.com" || github.username || github.password) throw new Error("GitHub 地址必须是 https://github.com 下的地址");
   }
+  if (config.description !== undefined && (!config.description.trim() || config.description.length > 500)) throw new Error("插件描述须为 1 到 500 个字符");
+  if (config.license !== undefined && !/^[A-Za-z0-9.+-]{1,64}(?: (?:OR|AND|WITH) [A-Za-z0-9.+-]{1,64})*$/.test(config.license)) throw new Error("许可须为 SPDX 标识，例如 MIT");
+  if (config.homepage) {
+    const homepage = new URL(config.homepage);
+    if (homepage.protocol !== "https:" || homepage.username || homepage.password) throw new Error("主页须为不含凭据的 https 地址");
+  }
+  tagSchema.parse(config.tags ?? []);
   const root = fileURLToPath(new URL(".", configUrl));
   const id = config.name;
   if (!/^[a-z][a-zA-Z0-9]*$/.test(id)) throw new Error("React 插件 ID 须使用小驼峰");
-  const output = fileURLToPath(new URL(`../../../build/nodes/${id}`, import.meta.url));
+  const output = config.outDir ? resolve(root, config.outDir) : fileURLToPath(new URL(`../../../build/nodes/${id}`, import.meta.url));
   const sourceEntry = resolve(root, "src/reactPlugin.ts");
   const entryName = "virtual:openCinemaReactEntry";
   const entryId = "\0openCinemaReactEntry";
@@ -94,7 +117,11 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
         async generateBundle(_options, bundle) {
           const info = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
           if (typeof info.version !== "string" || !info.version.trim()) throw new Error("插件 package.json 缺少版本");
-          const readme = await readFile(resolve(root, "readme.md"), "utf8").catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return ""; throw error; });
+          const optionalText = (name: string) => readFile(resolve(root, name), "utf8").catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return ""; throw error; });
+          const readme = await optionalText("readme.md");
+          // agent.md 是写给 Agent 的操作指南：先调用什么、如何确认结果、哪些限制；随 manifest 发行，宿主按需提供给 Agent。
+          const agentGuide = (await optionalText("agent.md")).trim();
+          if (Buffer.byteLength(agentGuide) > maximumGuideBytes) throw new Error("agent.md 须在 16 KiB 以内");
           const resources: Record<string, unknown> = {};
           for (const [name, resource] of Object.entries(config.resources ?? {})) {
             const content = await readFile(resolve(root, resource.path));
@@ -103,7 +130,9 @@ export function createReactNodeConfig(config: NodeConfig, configUrl: string) {
           }
           nodeResourceManifestSchema.parse(resources);
           if (Object.keys(resources).length && !config.requires?.pluginResources) throw new Error("包含资源的插件须声明 pluginResources 宿主能力");
-          manifest = { apiVersion: 1, id, renderer: "react", scope: config.scope === "workspace" ? "workspace" : "node", name: config.displayName, displayName: config.displayName, version: info.version, author: config.author, github: config.github, requires: config.requires ?? {}, configRules: config.configRules ?? [], readme, resources };
+          manifest = { apiVersion: 1, id, renderer: "react", scope: config.scope === "workspace" ? "workspace" : "node", name: config.displayName, displayName: config.displayName, version: info.version, author: config.author, github: config.github,
+            ...(config.description ? { description: config.description.trim() } : {}), ...(config.license ? { license: config.license } : {}), ...(config.homepage ? { homepage: config.homepage } : {}), ...(config.tags?.length ? { tags: config.tags } : {}),
+            requires: config.requires ?? {}, configRules: config.configRules ?? [], readme, ...(agentGuide ? { agentGuide } : {}), resources };
           const module = bundle["index.js"];
           if (!module || module.type !== "chunk") throw new Error("未生成 React ESM 插件入口");
           const styles = Object.values(bundle).filter(asset => asset.type === "asset" && asset.fileName.endsWith(".css"));

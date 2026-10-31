@@ -248,7 +248,15 @@ const plugin: NodePluginDefinition = {
 export default plugin;
 ~~~
 
-`vite.config.ts` 里一行 `createNodeConfig({ name: "myNode", displayName: "我的节点", author, github }, import.meta.url)`，`bun run build` 输出 `build/nodes/myNode/install.json`（带 SHA-256 的清单、ESM 与资源）。在设置面板「插件」里安装，或由 Agent 调用 `reviewPluginPackage` → `installPluginPackage`。完整合同见 [节点 SDK](packages/nodeScaffold/readme.md)。
+`viteConfig.ts` 里一行 `createNodeConfig({ name: "myNode", displayName: "我的节点", description, license, tags, author, github }, import.meta.url)`，`bun run build` 输出 `install.json`（带 SHA-256 的清单、ESM 与资源）。在设置面板「插件」里安装，或由 Agent 调用 `reviewPluginPackage` → `installPluginPackage`。
+
+从零开始用脚手架：`bun packages/nodeScaffold/scripts/createNode.ts myNode "我的节点"` 生成可直接编译、安装的骨架，含写给 Agent 的 `agent.md`（随 manifest 发行，Agent 通过 `getPluginConfiguration` 读到）。约定与合同见 [插件开发指南](docs/pluginDevelopment.md) 与 [节点 SDK](packages/nodeScaffold/readme.md)。
+
+### 插件市场
+
+[opencinema.site/market](https://opencinema.site/market/) 是一份静态目录：工作台在「设置 → 插件 → 插件市场」里下载插件包，按目录中的 SHA-256 校验，显示复核卡片，再由本机服务安装；Agent 用 `getPluginMarket` → `installMarketplacePlugin` 完成同样的事。目前仅支持安装，发布通过 Pull Request 把条目加入 `site/src/marketCatalog.json`。
+
+第一个市场插件是 [Gaussian Splat](packages/nodes/gaussianSplatNode/readme.md)：在画布中查看 3D Gaussian Splatting 扫描（PLY / SPLAT / KSPLAT / SPZ），设定机位，渲染静帧与环绕视频作为参考。它不是内置节点，整个 three.js + GaussianSplats3D 的 3D 能力都通过插件链路装入，证明第三方节点与内置节点走的是同一条路。
 
 ### 接入一个供应商
 
