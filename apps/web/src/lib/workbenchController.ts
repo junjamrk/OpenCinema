@@ -23,7 +23,7 @@ import { createInstalledPluginLoader } from "./installedPluginLoader";
 import { localApiUrl } from "./openCinemaTransport";
 import { assetLibraryClient, assetMediaKind, type AssetLibraryEntry } from "./assetLibraryClient";
 import { builtinNodes } from "./builtinNodes";
-import { missingCapabilities, parsePluginPackage, pluginErrorText, pluginMarketClient, pluginMarketUrlOf, workbenchSettingsClient } from "./workbenchSettingsClient";
+import { missingCapabilities, parsePluginPackage, pluginErrorText, pluginIncompatibility, pluginMarketClient, pluginMarketUrlOf, workbenchSettingsClient } from "./workbenchSettingsClient";
 import { isNodeOutput } from "@toonflow/nodes-scaffold/values";
 import { canvasNodePosition, createCanvasQueries, isCanvasRead, type CanvasQueryAvailability, type CanvasQueryRuntime } from "@/lib/canvasQueries";
 import { copyNodesToClipboard, readClipboardNodes } from "@/lib/nodeClipboard";
@@ -173,6 +173,10 @@ export function createWorkbenchController() {
     const toolCatalogVersion = runtime.getVersion();
     if (value === undefined || revisionSchema.parse(value) !== toolCatalogVersion) throw new ToolExecutionError({ code: value === undefined ? "toolCatalogVersionRequired" : "toolCatalogChanged", message: "请先发现当前插件工具并绑定 toolCatalogVersion", phase: "validation", target: toolTarget(), executionState: "notDispatched", toolCatalogVersion, recovery: { action: "rediscoverTools", message: "重新调用 getNodeTools 或 getWorkspaceTools，使用回执中的 toolCatalogVersion" } });
   }
+  async function requireInstallable(plugin: { requires?: Record<string, number>; minHost?: string }, pluginId: string, target: DocumentSession, signal: AbortSignal) {
+    const problems = pluginIncompatibility(plugin, runtime.getCapabilities(), await workbenchSettingsClient.hostVersion(signal));
+    if (problems.length) throw new ToolExecutionError({ code: "pluginIncompatible", message: problems.join("；"), phase: "validation", target: { ...toolTarget(target), pluginId }, executionState: "notDispatched", recovery: { action: "none", message: "当前工作台不能运行这个插件。告知用户原因，由用户升级 OpenCinema 或换用其他插件；不要重试安装" } });
+  }
   function requireToolCanvas(target: DocumentSession, canvasId: unknown) {
     if (canvasId === undefined || nodeId.parse(canvasId) !== target.getSnapshot().canvasId) throw new ToolExecutionError({ code: canvasId === undefined ? "targetRequired" : "targetChanged", message: "画布写入必须固定当前 canvasId", phase: "target", target: toolTarget(target), executionState: "notDispatched", recovery: { action: "readState", message: "读取当前画布并明确指定 canvasId", tool: "getCanvas" } });
   }
@@ -242,7 +246,7 @@ export function createWorkbenchController() {
     if (missing.length) return { ...base, status: "unavailable", code: "missingCapabilities", reason: "当前React provider未声明满足插件要求的服务版本", recovery: { action: "readState", message: "在提供所列服务版本的React provider中打开现有工程，再重新发现工具；不要盲目重试" } };
     const activationError = id ? nodeErrors.get(id)?.message : undefined, moduleError = moduleErrors.get(pluginId);
     if (activationError || moduleError) return { ...base, status: "unavailable", code: activationError ? "activationFailed" : "moduleLoadFailed", reason: (activationError ?? moduleError)!.slice(0, 1024), recovery: { action: "readState", message: "读取插件配置与错误，修复依赖或插件后重新加载同一工程并发现工具", tool: "getPluginConfiguration", args: { pluginId } } };
-    if (!pluginLabels.has(pluginId)) return { ...base, status: "unavailable", code: "pluginNotInstalled", reason: "节点所需插件未登记，当前无法注册其函数", recovery: { action: "readState", message: "从可信插件包复核并安装缺失插件，然后重新发现工具", tool: "getPluginConfiguration", args: { pluginId } } };
+    if (!pluginLabels.has(pluginId)) return { ...base, status: "unavailable", code: "pluginNotInstalled", reason: "节点所需插件未登记，当前无法注册其函数", recovery: { action: "readState", message: "在插件市场查找缺失插件，复核来源、能力和服务地址后安装，再重新发现工具；市场没有时向用户要可信的插件包", tool: "getPluginMarket", args: { query: pluginId } } };
     const failedNode = id ? undefined : [...nodeErrors].find(([, error]) => error.pluginId === pluginId);
     if (failedNode) return { ...base, status: "unknown", code: "nodeActivationFailed", reason: `当前工程存在激活失败的此类节点：${failedNode[1].message.slice(0, 900)}`, recovery: { action: "rediscoverTools", message: "按失败节点读取具体可用性，不能据单个节点失败推断所有实例均不可用", tool: "getNodeTools", args: { nodeIds: [failedNode[0]] } } };
     if (id ? runtime.getInstance(id) : [...activated].some(([nodeId, definition]) => definition.id === pluginId && runtime.getInstance(nodeId))) return { ...base, status: "available", code: "activated", reason: "节点插件已激活并注册实际函数；WebGL、模型、FFmpeg及供应商的具体执行条件仍需专项状态确认", recovery: { action: "rediscoverTools", message: "使用本次发现的函数Schema；涉及模型或媒体工具时先读取专项状态", tool: "getModelStatus" } };
@@ -2014,28 +2018,32 @@ export function createWorkbenchController() {
       const reviewed = await readPluginPackage(input.path, target, signal), id = reviewed.value.manifest.id;
       const existing = (await workbenchSettingsClient.plugins(signal)).find(plugin => (plugin.id ?? plugin.name) === id);
       requireSession(target);
-      if (name === "reviewPluginPackage") return { path: input.path, fileRevision: reviewed.fileRevision, size: reviewed.size, pluginId: id, name: reviewed.value.manifest.name, version: reviewed.value.manifest.version, renderer: reviewed.value.manifest.renderer, assets: reviewed.value.assets?.length ?? 0, replacesExisting: !!existing, replacesBuiltin: !!existing?.builtin };
+      const manifest = reviewed.value.manifest;
+      if (name === "reviewPluginPackage") return { path: input.path, fileRevision: reviewed.fileRevision, size: reviewed.size, pluginId: id, name: manifest.name, version: manifest.version, renderer: manifest.renderer, assets: reviewed.value.assets?.length ?? 0, replacesExisting: !!existing, replacesBuiltin: !!existing?.builtin,
+        currentVersion: existing?.version, author: manifest.author, license: manifest.license, requires: manifest.requires ?? {}, providers: (manifest.providers ?? []).map(provider => ({ id: String(provider.id ?? ""), label: String(provider.label ?? ""), apiUrl: String(provider.apiUrl ?? ""), ...(typeof provider.modelsUrl === "string" ? { modelsUrl: provider.modelsUrl } : {}) })),
+        incompatibilities: pluginIncompatibility(manifest, runtime.getCapabilities(), await workbenchSettingsClient.hostVersion(signal)) };
       const install = peripheralToolSchemas.installPluginPackage.parse(args);
       if (install.fileRevision !== reviewed.fileRevision) throw new ToolExecutionError({ code: "fileRevisionConflict", message: "插件包在复核后已变化", phase: "validation", target: toolTarget(target), executionState: "notDispatched", recovery: { action: "readState", message: "重新复核相同路径的插件包", tool: "reviewPluginPackage", args: { path: input.path } } });
       requireWritable(target); signal.throwIfAborted();
       if (existing && !install.replaceExisting || existing?.builtin && !install.replaceBuiltin) throw new Error("覆盖已安装或内置插件须明确对应的replaceExisting/replaceBuiltin");
+      await requireInstallable(manifest, id, target, signal);
       await workbenchSettingsClient.installPlugin(reviewed.value, { force: install.replaceExisting, replaceBuiltin: install.replaceBuiltin }, signal);
       await controller.refreshPlugins(); requireSession(target);
       return { installed: true, pluginId: id, version: reviewed.value.manifest.version, fileRevision: reviewed.fileRevision, toolCatalogVersion: runtime.getVersion() };
     }
     if (name === "getPluginMarket") {
       const input = peripheralToolSchemas.getPluginMarket.parse(args);
-      const [general, installed] = await Promise.all([workbenchSettingsClient.generalConfiguration(signal), workbenchSettingsClient.plugins(signal)]);
+      const [general, installed, hostVersion] = await Promise.all([workbenchSettingsClient.generalConfiguration(signal), workbenchSettingsClient.plugins(signal), workbenchSettingsClient.hostVersion(signal)]);
       const market = await pluginMarketClient.index(pluginMarketUrlOf(general.general), signal);
       const keyword = input.query?.trim().toLocaleLowerCase(), capabilities = runtime.getCapabilities();
       const values = market.plugins.filter(entry => !keyword || [entry.id, entry.name, ...Object.values(entry.description), ...entry.tags].join(" ").toLocaleLowerCase().includes(keyword)).map(entry => {
         const current = installed.find(plugin => (plugin.id ?? plugin.name) === entry.id);
-        return { id: entry.id, name: entry.name, version: entry.version, description: entry.description, author: entry.author, license: entry.license, homepage: entry.homepage, tags: entry.tags, scope: entry.scope, requires: entry.requires, size: entry.size, sha256: entry.sha256, url: entry.packageUrl,
+        return { id: entry.id, name: entry.name, version: entry.version, description: entry.description, author: entry.author, license: entry.license, homepage: entry.homepage, tags: entry.tags, scope: entry.scope, requires: entry.requires, minHost: entry.minHost, size: entry.size, sha256: entry.sha256, url: entry.packageUrl,
           installed: current ? { version: current.version, builtin: current.builtin, enabled: current.enabled } : null,
-          missingCapabilities: Object.entries(entry.requires).flatMap(([name, requiredVersion]) => (capabilities[name] ?? 0) < requiredVersion ? [{ name, requiredVersion, providedVersion: capabilities[name] ?? 0 }] : []) };
+          missingCapabilities: missingCapabilities(entry.requires, capabilities), incompatibilities: pluginIncompatibility(entry, capabilities, hostVersion) };
       });
       const { items, ...pagination } = boundedPage(values, input.offset, input.limit);
-      return { marketUrl: market.url, generatedAt: market.generatedAt, plugins: items, toolCatalogVersion: runtime.getVersion(), ...pagination };
+      return { marketUrl: market.url, generatedAt: market.generatedAt, hostVersion, skippedEntries: market.skipped, plugins: items, toolCatalogVersion: runtime.getVersion(), ...pagination };
     }
     if (name === "installMarketplacePlugin") {
       const input = peripheralToolSchemas.installMarketplacePlugin.parse(args), target = currentSession();
@@ -2044,6 +2052,7 @@ export function createWorkbenchController() {
       const entry = market.plugins.find(item => item.id === input.pluginId && item.version === input.version);
       if (!entry) throw new ToolExecutionError({ code: "marketEntryNotFound", message: "插件市场目录中没有该 id 与版本", phase: "validation", target: toolTarget(target), executionState: "notDispatched", recovery: { action: "readState", message: "重新读取插件市场目录，使用其中的 version 与 sha256", tool: "getPluginMarket", args: { query: input.pluginId } } });
       if (entry.sha256 !== input.sha256) throw new ToolExecutionError({ code: "sha256Mismatch", message: "传入的 sha256 与市场目录不一致，未下载", phase: "validation", target: toolTarget(target), executionState: "notDispatched", recovery: { action: "readState", message: "使用 getPluginMarket 返回的 sha256 重新调用", tool: "getPluginMarket", args: { query: input.pluginId } } });
+      await requireInstallable(entry, entry.id, target, signal);
       const downloaded = await pluginMarketClient.download(entry, signal);
       const existing = (await workbenchSettingsClient.plugins(signal)).find(plugin => (plugin.id ?? plugin.name) === entry.id);
       requireSession(target); requireWritable(target); signal.throwIfAborted();
