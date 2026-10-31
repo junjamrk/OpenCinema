@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ToolExecutionError, toolErrorDetailsSchema } from "@toonflow/nodes-scaffold/toolErrors";
 
 export const pluginPackageSchema = z.object({ manifest: z.object({ id: z.string().regex(/^[a-z][a-zA-Z0-9]{0,95}$/), apiVersion: z.literal(1), renderer: z.literal("react"), version: z.string().min(1), name: z.string().optional() }).passthrough(), source: z.string().min(1), assets: z.array(z.object({ path: z.string(), base64: z.string(), sha256: z.string(), mimeType: z.string() })).optional() });
-export const pluginSchema = z.object({ id: z.string().optional(), name: z.string(), displayName: z.string().optional(), version: z.string().optional(), revision: z.string().optional(), scope: z.enum(["node", "workspace"]).optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), canConfigure: z.boolean().optional(), configRevision: z.string().regex(/^[a-f0-9]{64}$/), config: z.record(z.string(), z.json()).nullish(), configRules: z.array(z.record(z.string(), z.json())).optional(), loadError: z.string().optional() });
+export const pluginSchema = z.object({ id: z.string().optional(), name: z.string(), displayName: z.string().optional(), version: z.string().optional(), revision: z.string().optional(), scope: z.enum(["node", "workspace"]).optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), canConfigure: z.boolean().optional(), configRevision: z.string().regex(/^[a-f0-9]{64}$/), config: z.record(z.string(), z.json()).nullish(), configRules: z.array(z.record(z.string(), z.json())).optional(), loadError: z.string().optional(), description: z.string().optional(), author: z.string().optional(), license: z.string().optional(), homepage: z.string().optional(), tags: z.array(z.string()).optional(), agentGuide: z.string().optional(), requires: z.record(z.string(), z.number()).optional() });
 const depthSchema = z.object({ available: z.boolean(), runtimeAvailable: z.boolean(), mediaToolsAvailable: z.boolean().optional(), message: z.string(), phase: z.string().optional(), preparationProgress: z.object({ phase: z.string(), received: z.number(), total: z.number(), error: z.string().optional() }).nullable().optional() });
 const providerConfigurationSchema = z.object({ providerId: z.string(), rules: z.array(z.record(z.string(), z.json())), config: z.record(z.string(), z.json()), credentialConfigured: z.record(z.string(), z.boolean()), configRevision: z.string().regex(/^[a-f0-9]{64}$/), scope: z.string() });
 export const providerModelSchema = z.object({ id: z.string().min(1).max(256), label: z.string().min(1).max(200), type: z.enum(["image", "video", "audio", "text"]) }).catchall(z.json());
@@ -66,4 +66,74 @@ export const workbenchSettingsClient = {
   async depthStatus(directory: string, signal: AbortSignal) { return depthSchema.parse(await request(`media/referenceDepth/modelStatus?${new URLSearchParams({ directory })}`, signal)); },
   async prepareDepth(directory: string, signal: AbortSignal) { return request("media/referenceDepth/prepareModel", signal, { directory }); },
   async cancelDepth(directory: string, signal: AbortSignal) { return request("media/referenceDepth/cancelModelPreparation", signal, { directory }); },
+};
+
+// 插件市场：静态目录 index.json 加按 SHA-256 校验的 install.json。浏览器直接下载，安装仍经本机 Go 服务完成。
+export const defaultPluginMarketUrl = "https://opencinema.site/market/index.json";
+export const pluginMarketEntrySchema = z.object({
+  id: z.string().regex(/^[a-z][a-zA-Z0-9]{0,95}$/), name: z.string().min(1).max(200), displayName: z.record(z.string(), z.string().max(200)).optional(), version: z.string().min(1).max(64),
+  description: z.record(z.string(), z.string().max(1000)), author: z.string().max(200), license: z.string().max(128), homepage: z.string().url().max(2048).optional(), repository: z.string().url().max(2048).optional(),
+  tags: z.array(z.string().max(32)).max(16).default([]), scope: z.enum(["node", "workspace"]).default("node"), requires: z.record(z.string(), z.number().int().min(1)).default({}),
+  url: z.string().min(1).max(2048), sha256: z.string().regex(/^[a-f0-9]{64}$/), size: z.number().int().positive().max(128 * 1024 ** 2), publishedAt: z.string().optional(), minHost: z.string().optional(), agentGuide: z.boolean().optional(),
+});
+export const pluginMarketIndexSchema = z.object({ schema: z.literal("openCinema-pluginMarket-v1"), generatedAt: z.string(), name: z.string().max(200).optional(), plugins: z.array(pluginMarketEntrySchema).max(500) });
+export type PluginMarketEntry = z.infer<typeof pluginMarketEntrySchema> & { packageUrl: string };
+export type PluginMarket = { url: string; generatedAt: string; name?: string; plugins: PluginMarketEntry[] };
+
+export function pluginMarketUrlOf(general: Record<string, unknown> | undefined) {
+  const value = general?.pluginMarketUrl;
+  return typeof value === "string" && value.trim() ? value.trim() : defaultPluginMarketUrl;
+}
+function requireMarketUrl(value: string, base?: URL) {
+  const url = new URL(value, base);
+  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+  if (!(url.protocol === "https:" || (url.protocol === "http:" && loopback)) || url.username || url.password) throw new Error("插件市场地址须为不含凭据的 https 地址；本机开发可用 http://127.0.0.1");
+  return url;
+}
+async function readLimited(response: Response, limit: number) {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > limit) throw new Error("响应超过大小限制");
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("响应没有正文");
+  const chunks: Uint8Array[] = []; let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limit) { await reader.cancel().catch(() => {}); throw new Error("响应超过大小限制"); }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total); let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes;
+}
+const hex = (digest: ArrayBuffer) => Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, "0")).join("");
+
+export const pluginMarketClient = {
+  async index(marketUrl: string, signal: AbortSignal): Promise<PluginMarket> {
+    const url = requireMarketUrl(marketUrl);
+    const response = await fetch(url, { signal, cache: "no-store", headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`插件市场目录读取失败（${response.status}）`);
+    const index = pluginMarketIndexSchema.parse(JSON.parse(new TextDecoder().decode(await readLimited(response, 2 * 1024 ** 2))));
+    const seen = new Set<string>();
+    const plugins = index.plugins.map(entry => {
+      const key = `${entry.id}@${entry.version}`;
+      if (seen.has(key)) throw new Error(`插件市场目录重复：${key}`);
+      seen.add(key);
+      return { ...entry, packageUrl: requireMarketUrl(entry.url, url).href };
+    });
+    return { url: url.href, generatedAt: index.generatedAt, name: index.name, plugins };
+  },
+  /** 下载并校验：大小与 SHA-256 必须与目录一致，包内 id/version 必须与条目一致；任一不符即拒绝，不落盘。 */
+  async download(entry: PluginMarketEntry, signal: AbortSignal) {
+    const response = await fetch(entry.packageUrl, { signal, cache: "no-store", headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`插件包下载失败（${response.status}）`);
+    const bytes = await readLimited(response, entry.size);
+    if (bytes.byteLength !== entry.size) throw new Error("插件包大小与市场目录不一致，已拒绝");
+    const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
+    if (sha256 !== entry.sha256) throw new Error("插件包 SHA-256 与市场目录不一致，已拒绝");
+    const value = pluginPackageSchema.parse(JSON.parse(new TextDecoder().decode(bytes)));
+    if (value.manifest.id !== entry.id || value.manifest.version !== entry.version) throw new Error("插件包的 id 或版本与市场目录不一致，已拒绝");
+    return { value, size: bytes.byteLength, sha256 };
+  },
 };

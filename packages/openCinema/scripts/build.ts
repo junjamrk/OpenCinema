@@ -14,7 +14,7 @@ for (const path of [resolve(mcp, "stdio.js"), resolve(mcp, "widgetResource.json"
 }
 const nodes = resolve(repositoryRoot, "build/nodes");
 const nodeBundles = (await readdir(nodes, { withFileTypes: true })).filter(entry => entry.isDirectory());
-const builtinCount = (await readdir(resolve(repositoryRoot, "packages/nodes"))).length;
+const builtinCount = JSON.parse(await readFile(resolve(repositoryRoot, "apps/server/go/builtinNodes.json"), "utf8")).length;
 if (nodeBundles.length !== builtinCount || nodeBundles.some(entry => !existsSync(resolve(nodes, entry.name, "install.json")))) {
   throw new Error(`OpenCinema 插件需要完整的 ${builtinCount} 个内置插件发行包`);
 }

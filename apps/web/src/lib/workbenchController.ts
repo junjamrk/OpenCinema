@@ -23,7 +23,7 @@ import { createInstalledPluginLoader } from "./installedPluginLoader";
 import { localApiUrl } from "./openCinemaTransport";
 import { assetLibraryClient, assetMediaKind, type AssetLibraryEntry } from "./assetLibraryClient";
 import { builtinNodes } from "./builtinNodes";
-import { pluginPackageSchema, workbenchSettingsClient } from "./workbenchSettingsClient";
+import { pluginMarketClient, pluginMarketUrlOf, pluginPackageSchema, workbenchSettingsClient } from "./workbenchSettingsClient";
 import { isNodeOutput } from "@toonflow/nodes-scaffold/values";
 import { canvasNodePosition, createCanvasQueries, isCanvasRead, type CanvasQueryAvailability, type CanvasQueryRuntime } from "@/lib/canvasQueries";
 import { copyNodesToClipboard, readClipboardNodes } from "@/lib/nodeClipboard";
@@ -1956,6 +1956,7 @@ export function createWorkbenchController() {
         const rules = plugin.configRules ?? [], config = plugin.config ?? {};
         const fields = [...new Set([...Object.keys(config), ...rules.flatMap(rule => typeof rule.field === "string" ? [rule.field] : [])])];
         return { id: plugin.id ?? plugin.name, label: plugin.displayName ?? plugin.name, version: plugin.version, scope: plugin.scope ?? "node", builtin: plugin.builtin, installed: !!plugin.installed, enabled: plugin.enabled, configRevision: plugin.configRevision, loadError: plugin.loadError,
+          description: plugin.description, tags: plugin.tags, license: plugin.license, homepage: plugin.homepage, ...(input.pluginId && plugin.agentGuide ? { agentGuide: plugin.agentGuide } : {}),
           configRules: rules.map(rule => secretField(String(rule.field ?? ""), rule) ? { field: rule.field ?? "", type: rule.type ?? "password", title: rule.title ?? rule.field ?? "", required: rule.required === true, secret: true } : publicConfiguration(rule)),
           configuration: Object.fromEntries(fields.map(field => { const rule = rules.find(rule => rule.field === field); return [field, !rule || secretField(field, rule) ? { configured: config[field] !== undefined && config[field] !== "", secret: true } : { value: publicConfiguration(config[field]), secret: false }]; })) };
       }).sort((a, b) => a.id.localeCompare(b.id));
@@ -2008,6 +2009,35 @@ export function createWorkbenchController() {
       await workbenchSettingsClient.installPlugin(reviewed.value, { force: install.replaceExisting, replaceBuiltin: install.replaceBuiltin }, signal);
       await controller.refreshPlugins(); requireSession(target);
       return { installed: true, pluginId: id, version: reviewed.value.manifest.version, fileRevision: reviewed.fileRevision, toolCatalogVersion: runtime.getVersion() };
+    }
+    if (name === "getPluginMarket") {
+      const input = peripheralToolSchemas.getPluginMarket.parse(args);
+      const [general, installed] = await Promise.all([workbenchSettingsClient.generalConfiguration(signal), workbenchSettingsClient.plugins(signal)]);
+      const market = await pluginMarketClient.index(pluginMarketUrlOf(general.general), signal);
+      const keyword = input.query?.trim().toLocaleLowerCase(), capabilities = runtime.getCapabilities();
+      const values = market.plugins.filter(entry => !keyword || [entry.id, entry.name, ...Object.values(entry.description), ...entry.tags].join(" ").toLocaleLowerCase().includes(keyword)).map(entry => {
+        const current = installed.find(plugin => (plugin.id ?? plugin.name) === entry.id);
+        return { id: entry.id, name: entry.name, version: entry.version, description: entry.description, author: entry.author, license: entry.license, homepage: entry.homepage, tags: entry.tags, scope: entry.scope, requires: entry.requires, size: entry.size, sha256: entry.sha256, url: entry.packageUrl,
+          installed: current ? { version: current.version, builtin: current.builtin, enabled: current.enabled } : null,
+          missingCapabilities: Object.entries(entry.requires).flatMap(([name, requiredVersion]) => (capabilities[name] ?? 0) < requiredVersion ? [{ name, requiredVersion, providedVersion: capabilities[name] ?? 0 }] : []) };
+      });
+      const { items, ...pagination } = boundedPage(values, input.offset, input.limit);
+      return { marketUrl: market.url, generatedAt: market.generatedAt, plugins: items, toolCatalogVersion: runtime.getVersion(), ...pagination };
+    }
+    if (name === "installMarketplacePlugin") {
+      const input = peripheralToolSchemas.installMarketplacePlugin.parse(args), target = currentSession();
+      const general = await workbenchSettingsClient.generalConfiguration(signal);
+      const market = await pluginMarketClient.index(pluginMarketUrlOf(general.general), signal);
+      const entry = market.plugins.find(item => item.id === input.pluginId && item.version === input.version);
+      if (!entry) throw new ToolExecutionError({ code: "marketEntryNotFound", message: "插件市场目录中没有该 id 与版本", phase: "validation", target: toolTarget(target), executionState: "notDispatched", recovery: { action: "readState", message: "重新读取插件市场目录，使用其中的 version 与 sha256", tool: "getPluginMarket", args: { query: input.pluginId } } });
+      if (entry.sha256 !== input.sha256) throw new ToolExecutionError({ code: "sha256Mismatch", message: "传入的 sha256 与市场目录不一致，未下载", phase: "validation", target: toolTarget(target), executionState: "notDispatched", recovery: { action: "readState", message: "使用 getPluginMarket 返回的 sha256 重新调用", tool: "getPluginMarket", args: { query: input.pluginId } } });
+      const downloaded = await pluginMarketClient.download(entry, signal);
+      const existing = (await workbenchSettingsClient.plugins(signal)).find(plugin => (plugin.id ?? plugin.name) === entry.id);
+      requireSession(target); requireWritable(target); signal.throwIfAborted();
+      if (existing && !input.replaceExisting || existing?.builtin && !input.replaceBuiltin) throw new Error("覆盖已安装或内置插件须明确对应的replaceExisting/replaceBuiltin");
+      await workbenchSettingsClient.installPlugin(downloaded.value, { force: input.replaceExisting, replaceBuiltin: input.replaceBuiltin }, signal);
+      await controller.refreshPlugins(); requireSession(target);
+      return { installed: true, pluginId: entry.id, version: entry.version, sha256: downloaded.sha256, toolCatalogVersion: runtime.getVersion() };
     }
     if (name === "getModelStatus") {
       const input = peripheralToolSchemas.getModelStatus.parse(args), target = session;

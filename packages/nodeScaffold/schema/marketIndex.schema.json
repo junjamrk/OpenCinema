@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://opencinema.site/schema/marketIndex.schema.json",
+  "title": "OpenCinema plugin market index",
+  "description": "Static catalog served at <market>/index.json. The workbench fetches it, shows the entries, downloads the package at `url`, verifies `sha256` and `size`, then installs through the local Go server. Install only: entries are added by pull request.",
+  "type": "object",
+  "required": ["schema", "generatedAt", "plugins"],
+  "properties": {
+    "schema": { "const": "openCinema-pluginMarket-v1" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "name": { "type": "string" },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "version", "description", "author", "license", "url", "sha256", "size", "requires"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]{0,95}$" },
+          "name": { "type": "string" },
+          "displayName": { "type": "object", "description": "Optional localized names keyed by BCP 47 tag, e.g. {\"en\":\"Gaussian Splat\",\"zh-CN\":\"高斯泼溅\"}.", "additionalProperties": { "type": "string" } },
+          "version": { "type": "string" },
+          "description": { "type": "object", "required": ["en"], "additionalProperties": { "type": "string" }, "description": "Localized one-sentence descriptions keyed by BCP 47 tag; en is required." },
+          "author": { "type": "string" },
+          "license": { "type": "string" },
+          "homepage": { "type": "string", "format": "uri" },
+          "repository": { "type": "string", "format": "uri" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "scope": { "enum": ["node", "workspace"] },
+          "requires": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "url": { "type": "string", "description": "Absolute https URL, or a path relative to index.json, of the install.json package." },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of the exact install.json bytes at url." },
+          "size": { "type": "integer", "minimum": 1 },
+          "publishedAt": { "type": "string", "format": "date-time" },
+          "minHost": { "type": "string", "description": "Lowest OpenCinema version known to run this package." },
+          "agentGuide": { "type": "boolean", "description": "True when the package carries an agent.md guide." }
+        }
+      }
+    }
+  }
+}

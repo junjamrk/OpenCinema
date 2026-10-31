@@ -4,19 +4,20 @@ import { nodeMetadataSchema } from "../src/nodeCapabilities.ts";
 
 // 内置节点的唯一来源是 packages/nodes/*/package.json；根目录 dev*、build:web、build:server 会先执行本脚本，
 // 产物提交入库，所以直接 go run、go vet 或 tsc 不依赖 Bun。改 openCinema 块后执行 bun run generate:nodes。
+// 没有 openCinema.order 的目录是市场插件，不进内置清单。
 const root = resolve(import.meta.dirname, "../../..");
 const nodesRoot = join(root, "packages/nodes");
 const webDependencies = JSON.parse(await readFile(join(root, "apps/web/package.json"), "utf8")).dependencies as Record<string, string>;
-const nodes = await Promise.all((await readdir(nodesRoot)).map(async directory => {
+const nodes = (await Promise.all((await readdir(nodesRoot)).map(async directory => {
   const path = join(nodesRoot, directory, "package.json");
   const info = JSON.parse(await readFile(path, "utf8"));
   const { order, name: displayName, ...metadata } = nodeMetadataSchema.parse(info.openCinema);
-  if (order === undefined) throw new Error(`内置节点须声明 openCinema.order：${path}`);
+  if (order === undefined) return [];
   if (metadata.id !== directory) throw new Error(`内置节点 ID 须与目录同名：${path}`);
   if (!webDependencies[info.name]) throw new Error(`apps/web/package.json 缺少依赖 ${info.name}`);
   if (!info.exports?.["./reactPlugin"]) throw new Error(`内置节点须导出 ./reactPlugin：${path}`);
-  return { order, packageName: info.name as string, entry: { ...metadata, displayName, scope: metadata.scope ?? "node", version: info.version as string } };
-}));
+  return [{ order, packageName: info.name as string, entry: { ...metadata, displayName, scope: metadata.scope ?? "node", version: info.version as string } }];
+}))).flat();
 nodes.sort((left, right) => left.order - right.order);
 if (new Set(nodes.map(node => node.order)).size !== nodes.length) throw new Error("内置节点 openCinema.order 不能重复");
 

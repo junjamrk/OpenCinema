@@ -28,13 +28,14 @@
 </p>
 
 <p align="center">
+  <a href="https://opencinema.site">opencinema.site</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
   <a href="roadmap.md">Roadmap</a> ·
   <a href="#架构">架构</a> ·
   <a href="#扩展-opencinema">扩展</a> ·
   <a href="#贡献代码">贡献</a> ·
-  <a href="assets/promo/openCinemaPromo.mp4">产品短片</a>
+  <a href="assets/promo/openCinemaLaunch.mp4">发布影片 · 30 秒</a>
 </p>
 
 <p align="center">
@@ -301,7 +302,7 @@ ComfyUI 负责生成，OpenCinema 把每个工作流当成一个模型，不用�
 | React 工作台 | `apps/web` | 画布（@xyflow/react）、节点视图、编辑台、工具目录、与 Go 的 SSE 控制通道 |
 | 编辑会话 | `packages/workbenchCore` | 与框架无关的文档、修订、撤销重做和保存队列 |
 | 节点 SDK | `packages/nodeScaffold` · `packages/nodeShared` | 插件合同、Zod 工具注册、构建产物，以及生成、审片、剪辑计划等跨插件业务 |
-| 节点插件 | `packages/nodes/*` | 13 个内置节点和协作扩展 |
+| 节点插件 | `packages/nodes/*` | 13 个内置节点、协作扩展和 Gaussian Splat 市场插件 |
 | MCP 桥与插件包 | `packages/mcp` · `packages/openCinema` | stdio 适配、Widget 资源、启动器和租约、Codex 与 Claude 清单及 Skill |
 
 三条不变量支撑整个设计：**Schema 只有一个来源**（Zod → JSON Schema → Go → stdio）；**人和 Agent 走同一条命令路径**，共用修订和撤销；**副作用可追溯**（`operationId` 幂等，`unknown` 不自动重试，产物带来源和审片记录）。
@@ -423,6 +424,14 @@ export default function PluginView({ node, controller, readOnly }: ReactNodeView
 
 完整合同见[节点 SDK](packages/nodeScaffold/readme.md)。
 
+在本仓库内新增插件时运行 `bun packages/nodeScaffold/scripts/createNode.ts myNode "我的节点"`。它生成可直接编译、安装的骨架，含写给 Agent 的 `agent.md`，随 manifest 发行，Agent 通过 `getPluginConfiguration` 读取。约定见[插件开发指南](docs/pluginDevelopment.md)。
+
+### 插件市场
+
+[opencinema.site/market](https://opencinema.site/market/) 是一份静态目录。工作台在 **设置 → 插件 → 插件市场** 下载插件包，按目录中的 SHA-256 校验，显示复核卡片，再由本机服务安装。Agent 用 `getPluginMarket` → `installMarketplacePlugin` 完成同样的事。市场目前只支持安装，发布时通过 Pull Request 把条目加入 `site/src/marketCatalog.json`。
+
+第一个市场插件是 [Gaussian Splat](packages/nodes/gaussianSplatNode/readme.md)：在画布中查看 3D Gaussian Splatting 扫描（PLY / SPLAT / KSPLAT / SPZ），设定机位，渲染静帧与环绕视频作为参考。它不是内置节点，three.js 和 GaussianSplats3D 的 3D 能力都通过插件链路装入，说明第三方节点与内置节点走的是同一条路。
+
 ### 接入生成服务
 
 如果服务符合下面的协议之一，写一份 JSON 清单就够了：
@@ -518,6 +527,10 @@ bun run build
 - **欢迎的方向**：节点和供应商示例、工具描述与界面的英文化、文档和教程、大画布与媒体预览的性能、Windows 验证。
 
 安全问题按 [security.md](security.md) 处理，社区互动遵守[行为准则](codeOfConduct.md)。[Issues](https://github.com/junjamrk/OpenCinema/issues) · [变更记录](changelog.md)
+
+## 发布影片
+
+[观看 30 秒发布影片](assets/promo/openCinemaLaunch.mp4)。影片中的界面与画面全部由代码绘制，不含模型生成的镜头。[分镜脚本](docs/launchVideoStoryboard.md)和[源码](assets/promo/launchVideo/readme.md)在仓库中。更早的 58 秒产品概念片见 [assets/promo/openCinemaPromo.mp4](assets/promo/openCinemaPromo.mp4)。
 
 ## 已知限制
 

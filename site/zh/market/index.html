@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN" class="noJs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenCinema 插件市场 — 为画布安装新节点</title>
+<meta name="description" content="OpenCinema 节点插件的静态目录，仅供安装。每个包都是一份 install.json，安装前先按 SHA-256 校验，再由本机服务安装。">
+<link rel="canonical" href="https://opencinema.site/zh/market/">
+<link rel="alternate" hreflang="en" href="https://opencinema.site/market/">
+<link rel="alternate" hreflang="zh-CN" href="https://opencinema.site/zh/market/">
+<link rel="alternate" hreflang="x-default" href="https://opencinema.site/market/">
+<link rel="alternate" type="application/json" href="https://opencinema.site/market/index.json" title="机器可读目录">
+<meta name="theme-color" content="#F7F7F4">
+<meta name="color-scheme" content="light">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenCinema">
+<meta property="og:title" content="OpenCinema 插件市场 — 为画布安装新节点">
+<meta property="og:description" content="OpenCinema 节点插件的静态目录，仅供安装。每个包都是一份 install.json，安装前先按 SHA-256 校验，再由本机服务安装。">
+<meta property="og:url" content="https://opencinema.site/zh/market/">
+<meta property="og:image" content="https://opencinema.site/assets/img/og.png?v=dc2d350ae8">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/img/mark.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/img/icon32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/assets/img/icon180.png">
+<link rel="preload" href="/assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=dc2d350ae8">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","name":"OpenCinema 插件市场 — 为画布安装新节点","url":"https://opencinema.site/zh/market/","description":"OpenCinema 节点插件的静态目录，仅供安装。每个包都是一份 install.json，安装前先按 SHA-256 校验，再由本机服务安装。","isPartOf":{"@type":"WebSite","name":"OpenCinema","url":"https://opencinema.site"},"hasPart":[{"@type":"SoftwareApplication","name":"Gaussian Splat","softwareVersion":"1.0.1","applicationCategory":"MultimediaApplication","license":"MIT","author":"OpenCinema","description":"在画布中查看 3D Gaussian Splatting 扫描（PLY / SPLAT / KSPLAT / SPZ），设定机位，渲染静帧与环绕视频，作为下游节点的参考。","downloadUrl":"https://opencinema.site/market/plugins/gaussianSplatNode/1.0.1/install.json"}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav" id="nav">
+  <div class="wrap navRow">
+    <a class="brand" href="/zh/" aria-label="OpenCinema"><img src="/assets/img/logo.svg" alt="OpenCinema" width="151" height="40"></a>
+    <nav class="navLinks" aria-label="Primary">
+      <a href="/zh/#features">功能</a>
+      <a href="/zh/#how">工作方式</a>
+      <a href="/zh/market/" aria-current="page">插件市场</a>
+      <a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">文档</a>
+    </nav>
+    <div class="navActions">
+      <a class="lang" href="/market/" lang="en" hreflang="en">English</a>
+      <a class="iconLink" href="https://github.com/junjamrk/OpenCinema" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="stars" data-stars hidden></span></a>
+      <a class="btn btnInk btnSm" href="/zh/#start">开始使用</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero heroCompact">
+    <div class="wrap heroText">
+      <p class="eyebrow mono reveal">插件市场 · 仅安装 · MVP</p>
+      <h1 class="heroTitle reveal"><span class="line" style="--i:0">给画布装上新能力。</span></h1>
+      <p class="lede reveal">节点插件为 Agent 增加可发现、可调用的工具。市场是一份静态目录：工作台下载插件包，对照这里的 SHA-256 校验，先让你看清它是什么，再在你的电脑上安装。</p>
+    </div>
+  </section>
+
+  <section class="how marketHow">
+    <div class="wrap">
+      <p class="label mono reveal">如何安装</p>
+      <ol class="steps stepsText">
+        <li class="step reveal"><p class="mono stepN">01</p><h3>打开市场</h3><p>在工作台中打开 设置 → 插件 → 打开插件市场，下面的列表会出现在应用里。</p></li><li class="step reveal"><p class="mono stepN">02</p><h3>下载并复核</h3><p>插件包下载后按本目录中的 SHA-256 校验。复核卡片列出 id、版本、大小与描述，此时还没有执行任何代码。</p></li><li class="step reveal"><p class="mono stepN">03</p><h3>安装</h3><p>确认后节点出现在节点菜单，它的工具可以通过 getNodeTools 发现。Agent 也可以用 getPluginMarket 与 installMarketplacePlugin 完成同样的事。</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="plugins" id="plugins">
+    <div class="wrap">
+      <p class="label mono reveal">插件 · 1</p>
+      <h2 class="h2 reveal">目录中的插件。</h2>
+      <div class="marketGrid"><article class="pluginCard reveal">
+      <div class="pluginCardHead">
+        <span class="pluginIcon" aria-hidden="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5l7 3.8v7.4l-7 3.8-7-3.8V6.3z M3 6.3l7 3.8 7-3.8 M10 10.1v7.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+        <div><h3>Gaussian Splat</h3><p class="mono pluginId">gaussianSplatNode · v1.0.1</p></div>
+      </div>
+      <p class="pluginDesc">在画布中查看 3D Gaussian Splatting 扫描（PLY / SPLAT / KSPLAT / SPZ），设定机位，渲染静帧与环绕视频，作为下游节点的参考。</p>
+      <ul class="tagRow"><li>3d</li><li>gaussian-splatting</li><li>viewer</li><li>reference</li><li>render</li><li class="tagMint"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>附带 Agent 指南</li></ul>
+      <dl class="pluginMeta">
+        <div><dt>包大小</dt><dd>1.03 MiB</dd></div>
+        <div><dt>需要能力</dt><dd>document, workbench, workspaceFiles, workspaceReadRange, nodeHistory, ffmpeg, worker</dd></div>
+        <div><dt>License</dt><dd>MIT · OpenCinema</dd></div>
+        <div><dt>SHA-256</dt><dd class="mono sha" title="d261744956e50b60315613608f002e286dc406cd0df0579997e8d135e9fe9c87">d261744956e50b60…</dd></div>
+      </dl>
+      <div class="pluginActions">
+        <a class="btn btnInk btnSm" href="/market/plugins/gaussianSplatNode/1.0.1/install.json" download="gaussianSplatNode-1.0.1.install.json"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0l-3.5-3.5M10 12l3.5-3.5M4 15.5h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>install.json</span></a>
+        <a class="btn btnGhost btnSm" href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodes/gaussianSplatNode/readme.md" rel="noopener">说明</a>
+        <a class="textLink" href="https://github.com/junjamrk/OpenCinema/tree/main/packages/nodes/gaussianSplatNode" rel="noopener">源码 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+      </div>
+    </article></div>
+      <p class="indexLink reveal mono"><a href="/market/index.json">机器可读目录 · /market/index.json</a> · <a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/schema/marketIndex.schema.json" rel="noopener">目录 Schema</a></p>
+    </div>
+  </section>
+
+  <section class="start" id="publish">
+    <div class="wrap">
+      <p class="label mono reveal">发布</p>
+      <h2 class="h2 reveal">发布你自己的节点。</h2>
+      <p class="sectionLede reveal">一个节点就是一个包：插件定义、Zod 类型的工具、React 视图和一份 agent.md 指南。脚手架生成、构建，然后提交 Pull Request 把它加入目录。这个 MVP 不支持上传。</p>
+      <div class="codeGrid codeGridSingle">
+        <div class="codeCard reveal">
+          <p class="mono codeTitle">在仓库中</p>
+          <pre><code>bun packages/nodeScaffold/scripts/createNode.ts myNode &quot;我的节点&quot;
+cd packages/nodes/myNode &amp;&amp; bun run typecheck &amp;&amp; bun run build
+# 然后把它加入 site/src/marketCatalog.json 并运行
+node site/buildMarket.mjs</code></pre>
+          <p class="codeNote">阅读插件开发指南了解约定：一个节点只做一件事；小动词工具；readOnly 标注；有类型的输出。</p>
+        </div>
+      </div>
+      <ul class="docLinks reveal">
+        <li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/pluginDevelopment.md" rel="noopener">插件开发指南 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li>
+        <li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" rel="noopener">Node SDK <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li>
+        <li><a href="https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" rel="noopener">参与贡献 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="honest">
+    <div class="wrap"><ul class="honestList mono"><li>安装会在你的电脑上以工作区权限执行插件代码，只安装你信任的来源。</li><li>目录是通过 Pull Request 发布的静态 JSON，没有上传、账号或遥测。</li><li>插件包按大小与 SHA-256 对照本目录校验，文件被改动即拒绝。</li><li>需要 FFmpeg、WebGL 或供应商的插件仍取决于你的本机配置。</li></ul></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footerGrid">
+    <div class="footerBrand">
+      <img src="/assets/img/logo.svg" alt="OpenCinema" width="151" height="40">
+      <p>本机运行、由你的 Agent 操作的视频创作工作台。</p>
+      <a class="lang" href="/market/" lang="en" hreflang="en">English</a>
+    </div>
+    <div class="footerCol"><p class="mono">项目</p><ul><li><a href="https://github.com/junjamrk/OpenCinema" rel="noopener">GitHub</a></li><li><a href="https://github.com/junjamrk/OpenCinema/issues" rel="noopener">问题反馈</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/changelog.md" rel="noopener">变更记录</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/security.md" rel="noopener">安全</a></li></ul></div><div class="footerCol"><p class="mono">文档</p><ul><li><a href="https://github.com/junjamrk/OpenCinema#readme" rel="noopener">Readme</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/architecture.md" rel="noopener">架构</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/claudeSetup.md" rel="noopener">Claude 接入</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/docs/releaseGuide.md" rel="noopener">发行指南</a></li></ul></div><div class="footerCol"><p class="mono">扩展</p><ul><li><a href="/zh/market/" rel="noopener">插件市场</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/nodeScaffold/readme.md" rel="noopener">节点 SDK</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/mcp/README.md" rel="noopener">MCP SDK</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/packages/openCinema/readme.md" rel="noopener">插件说明</a></li><li><a href="https://github.com/junjamrk/OpenCinema/blob/main/contributing.md" rel="noopener">参与贡献</a></li></ul></div>
+  </div>
+  <div class="wrap footerLegal">
+    <p>MIT 许可。Blockout 与 Motion 改编自 Sam Wasserman 的同名工具（Apache-2.0）。字体：Inter 与 JetBrains Mono（OFL）。</p>
+    <p>© <span data-year></span> OpenCinema 贡献者</p>
+  </div>
+</footer>
+<script src="/assets/site.js?v=dc2d350ae8" defer></script>
+</body>
+</html>

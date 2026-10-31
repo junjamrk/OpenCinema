@@ -69,6 +69,12 @@
     }
 
     .pluginSettingsCard .pluginSetting { padding: 0; border: 0; }
+    .pluginMarket { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusPanel); background: var(--surfaceCanvas); }
+    .pluginMarketBar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; strong { color: var(--textPrimary); } > span { flex: 1 1 200px; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); } }
+    .pluginMarketCard { p { margin: 0; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); } }
+    .pluginMarketHead { display: grid; gap: 2px; strong { color: var(--textPrimary); } small { color: var(--textMuted); font-family: var(--fontMono); font-size: 11px; line-height: 16px; overflow-wrap: anywhere; } }
+    .pluginMarketTags { display: flex; flex-wrap: wrap; gap: 6px; span { padding: 1px 8px; border: 1px solid var(--borderSubtle); border-radius: 999px; color: var(--textSecondary); font-size: 11px; line-height: 16px; } }
+    .pluginMarketTags .pluginMarketRequires { border-style: dashed; color: var(--textMuted); }
     .settingToggle { display: flex !important; align-items: center; justify-content: space-between; input { width: auto; } }
     .settingConfirmation { border-color: var(--borderStrong); }
     textarea { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusControl); background: var(--surfaceCanvas); color: var(--textPrimary); font: 11px / 18px var(--fontMono); resize: vertical; &:focus-visible { outline: var(--focusRing); outline-offset: 2px; } }

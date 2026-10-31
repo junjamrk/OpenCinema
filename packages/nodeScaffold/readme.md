@@ -10,9 +10,9 @@ React 组件使用 @toonflow/nodes-scaffold/react 的 ReactNodeViewProps；框�
 
 ## 构建
 
-插件身份写在 package.json 的 openCinema 块：id、name，可选 scope、category、description、order、icon、requires。vite.config.ts 或 viteConfig.ts 调用 createNodeConfig（等同 createReactNodeConfig），传入 author、github，可选 outDir/configRules/resources/providers。默认输出到插件项目的 dist，内置节点显式设置 outDir 写入 build/nodes/<id>。产物包括 index.js、manifest.json、样式和 install.json。
+插件身份写在 package.json 的 openCinema 块：id、name，可选 scope、category、description、order、icon、requires。没有 order 的插件不进内置清单。vite.config.ts 或 viteConfig.ts 调用 createNodeConfig（等同 createReactNodeConfig），传入 author、github，可选 license/homepage/tags/outDir/configRules/resources/providers。默认输出到插件项目的 dist，内置节点显式设置 outDir 写入 build/nodes/<id>，市场插件写入 build/market/<id>。产物包括 index.js、manifest.json、样式和 install.json。插件目录下的 agent.md 随 manifest 发行，Agent 通过 getPluginConfiguration 读取。
 
-仓库外开发用 createOpenCinemaPlugin 生成骨架。仓库内节点从 @toonflow/nodes-scaffold/reactBuild 导入构建配置，此子路径依赖工作区包，不在 tarball 中使用；第三方从包根导入。
+仓库内新建插件：`bun packages/nodeScaffold/scripts/createNode.ts <pluginId> "<显示名>"` 生成可直接编译、安装的骨架；约定与发布流程见 [docs/pluginDevelopment.md](../../docs/pluginDevelopment.md)。仓库外开发用 createOpenCinemaPlugin 生成骨架。仓库内节点从 @toonflow/nodes-scaffold/reactBuild 导入构建配置，此子路径依赖工作区包，不在 tarball 中使用；第三方从包根导入。
 
 providers 与 /api/providers/media/add 的 HTTP JSON 清单同格式，安装时由服务端按同一规则校验。插件提供的供应商是只读的，要改动须停用或卸载插件。
 

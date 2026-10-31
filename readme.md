@@ -28,13 +28,14 @@
 </p>
 
 <p align="center">
+  <a href="https://opencinema.site">opencinema.site</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#features">Features</a> ·
   <a href="roadmap.md">Roadmap</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#extend-opencinema">Extend</a> ·
   <a href="#contributing">Contribute</a> ·
-  <a href="assets/promo/openCinemaPromo.mp4">Product film</a>
+  <a href="assets/promo/openCinemaLaunch.mp4">Launch film · 30 s</a>
 </p>
 
 <p align="center">
@@ -301,7 +302,7 @@ Workflows run as black boxes. Only the inputs you confirmed are replaced, `seed`
 | React workbench | `apps/web` | The canvas (@xyflow/react), node views, editors, the tool catalog, the SSE control channel to Go |
 | Editing session | `packages/workbenchCore` | Framework-independent document, revisions, undo and redo, and the save queue |
 | Node SDK | `packages/nodeScaffold` · `packages/nodeShared` | Plugin contract, Zod tool registration, build output, cross-plugin business such as generation, review and the edit plan |
-| Node plugins | `packages/nodes/*` | 13 built-in nodes and the collaboration extension |
+| Node plugins | `packages/nodes/*` | 13 built-in nodes, the collaboration extension and the Gaussian Splat market plugin |
 | MCP bridge and plugin package | `packages/mcp` · `packages/openCinema` | stdio adapter, widget resource, launcher and leases, Codex and Claude manifests and skill |
 
 Three invariants hold the design together: **one source of truth for schemas** (Zod → JSON Schema → Go → stdio), **one command path for people and agents** with shared revisions and undo, and **traceable side effects** (`operationId` idempotency, `unknown` is never retried automatically, outputs carry provenance and review records).
@@ -423,6 +424,14 @@ A plugin can also provide generation services by declaring `providers` in `viteC
 
 See the [node SDK](packages/nodeScaffold/readme.md), in Chinese, for the full contract.
 
+To add a plugin inside this repository, run `bun packages/nodeScaffold/scripts/createNode.ts myNode "My node"`. It generates a skeleton that compiles and installs as-is, including an `agent.md` written for agents, which ships in the manifest and is read through `getPluginConfiguration`. Conventions are in the [plugin development guide](docs/pluginDevelopmentEn.md).
+
+### Plugin market
+
+[opencinema.site/market](https://opencinema.site/market/) is a static catalog. In **设置 → 插件 → 插件市场** (Settings → Plugins → Plugin market) the workbench downloads a package, verifies it against the SHA-256 in the index, shows a review card and only then installs it through the local server. Agents do the same with `getPluginMarket` → `installMarketplacePlugin`. The market is install-only for now. To publish, open a pull request that adds an entry to `site/src/marketCatalog.json`.
+
+The first plugin in the market is [Gaussian Splat](packages/nodes/gaussianSplatNode/readme.md): view 3D Gaussian Splatting scans (PLY, SPLAT, KSPLAT, SPZ) on the canvas, set a camera, and render stills and turntable videos as references. It is not a built-in node. The whole three.js and GaussianSplats3D capability arrives through the plugin path, which shows that third-party and built-in nodes take the same route.
+
 ### Add a provider
 
 If a service matches one of these protocols, a JSON manifest is all you need:
@@ -518,6 +527,10 @@ bun run build
 - **Welcome directions**: node and provider examples, English tool descriptions and interface strings, documentation and tutorials, performance on large canvases and media previews, Windows verification.
 
 Security issues follow [security.md](security.md), and community interaction follows the [code of conduct](codeOfConduct.md). [Issues](https://github.com/junjamrk/OpenCinema/issues) · [Changelog](changelog.md)
+
+## Launch film
+
+[Watch the 30-second launch film](assets/promo/openCinemaLaunch.mp4). Every frame in it is drawn in code, and nothing was produced by a video model. The [storyboard](docs/launchVideoStoryboard.md) and the [source](assets/promo/launchVideo/readme.md) are in the repository. The earlier 58-second product concept film is at [assets/promo/openCinemaPromo.mp4](assets/promo/openCinemaPromo.mp4).
 
 ## Known limitations
 

@@ -1,0 +1,48 @@
+{
+  "name": "@opencinema/node-gaussian-splat",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "openCinema": {
+    "id": "gaussianSplatNode",
+    "name": "Gaussian Splat",
+    "category": "空间与摄影",
+    "icon": "spatial",
+    "description": "在画布中查看 3D Gaussian Splatting 扫描（PLY / SPLAT / KSPLAT / SPZ），设定机位，渲染静帧与环绕视频作为参考。",
+    "requires": {
+      "document": 1,
+      "workbench": 1,
+      "workspaceFiles": 1,
+      "workspaceReadRange": 1,
+      "nodeHistory": 1,
+      "ffmpeg": 1,
+      "worker": 1
+    }
+  },
+  "scripts": {
+    "build": "vite build --config viteConfig.ts",
+    "dev": "vite build --watch --config viteConfig.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./react": "./src/reactView.tsx",
+    "./reactPlugin": "./src/reactPlugin.ts"
+  },
+  "dependencies": {
+    "@mkkellogg/gaussian-splats-3d": "0.4.7",
+    "@toonflow/ffmpeg": "workspace:*",
+    "@toonflow/node-shared": "workspace:*",
+    "@toonflow/nodes-scaffold": "workspace:*",
+    "three": "0.184.0",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/three": "0.184.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

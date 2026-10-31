@@ -28,13 +28,14 @@
 </p>
 
 <p align="center">
+  <a href="https://opencinema.site">opencinema.site</a> ·
   <a href="#クイックスタート">クイックスタート</a> ·
   <a href="#機能">機能</a> ·
   <a href="roadmap.md">Roadmap</a> ·
   <a href="#アーキテクチャ">アーキテクチャ</a> ·
   <a href="#opencinema-を拡張する">拡張</a> ·
   <a href="#コントリビュート">コントリビュート</a> ·
-  <a href="assets/promo/openCinemaPromo.mp4">プロダクトフィルム</a>
+  <a href="assets/promo/openCinemaLaunch.mp4">ローンチフィルム · 30 秒</a>
 </p>
 
 <p align="center">
@@ -301,7 +302,7 @@ codex plugin add opencinema@openCinemaStandalone --json
 | React ワークベンチ | `apps/web` | キャンバス（@xyflow/react）、ノードビュー、エディター、ツールカタログ、Go との SSE 制御チャネル |
 | 編集セッション | `packages/workbenchCore` | フレームワーク非依存のドキュメント、リビジョン、取り消しとやり直し、保存キュー |
 | ノード SDK | `packages/nodeScaffold` · `packages/nodeShared` | プラグイン契約、Zod によるツール登録、ビルド出力、生成・レビュー・編集プランなどのプラグイン横断ロジック |
-| ノードプラグイン | `packages/nodes/*` | 13 の組み込みノードとコラボレーション拡張 |
+| ノードプラグイン | `packages/nodes/*` | 13 の組み込みノード、コラボレーション拡張、Gaussian Splat マーケットプラグイン |
 | MCP ブリッジとプラグインパッケージ | `packages/mcp` · `packages/openCinema` | stdio アダプター、ウィジェットリソース、ランチャーとリース、Codex と Claude のマニフェストとスキル |
 
 設計を支える不変条件は三つです。**スキーマの情報源は一つ**（Zod → JSON Schema → Go → stdio）、**人とエージェントは同じコマンド経路を通り**、リビジョンと取り消しを共有する、そして**副作用を追跡できる**（`operationId` の冪等性、`unknown` は自動再試行しない、成果物に出所とレビュー記録が残る）。
@@ -423,6 +424,14 @@ export default function PluginView({ node, controller, readOnly }: ReactNodeView
 
 完全な契約は[ノード SDK](packages/nodeScaffold/readme.md)（中国語）を参照してください。
 
+このリポジトリ内にプラグインを追加するには `bun packages/nodeScaffold/scripts/createNode.ts myNode "My node"` を実行します。そのままビルドしてインストールできるスケルトンが生成され、エージェント向けの `agent.md` も含まれます。`agent.md` はマニフェストに同梱され、`getPluginConfiguration` で読み取れます。規約は[プラグイン開発ガイド](docs/pluginDevelopmentEn.md)（英語）を参照してください。
+
+### プラグインマーケット
+
+[opencinema.site/market](https://opencinema.site/market/) は静的なカタログです。ワークベンチは **设置 → 插件 → 插件市场**（設定 → プラグイン → プラグインマーケット）でパッケージをダウンロードし、インデックスの SHA-256 で検証してレビューカードを表示してから、ローカルサーバー経由でインストールします。エージェントは `getPluginMarket` → `installMarketplacePlugin` で同じ操作を行います。現時点ではインストールのみに対応しており、公開するには `site/src/marketCatalog.json` にエントリーを追加する Pull Request を送ります。
+
+最初のマーケットプラグインは [Gaussian Splat](packages/nodes/gaussianSplatNode/readme.md) です。3D Gaussian Splatting スキャン（PLY、SPLAT、KSPLAT、SPZ）をキャンバスで表示し、カメラを設定して、静止画とターンテーブル動画を参照素材として書き出します。組み込みノードではなく、three.js と GaussianSplats3D の 3D 機能全体がプラグインの経路で読み込まれます。サードパーティのノードと組み込みノードが同じ経路を通ることを示す例です。
+
 ### プロバイダーを追加する
 
 サービスが次のプロトコルのいずれかに一致すれば、JSON マニフェストだけで接続できます。
@@ -518,6 +527,10 @@ bun run build
 - **歓迎する貢献**：ノードとプロバイダーの例、ツール説明と UI の英語化、ドキュメントとチュートリアル、大規模キャンバスとメディアプレビューの性能改善、Windows での検証。
 
 セキュリティの問題は [security.md](security.md) に従い、コミュニティでのやり取りは[行動規範](codeOfConduct.md)に従ってください。[Issues](https://github.com/junjamrk/OpenCinema/issues) · [変更履歴](changelog.md)
+
+## ローンチフィルム
+
+[30 秒のローンチフィルムを見る](assets/promo/openCinemaLaunch.mp4)。画面も映像もすべてコードで描画しており、動画モデルで生成したカットは含みません。[絵コンテ](docs/launchVideoStoryboard.md)（英語）と[ソース](assets/promo/launchVideo/readme.md)はリポジトリにあります。以前の 58 秒のプロダクトコンセプトフィルムは [assets/promo/openCinemaPromo.mp4](assets/promo/openCinemaPromo.mp4) にあります。
 
 ## 既知の制限
 

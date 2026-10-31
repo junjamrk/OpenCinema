@@ -274,6 +274,27 @@
         "react": "^19.0.0",
       },
     },
+    "packages/nodes/gaussianSplatNode": {
+      "name": "@opencinema/node-gaussian-splat",
+      "version": "1.0.1",
+      "dependencies": {
+        "@mkkellogg/gaussian-splats-3d": "0.4.7",
+        "@toonflow/ffmpeg": "workspace:*",
+        "@toonflow/node-shared": "workspace:*",
+        "@toonflow/nodes-scaffold": "workspace:*",
+        "three": "0.184.0",
+        "zod": "^4.6.2",
+      },
+      "devDependencies": {
+        "@types/react": "^19.0.0",
+        "@types/three": "0.184.0",
+        "typescript": "~6.0.3",
+        "vite": "^8.2.2",
+      },
+      "peerDependencies": {
+        "react": "^19.0.0",
+      },
+    },
     "packages/nodes/imageGenerationNode": {
       "name": "@toonflow/node-image-generation",
       "version": "2.0.0",
@@ -595,6 +616,8 @@
     "@modelcontextprotocol/ext-apps": ["@modelcontextprotocol/ext-apps@2.0.3", "", { "dependencies": { "@standard-schema/spec": "^1.1.0" }, "peerDependencies": { "@modelcontextprotocol/client": "^2.0.0", "@modelcontextprotocol/core": "^2.0.0", "@modelcontextprotocol/server": "^2.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0", "zod": "^4.2.0" }, "optionalPeers": ["@modelcontextprotocol/server", "react", "react-dom"] }, "sha512-Tn+4+cyhO4f4cQSDxNyLiIfEE+qlTTuIbWBJB8JTinEXOhDYgCT4wDTQplxD9MBYZH5pCYGC59GaxiwIT4bu8w=="],
 
     "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.0.0", "https://registry.npmmirror.com/@modelcontextprotocol/server/-/server-2.0.0.tgz", { "dependencies": { "@modelcontextprotocol/core": "2.0.0", "zod": "^4.2.0" } }, "sha512-YhHWdHfpFMQfd0prsEnxKeS3Qz3ytIGmsS0sth4KDjnacIT7hxk6hXHkJ9KysxlkvTM+WZAtQbbcUhdoP4Hvtw=="],
+
+    "@opencinema/node-gaussian-splat": ["@opencinema/node-gaussian-splat@workspace:packages/nodes/gaussianSplatNode"],
 
     "@opencinema/plugin": ["@opencinema/plugin@workspace:packages/openCinema"],
 

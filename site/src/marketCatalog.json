@@ -1,0 +1,15 @@
+[
+  {
+    "id": "gaussianSplatNode",
+    "source": "build/market/gaussianSplatNode/install.json",
+    "displayName": { "en": "Gaussian Splat", "zh-CN": "Gaussian Splat" },
+    "description": {
+      "en": "View 3D Gaussian Splatting scans (PLY, SPLAT, KSPLAT, SPZ) on the canvas, set a camera, and render stills and turntable videos as references for downstream nodes.",
+      "zh-CN": "在画布中查看 3D Gaussian Splatting 扫描（PLY / SPLAT / KSPLAT / SPZ），设定机位，渲染静帧与环绕视频，作为下游节点的参考。"
+    },
+    "homepage": "https://github.com/junjamrk/OpenCinema/blob/main/packages/nodes/gaussianSplatNode/readme.md",
+    "repository": "https://github.com/junjamrk/OpenCinema/tree/main/packages/nodes/gaussianSplatNode",
+    "publishedAt": "2026-10-31T00:00:00Z",
+    "minHost": "0.4.0"
+  }
+]
