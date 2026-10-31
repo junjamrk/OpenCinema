@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { createMediaAiClient, type NodeMediaModel, type NodeModelParameter } from "@toonflow/nodes-scaffold/nodeAiClient";
+import { createMediaAiClient, type NodeMediaCost, type NodeMediaModel, type NodeModelParameter } from "@toonflow/nodes-scaffold/nodeAiClient";
 import MediaNode from "./reactMediaNode";
 import { errorText, readMedia, type MediaType, type NodeViewProps } from "../reactNode";
 import { matchingVideoModes, normalizeParameters, parameterIssue } from "../reactGeneration";
@@ -19,6 +19,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const [price, setPrice] = useState("");
   const [runtimeState, setRuntimeState] = useState<string>();
   const [progress, setProgress] = useState<number>();
+  const [cost, setCost] = useState<NodeMediaCost>();
   const [parameterIssues, setParameterIssues] = useState<Record<string, string | undefined>>({});
   const workbench = controller.getNodeService(node.id);
   const prompt = String(node.data?.prompt ?? "");
@@ -30,7 +31,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    setRuntimeState(undefined); setProgress(undefined);
+    setRuntimeState(undefined); setProgress(undefined); setCost(undefined);
     async function observe() {
       try {
         const value = await controller.callNodeTool(node.id, "getGenerationStatus", {});
@@ -38,6 +39,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
         const state = String(value.status);
         setRuntimeState(state);
         setProgress("progress" in value && typeof value.progress === "number" ? value.progress : undefined);
+        setCost("cost" in value ? value.cost as NodeMediaCost | undefined : undefined);
         if (mediaType === "video" && ["running", "unknown", "cancelRequested"].includes(state)) timer = setTimeout(observe, 3000);
       } catch (reason) { if (active) setError(errorText(reason)); }
     }
@@ -122,6 +124,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
       {generationState === "resultReady" && <button type="button" disabled={busy || readOnly} onClick={() => void call("applyGenerationResult").then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); })}>采用已完成视频</button>}
       {generationState === "interrupted" && <button type="button" disabled={busy || readOnly} onClick={() => void call("cancelGeneration").then(value => { if (value && typeof value === "object" && "status" in value) setRuntimeState(String(value.status)); })}>确认上次任务终态</button>}
       <span className="nodeStatus" data-state={generationState} role="status">{({ running: "生成中", delegated: "已交给宿主，等待产物", completed: "产物已保存", resultReady: "视频已生成，待采用", cancelled: "已取消", failed: "生成失败", interrupted: "上次生成已中断", unknown: "任务终态尚未确认", cancelRequested: "正在确认取消" } as Record<string, string>)[generationState] ?? generationState}{progress !== undefined && running ? ` · ${Math.round(progress)}%` : ""}</span>
+      {cost && <span className="nodeStatus">预估 {cost.estimate?.price ?? "无报价"} · 实际 {cost.actual ? `${cost.actual.amount} ${cost.actual.unit}（${cost.actual.source === "vendor" ? "厂商返回" : "余额差"}）` : "未知"}</span>}
       {mediaType === "video" && generationState === "completed" && value && <span className="nodeStatus" data-state={shotReview?.status === "rejected" ? "failed" : "pending"} title="审片记录绑定源文件版本；打开审片或合成时会重新核对当前版本">{shotReview?.source === value.url ? shotReview.status === "approved" ? `通过记录 · ${shotReview.start}–${shotReview.end}s（合成前核版本）` : "候选已拒收" : "视频候选 · 待审"}</span>}
     </div>}
     {(error || generation?.error) && <p className="nodeError" role="alert">{error || generation?.error}</p>}

@@ -29,6 +29,7 @@ export type NodeVideoRequest = Pick<MediaGenerationRequest, "providerId" | "mode
 export type NodeVideoResult = { path: string; mimeType: string; mediaType: "video" };
 export type NodeMediaPriceRequest = (NodeImageRequest & { mediaType: "image" }) | (NodeVideoRequest & { mediaType: "video" }) | (NodeAudioRequest & { mediaType: "audio" });
 export type NodeMediaPrice = { price: string; tips: string };
+export type NodeMediaCost = { estimate: NodeMediaPrice | null; actual: { amount: number; unit: string; source: "vendor" | "balanceDelta" } | null };
 export type NodeAudioRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "audios" | "voice" | "speed" | "volume" | "pitch" | "language" | "format" | "sampleRate" | "parameters"> & { directory: string; outputDirectory: string };
 export type NodeAudioResult = { path: string; mimeType: string; mediaType: "audio" };
 export type NodeAiTool = {
@@ -69,7 +70,7 @@ const mediaPriceCache = mediaPriceCacheHost[mediaPriceCacheKey] ??= (() => {
 })();
 
 type MediaTaskResult = { code: number; data: (NodeImageResult | NodeVideoResult | NodeAudioResult)[] | null; message: string };
-export type NodeMediaTask = { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean; result?: MediaTaskResult; providerId?: string; modelId?: string; providerJobId?: string; phase?: string; progress?: number; cancelMode?: string };
+export type NodeMediaTask = { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean; result?: MediaTaskResult; providerId?: string; modelId?: string; providerJobId?: string; phase?: string; progress?: number; cancelMode?: string; cost?: NodeMediaCost };
 type PendingMediaTask = { directory: string; failedAt?: number; finish: (result: MediaTaskResult) => void; fail: (error: unknown) => void };
 const mediaTasksKey = Symbol.for("toonflow.nodeMediaTasks");
 const mediaTasksHost = globalThis as typeof globalThis & { [mediaTasksKey]?: ReturnType<typeof createMediaTasks> };
@@ -91,7 +92,7 @@ function createMediaTasks() {
       const response = await fetch("/api/ai/media/tasks/cancel", {
         method: "POST", headers: { "Content-Type": "application/json", "x-toonflow-workspace": "1" },
         body: JSON.stringify({ directory, taskIds: [taskId] }), signal: AbortSignal.timeout(30000),
-      }).then(readResult<{ tasks: { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean }[] }>);
+      }).then(readResult<{ tasks: { taskId: string; status: string; executionSettled: boolean; sideEffectMayContinue: boolean; cost?: NodeMediaCost }[] }>);
       const task = response.tasks?.find(task => task.taskId === taskId);
       if (!task || !task.executionSettled || task.sideEffectMayContinue || !["cancelled", "completed", "failed"].includes(task.status)) throw new Error("服务端尚未确认生成任务及其外部副作用终止");
       return task;

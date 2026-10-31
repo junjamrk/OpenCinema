@@ -27,7 +27,7 @@ export function cloneMediaNodeData(data: Record<string, unknown>) {
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     const state = value as Record<string, unknown>;
     if (["running", "delegated", "unknown", "interrupted", "cancelRequested"].includes(String(state.status))) delete copy[key];
-    else { delete state.taskId; delete state.requestId; }
+    else { delete state.taskId; delete state.requestId; delete state.cost; }
   }
   return copy;
 }

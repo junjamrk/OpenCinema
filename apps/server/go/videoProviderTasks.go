@@ -204,7 +204,12 @@ func (s *server) generateVideoProvider(ctx context.Context, provider, config, in
 func (s *server) runMediaTask(ctx context.Context, id string, task *mediaTask) {
 	ctx = context.WithValue(ctx, mediaSubmissionKey{}, &task.submitted)
 	ctx = context.WithValue(ctx, videoTaskKey{}, &videoTaskContext{s, id, task})
-	files, err := s.generateMedia(ctx, task.directory, task.request)
+	finishCost, err := s.beginMediaCost(ctx, id, task)
+	var files []any
+	if err == nil {
+		files, err = s.generateMedia(ctx, task.directory, task.request)
+	}
+	finishCost(err == nil)
 	s.tasksMu.Lock()
 	defer s.tasksMu.Unlock()
 	if err != nil {
