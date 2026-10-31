@@ -19,7 +19,7 @@
 
 也可先 `setConfig`，再从底部输入框生成。手工和 Agent 使用同一节点函数。MCP 外层仍提供目标、作品修订、目录版本与稳定 `operationId`；返回的专业 `taskId` 用于继续观察，工具完成不表示视频已生成。
 
-`getGenerationStatus` 返回状态及已知的远端任务 ID、阶段、进度、取消方式。视频状态查询可能恢复原任务观察及产物回收，明确声明为可能写入和访问外部服务，不会重发生成 POST。`resultReady` 表示断线期间视频已落盘，手工“采用已完成视频”或 Agent `applyGenerationResult` 会校验原模型、参考和当前输出，再通过共享历史和保存入口采用。
+`getGenerationStatus` 返回状态及已知的远端任务 ID、阶段、进度、取消方式和成本（见下文「成本记录」）。视频状态查询可能恢复原任务观察及产物回收，明确声明为可能写入和访问外部服务，不会重发生成 POST。`resultReady` 表示断线期间视频已落盘，手工“采用已完成视频”或 Agent `applyGenerationResult` 会校验原模型、参考和当前输出，再通过共享历史和保存入口采用。
 
 底层 HTTP 复用 `POST /api/ai/media/generate`，另带 `mediaType:"video"`、工程绝对 `directory`、工程相对 `outputDirectory` 和 UUID `operationId`（与 `taskId` 是同一凭据，两者同时提供时必须相同）。同 ID、同请求回读原任务，不同参数拒绝；模型参数也算在内，字段顺序不影响判定。未知状态保留原 ID，不换 ID 重派。
 
@@ -125,6 +125,22 @@ API Key 仅发给固定官方 HTTPS 来源，不接受改写 Base URL；供应�
 - **未声明 `videoProtocol` 的供应商**（TF-router、APIMart、秘塔、优云智算和同步 HTTP 适配）不支持 `parameters`，保存时拒绝。这些适配的请求体是逐字段写死的，声明了也送不出去。
 
 在设置里导入 ComfyUI 工作流时，确认页会列出负向提示词和采样器的固定字段（`seed`、`noise_seed`、`steps`、`cfg`、`guidance`、`denoise`、`sampler_name`、`scheduler`），勾选的字段才生成 `parameters` 和映射。种子不设默认值，留空时每次随机。
+
+## 成本记录
+
+任务记录分开保存提交前的预估和结束后的实际扣费，`/api/ai/media/tasks/status`、`tasks/cancel` 的每个任务都返回 `cost`，节点状态行显示「预估 … · 实际 …」，`getGenerationStatus` 返回同一字段。
+
+```json
+{
+  "estimate": { "price": "1.25 元", "tips": "以实际扣费为准" },
+  "actual": { "amount": 0.9, "unit": "元", "source": "balanceDelta" }
+}
+```
+
+- `estimate` 是提交前调用报价接口的结果。报价失败或供应商不支持时为 `null`，不影响生成。
+- `actual` 是实际扣费，拿不到就是 `null`，界面显示「未知」，绝不用预估代替。`source` 为 `vendor` 表示厂商在任务结果里返回了带单位的金额（读取 `cost` 或 `amount` 与 `unit`），优先采用；`balanceDelta` 表示任务前后的余额差。
+- 余额差只能归属到窗口内唯一的任务。同账户任务重叠、期间充值、单位变化、余额没减少或任务未确认成功时都记 `null`。本进程看不到同账户在其他设备上的消费和延迟入账，所以 `balanceDelta` 是推算值，账单以厂商为准。
+- 只有 TF-router 有报价和余额接口，其他供应商两项都是 `null`，不编造金额。
 
 ## 自定义供应商
 

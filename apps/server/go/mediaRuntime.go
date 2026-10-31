@@ -44,6 +44,7 @@ type mediaTask struct {
 	result           object
 	request          object
 	job              object
+	cost             object
 	remoteSettled    bool
 }
 
@@ -72,7 +73,7 @@ func mediaTaskState(id string, task *mediaTask) object {
 		status = "unknown"
 	}
 	sideEffectMayContinue := task.submitted.Load() && !task.remoteSettled && settled && status != "completed"
-	item := object{"taskId": id, "status": status, "executionSettled": settled, "sideEffectMayContinue": sideEffectMayContinue}
+	item := object{"taskId": id, "status": status, "executionSettled": settled, "sideEffectMayContinue": sideEffectMayContinue, "cost": object{"estimate": task.cost["estimate"], "actual": task.cost["actual"]}}
 	if len(task.job) > 0 {
 		for destination, source := range map[string]string{"providerId": "providerId", "modelId": "modelId", "protocol": "protocol", "providerJobId": "id", "phase": "status", "cancelMode": "cancelMode"} {
 			if value := str(task.job[source]); value != "" {
@@ -417,25 +418,9 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		if str(provider["id"]) != "tfRouter" {
-			success(w, nil)
-			return nil
-		}
-		body, err := s.priceRequest(r.Context(), directory, v)
+		price, err := s.mediaPrice(r.Context(), directory, provider, config, v)
 		if err != nil {
 			return err
-		}
-		body["type"] = v["mediaType"]
-		body["model"] = v["modelId"]
-		result, err := providerJSON(r.Context(), providerBase(provider, config), "price", config, body)
-		if err != nil {
-			return err
-		}
-		price := result["data"]
-		if item, ok := price.(map[string]any); ok {
-			if item["price"] == nil && item["amount"] != nil {
-				price = object{"price": fmt.Sprint(item["amount"]) + " " + str(item["unit"]), "tips": "以实际扣费为准"}
-			}
 		}
 		success(w, price)
 		return nil
@@ -527,6 +512,28 @@ func (s *server) mediaRoute(w http.ResponseWriter, r *http.Request) error {
 	}
 	success(w, files)
 	return nil
+}
+func (s *server) mediaPrice(ctx context.Context, directory string, provider, config, input object) (any, error) {
+	if str(provider["id"]) != "tfRouter" {
+		return nil, nil
+	}
+	body, err := s.priceRequest(ctx, directory, input)
+	if err != nil {
+		return nil, err
+	}
+	body["type"] = input["mediaType"]
+	body["model"] = input["modelId"]
+	result, err := providerJSON(ctx, providerBase(provider, config), "price", config, body)
+	if err != nil {
+		return nil, err
+	}
+	price := result["data"]
+	if item, ok := price.(map[string]any); ok {
+		if item["price"] == nil && item["amount"] != nil {
+			price = object{"price": fmt.Sprint(item["amount"]) + " " + str(item["unit"]), "tips": "以实际扣费为准"}
+		}
+	}
+	return price, nil
 }
 func (s *server) priceRequest(ctx context.Context, directory string, input object) (object, error) {
 	body := object{}
@@ -1268,6 +1275,7 @@ func generateTfRouter(ctx context.Context, base string, config, v, refs object) 
 			status = strings.ToLower(str(data["status"]))
 		}
 		if status == "success" || status == "completed" {
+			recordVendorCost(ctx, data)
 			url := str(data["data"])
 			if url == "" {
 				return nil, fail(502, "TF-router 未返回媒体结果")

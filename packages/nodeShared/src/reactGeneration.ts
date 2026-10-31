@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { PluginActivationContext } from "@toonflow/nodes-scaffold/contracts";
-import { createMediaAiClient, type NodeMediaModel, type NodeModelParameter, type NodeImageRequest, type NodeVideoRequest, type NodeAudioRequest, type NodeMediaPriceRequest } from "@toonflow/nodes-scaffold/nodeAiClient";
+import { createMediaAiClient, type NodeMediaCost, type NodeMediaModel, type NodeModelParameter, type NodeImageRequest, type NodeVideoRequest, type NodeAudioRequest, type NodeMediaPriceRequest } from "@toonflow/nodes-scaffold/nodeAiClient";
 import type { NodeInputValue } from "@toonflow/nodes-scaffold/values";
 import { isExecutionUnknown, errorText, mediaValueSchema, pluginServices, readMedia, readNodeData, registerMediaTools, setMedia, type MediaType } from "./reactNode";
 import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchServices";
@@ -20,7 +20,8 @@ const configSchema = z.strictObject({
   language: z.string().max(100).optional(), format: z.string().max(30).optional(), sampleRate: z.number().int().positive().optional(),
   parameters: z.record(z.string(), parameterValueSchema).optional().describe("模型专属参数，字段按 getConfig 返回的 models[].parameters 填写；传入时整体替换已保存的值"),
 }).refine(value => (value.providerId === undefined) === (value.modelId === undefined), "providerId 与 modelId 须同时提供");
-const generationStatusSchema = z.strictObject({ nodeId: z.string(), status: z.string(), taskId: z.string().optional(), requestId: z.string().optional(), executionSettled: z.boolean(), error: z.string().optional(), current: mediaValueSchema.optional(), revision: z.number().int().nonnegative(), providerId: z.string().optional(), modelId: z.string().optional(), providerJobId: z.string().optional(), phase: z.string().optional(), progress: z.number().optional(), cancelMode: z.string().optional(), sideEffectMayContinue: z.boolean().optional() });
+const costSchema = z.strictObject({ estimate: z.strictObject({ price: z.string(), tips: z.string() }).nullable().describe("提交前的报价"), actual: z.strictObject({ amount: z.number(), unit: z.string(), source: z.enum(["vendor", "balanceDelta"]) }).nullable().describe("结束后的实际扣费；null 表示未知，不能用 estimate 代替") });
+const generationStatusSchema = z.strictObject({ nodeId: z.string(), status: z.string(), taskId: z.string().optional(), requestId: z.string().optional(), executionSettled: z.boolean(), error: z.string().optional(), current: mediaValueSchema.optional(), revision: z.number().int().nonnegative(), providerId: z.string().optional(), modelId: z.string().optional(), providerJobId: z.string().optional(), phase: z.string().optional(), progress: z.number().optional(), cancelMode: z.string().optional(), sideEffectMayContinue: z.boolean().optional(), cost: costSchema.optional() });
 const configOutputSchema = configSchema.safeExtend({ host: z.boolean() });
 const videoConfigSchema = z.strictObject({ providerId: configSchema.shape.providerId, modelId: configSchema.shape.modelId, ratio: configSchema.shape.ratio, resolution: configSchema.shape.resolution, duration: configSchema.shape.duration, mode: configSchema.shape.mode, generateAudio: configSchema.shape.generateAudio, parameters: configSchema.shape.parameters }).refine(value => (value.providerId === undefined) === (value.modelId === undefined), "providerId 与 modelId 须同时提供");
 const parameterSchema = z.strictObject({ type: z.enum(["string", "number", "integer", "boolean"]).optional(), title: z.string().optional(), default: parameterValueSchema.optional(), minimum: z.number().optional(), maximum: z.number().optional(), enum: z.array(parameterValueSchema).optional() });
@@ -169,10 +170,10 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
     assertIdle();
   }
   const status = () => {
-    const data = readNodeData(document, id); const saved = data.generation as { status?: string; error?: string; taskId?: string; requestId?: string } | undefined;
+    const data = readNodeData(document, id); const saved = data.generation as { status?: string; error?: string; taskId?: string; requestId?: string; cost?: NodeMediaCost } | undefined;
     const state = task?.state === "running" ? "running" : saved?.status === "running" && !task ? "interrupted" : saved?.status ?? task?.state ?? "idle";
     const error = task && saved?.taskId === task.id && saved.status === "completed" ? saved.error : task?.error ?? saved?.error;
-    return { nodeId: id, status: state, taskId: saved?.taskId ?? task?.id, requestId: saved?.requestId, executionSettled: ["idle", "completed", "failed", "cancelled", "resultReady"].includes(state), error, current: readMedia(data, type), revision: document.getRevision() };
+    return { nodeId: id, status: state, taskId: saved?.taskId ?? task?.id, requestId: saved?.requestId, executionSettled: ["idle", "completed", "failed", "cancelled", "resultReady"].includes(state), error, current: readMedia(data, type), revision: document.getRevision(), ...(saved?.cost ? { cost: saved.cost } : {}) };
   };
   context.onDispose(async () => { task?.controller.abort(new Error("节点插件已卸载")); await task?.promise; });
   context.onBeforeChange(stop);
@@ -295,18 +296,18 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
     const saved = latest.generation as { taskId?: string; model?: unknown; originalOutput?: string } | undefined;
     if (task !== observedTask || saved?.taskId !== current.taskId || JSON.stringify(latest.generation) !== generation || latest.model !== data.model || JSON.stringify(readMedia(latest, type) ?? null) !== output) return status();
     // ACT: 后端状态读取会恢复原产物下载；失败后的回收保持显式检查，避免持续失败时自动轮询反复重开下载。
-    if (current.status === "failed" && (!remote.providerJobId || remote.status !== "completed")) return { ...current, providerId: remote.providerId, modelId: remote.modelId, providerJobId: remote.providerJobId, phase: remote.phase, progress: remote.progress, cancelMode: remote.cancelMode, sideEffectMayContinue: remote.sideEffectMayContinue };
+    if (current.status === "failed" && (!remote.providerJobId || remote.status !== "completed")) return { ...current, providerId: remote.providerId, modelId: remote.modelId, providerJobId: remote.providerJobId, phase: remote.phase, progress: remote.progress, cancelMode: remote.cancelMode, sideEffectMayContinue: remote.sideEffectMayContinue, cost: remote.cost ?? current.cost };
     if (task?.state !== "running" && current.status !== remote.status && remote.executionSettled && !remote.sideEffectMayContinue && ["failed", "cancelled"].includes(remote.status) && saved.model === latest.model && saved.originalOutput === output) {
       workbench.assertWritable();
       const { error: _error, ...previous } = latest.generation as Record<string, unknown>;
-      await workbench.updateRuntimeData({ generation: { ...previous, status: remote.status, ...(remote.status === "failed" && remote.result?.message ? { error: remote.result.message } : {}), finishedAt: new Date().toISOString() } }, signal);
+      await workbench.updateRuntimeData({ generation: { ...previous, status: remote.status, ...(remote.cost ? { cost: remote.cost } : {}), ...(remote.status === "failed" && remote.result?.message ? { error: remote.result.message } : {}), finishedAt: new Date().toISOString() } }, signal);
       if (task?.id === current.taskId) { task.state = remote.status; task.error = remote.status === "failed" ? remote.result?.message : undefined; }
       await document.save();
       if (status().taskId !== current.taskId) return status();
     }
     const latestStatus = status();
     const ready = remote.status === "completed" && task?.state !== "running";
-    return { ...latestStatus, status: ready ? "resultReady" : task?.state === "running" ? latestStatus.status : remote.status, executionSettled: remote.executionSettled, error: current.status === "failed" ? latestStatus.error ?? remote.result?.message : remote.result?.code !== 200 ? remote.result?.message : latestStatus.error, providerId: remote.providerId, modelId: remote.modelId, providerJobId: remote.providerJobId, phase: remote.phase, progress: remote.progress, cancelMode: remote.cancelMode, sideEffectMayContinue: remote.sideEffectMayContinue };
+    return { ...latestStatus, status: ready ? "resultReady" : task?.state === "running" ? latestStatus.status : remote.status, executionSettled: remote.executionSettled, error: current.status === "failed" ? latestStatus.error ?? remote.result?.message : remote.result?.code !== 200 ? remote.result?.message : latestStatus.error, providerId: remote.providerId, modelId: remote.modelId, providerJobId: remote.providerJobId, phase: remote.phase, progress: remote.progress, cancelMode: remote.cancelMode, sideEffectMayContinue: remote.sideEffectMayContinue, cost: remote.cost ?? current.cost };
   }
   context.registerTool({ name: "getGenerationStatus", outputSchema: generationStatusSchema, annotations: { readOnlyHint: type !== "video", destructiveHint: false, idempotentHint: true, openWorldHint: type === "video" }, description: "读取真实生成任务、远端任务 ID、进度和当前输出。视频断线后仅恢复原任务观察和产物回收，不再次生成；resultReady 时用 applyGenerationResult 采用。delegated 尚无产物。", parameters: z.strictObject({}), execute: (_args, { signal }) => remoteStatus(signal) });
   if (type === "video") context.registerTool({ name: "applyGenerationResult", outputSchema: generationStatusSchema, parameters: z.strictObject({}), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, description: "采用断线期间已完成的原视频任务产物；核对原模型、参考和当前输出，复用统一节点保存与历史。不会重新生成。", async execute(_args, { signal }) {
@@ -330,6 +331,7 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
     if (saved.model !== latest.model || saved.inputFingerprint !== references || saved.creativeFingerprint && saved.creativeFingerprint !== videoCreativeFingerprint(latest, currentReferences()) || saved.originalOutput !== output) throw new Error("节点提示词、镜头计划、模型、参考或输出已变化；原产物保留在工程中，未覆盖当前结果");
     await requireReferenceVersions(saved.referenceVersions, signal);
     await setMedia(context, type, { url: result.path, mimeType: result.mimeType }, signal, document.getRevision(), saved.taskId);
+    if (remote.cost) { await workbench.updateRuntimeData({ generation: { ...(readNodeData(document, id).generation as object), cost: remote.cost } }, signal); await document.save(); }
     if (task?.id === saved.taskId) task.state = "completed";
     return status();
   } });
@@ -363,7 +365,7 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
         const state = type === "video" && settled.status === "completed" ? "resultReady" : settled.status;
         if (task?.id === saved.taskId) { task.state = state; task.error = undefined; }
         const { error: _error, ...previous } = latest.generation as Record<string, unknown>;
-        await workbench.updateRuntimeData({ generation: { ...previous, status: state, finishedAt: new Date().toISOString() } });
+        await workbench.updateRuntimeData({ generation: { ...previous, status: state, ...(settled.cost ? { cost: settled.cost } : {}), finishedAt: new Date().toISOString() } });
         await document.save();
       }
       return status();
@@ -439,10 +441,12 @@ export function registerGenerationTools(context: PluginActivationContext, type: 
           operation.state = isExecutionUnknown(error) ? "unknown" : combined.aborted ? "cancelled" : "failed";
           operation.error = operation.state === "cancelled" ? undefined : errorText(error);
         } finally {
+          // 成本只是记录，读取失败时不影响任务终态，界面显示未知。
+          const cost = initial.model && !context.signal.aborted ? await ai.getMediaTask(workbench.directory, operation.id, AbortSignal.timeout(10000)).then(value => value.cost, () => undefined) : undefined;
           if (!context.signal.aborted) {
             const saved = readNodeData(document, id).generation;
             const { error: _error, ...previous } = saved && typeof saved === "object" ? saved as Record<string, unknown> : {};
-            await workbench.updateRuntimeData({ generation: { ...previous, taskId: operation.id, status: operation.state, ...(operation.error ? { error: operation.error } : {}), finishedAt: new Date().toISOString() } }).then(() => document.save()).catch(error => { operation.error = `${operation.error ? `${operation.error}；` : ""}任务状态保存失败：${errorText(error)}`; });
+            await workbench.updateRuntimeData({ generation: { ...previous, taskId: operation.id, status: operation.state, ...(cost ? { cost } : {}), ...(operation.error ? { error: operation.error } : {}), finishedAt: new Date().toISOString() } }).then(() => document.save()).catch(error => { operation.error = `${operation.error ? `${operation.error}；` : ""}任务状态保存失败：${errorText(error)}`; });
           }
         }
       })();
