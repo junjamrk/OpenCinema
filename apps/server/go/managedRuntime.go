@@ -78,20 +78,30 @@ func acquireRuntime(data, info, revision string) (*managedRuntime, error) {
 // ACT: 持有者是否存活由进程存活期间一直持有的 OS 锁判定，内核在任何退出方式下都会释放，
 // 判定不看 PID，所以 PID 被复用不影响结果，也不需要比较受时钟、时区影响的进程启动时间。
 // 上限：只证明 Go 主进程已退出，不证明它遗留的 ffmpeg、Python 子进程已结束；网络文件系统
-// 不保证跨主机互斥，数据目录只支持单机使用；锁刚建好、owner.json 落盘前被杀会留下无法判定的空锁，
-// 仍需人工处理。未声明 processGuard 的旧版锁只凭 PID 判定，PID 被复用时按存活拒绝。
+// 不保证跨主机互斥，数据目录只支持单机使用。未声明 processGuard 的旧版锁只凭 PID 判定，
+// PID 被复用时按存活拒绝。
 func claimRuntimeLock(lock string) error {
 	err := os.Mkdir(lock, 0700)
 	if !os.IsExist(err) {
 		return err
 	}
 	bytes, err := os.ReadFile(filepath.Join(lock, "owner.json"))
-	if err != nil {
-		return err
-	}
 	var owner runtimeOwner
-	if err = json.Unmarshal(bytes, &owner); err != nil {
-		return err
+	if err == nil {
+		err = json.Unmarshal(bytes, &owner)
+	}
+	if err != nil {
+		// 已持有 guard，新版实例不可能还活着；目录建好超过一分钟仍没有完整 owner.json，
+		// 说明创建者在落盘前就退出了，旧版实例也早该写完。
+		info, statErr := os.Stat(lock)
+		if statErr != nil || time.Since(info.ModTime()) < time.Minute {
+			return err
+		}
+		log.Printf("已回收没有完整 owner.json 的运行锁: %v", err)
+		if err = os.RemoveAll(lock); err != nil {
+			return err
+		}
+		return os.Mkdir(lock, 0700)
 	}
 	switch {
 	case owner.Preserved:

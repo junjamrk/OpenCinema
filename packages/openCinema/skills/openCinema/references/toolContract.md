@@ -35,7 +35,7 @@
 
 `inspectLocalVideoConnection` 按 `expectedRevision` 访问已配置服务，返回实际系统和每个已导入工作流缺少的节点。`ready` 只说明服务可用且节点齐全，模型文件和显存在提交时由 ComfyUI 校验。
 
-ComfyUI 工作流是 `comfyui` 供应商的模型。启用连接后，它和其他模型一样出现在节点 `getConfig`，用 `generateImage`、`generateVideo` 或 `generateAudio` 生成，生成请求不能携带工作流。工作流由用户在设置页导入；用户明确要求时，也可以用 `getProviderModels` 读取后经 `setProviderModels` 完整保存，模型格式见 `docs/videoProvider.md`。工作流会在 ComfyUI 上执行，不要自行拼图或保存来源不明的工作流。
+ComfyUI 工作流是 `comfyui` 供应商的模型。启用连接后，它和其他模型一样出现在节点 `getConfig`，用 `generateImage`、`generateVideo` 或 `generateAudio` 生成，生成请求不能携带工作流。工作流会在 ComfyUI 上执行，只能由用户在设置页导入。`setProviderModels` 可以改名或移除已有工作流，新增或修改图会被拒绝，`manageMediaProviders` 也不能通过清单写入工作流。
 
 ## 统一视频 Provider
 
