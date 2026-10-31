@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { createMediaAiClient, type NodeMediaModel } from "@toonflow/nodes-scaffold/nodeAiClient";
+import { createMediaAiClient, type NodeMediaModel, type NodeModelParameter } from "@toonflow/nodes-scaffold/nodeAiClient";
 import MediaNode from "./reactMediaNode";
 import { errorText, readMedia, type MediaType, type NodeViewProps } from "../reactNode";
-import { matchingVideoModes } from "../reactGeneration";
+import { matchingVideoModes, normalizeParameters, parameterIssue } from "../reactGeneration";
 import { readReferences } from "../reactReferences";
 import ReferenceList from "./reactReferences";
 import GenerationLoading from "./reactGenerationLoading";
@@ -19,6 +19,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const [price, setPrice] = useState("");
   const [runtimeState, setRuntimeState] = useState<string>();
   const [progress, setProgress] = useState<number>();
+  const [parameterIssues, setParameterIssues] = useState<Record<string, string | undefined>>({});
   const workbench = controller.getNodeService(node.id);
   const prompt = String(node.data?.prompt ?? "");
   const value = readMedia(node.data, mediaType);
@@ -66,6 +67,28 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
   const field = (key: string, title: string, choices: readonly unknown[] | undefined) => choices?.length ? <label className="nodeField"><span>{title}</span><select disabled={readOnly || blocked || busy} value={String(node.data?.[key] ?? "")} onChange={event => void call("setConfig", { [key]: key === "duration" ? Number(event.target.value) : event.target.value })}>
     <option value="" disabled>跟随模型</option>{choices.map(value => <option key={String(value)} value={String(value)}>{String(value)}</option>)}
   </select></label> : null;
+  const parameters = model ? normalizeParameters(node.data ?? {}, model) : {};
+  const locked = !!readOnly || blocked || busy;
+  function setParameter(key: string, value: string | number | boolean | undefined) {
+    const { [key]: _previous, ...others } = parameters;
+    void call("setConfig", { parameters: value === undefined ? others : { ...others, [key]: value } });
+  }
+  function parameterField(key: string, schema: NodeModelParameter) {
+    const current = parameters[key], title = schema.title ?? key;
+    const choices = schema.enum ?? (schema.type === "boolean" ? [true, false] : undefined);
+    if (choices) return <label key={key} className="nodeField"><span>{title}</span><select disabled={locked} value={current === undefined ? "" : choices.indexOf(current)} onChange={event => setParameter(key, choices[Number(event.target.value)])}>
+      <option value="" disabled>跟随模型</option>{choices.map((value, index) => <option key={String(value)} value={index}>{value === true ? "开启" : value === false ? "关闭" : String(value)}</option>)}
+    </select></label>;
+    const text = schema.type === "string", issue = parameterIssues[key];
+    return <label key={key} className="nodeField"><span>{title}</span><input key={String(current)} type={text ? "text" : "number"} min={schema.minimum} max={schema.maximum} step={schema.type === "integer" ? 1 : "any"} defaultValue={current === undefined ? "" : String(current)} readOnly={locked} aria-invalid={!!issue} onBlur={event => {
+      const input = event.target, value = input.value === "" ? schema.default : text ? input.value : Number(input.value);
+      const problem = value === undefined ? undefined : parameterIssue(schema, value);
+      setParameterIssues(issues => ({ ...issues, [key]: problem }));
+      // 不合法的值不保存，恢复原值并就地提示：输入框显示的始终是下次生成会发送的值。
+      if (problem || value === current) input.value = current === undefined ? "" : String(current);
+      else setParameter(key, value);
+    }} />{issue && <span className="nodeError" role="alert">{issue}</span>}</label>;
+  }
   const toolbarAction = props.cardAction || !blocked && (value || guide) ? <>{props.cardAction}{!blocked && (value || guide) && <button type="button" className="nodeMediaTool nodeMediaToolPrimary" disabled={busy || readOnly} title={value ? "在底部继续创作" : "在底部描述重绘要求"} aria-label={value ? "在底部继续创作" : "在底部描述重绘要求"} onClick={() => compose()}><NodeIcon name="generate" /></button>}</> : undefined;
   return <MediaNode {...props} compact disabled={blocked || busy} toolbarAction={toolbarAction} emptyAction={<div className="nodeComposerEmpty"><NodeIcon name="generate" size={20} /><span>在下方描述创作要求</span></div>} fallbackPreview={mediaType === "image" && guide ? { url: guide, mimeType: "image/png" } : undefined} fallbackCaption="红色标注为重绘区域" stageOverlay={running ? <GenerationLoading controller={controller} mediaType={mediaType} status={generationState} prior={prior} startedAt={generation?.startedAt} disabled={busy || readOnly} onCancel={() => void call("cancelGeneration")} /> : undefined}>
     <ReferenceList {...props} readOnly={readOnly || blocked || busy} videoRoles={mediaType === "video"} onMention={compose} />
@@ -80,6 +103,7 @@ export default function GenerationNode(props: NodeViewProps & { mediaType: Media
       {field("ratio", "画幅", mediaType === "video" ? model.imageRatios?.length ? model.imageRatios : ["16:9", "9:16", "1:1", "4:3", "3:4"] : model.imageRatios)}{field("size", "分辨率", model.imageSizes)}{field("resolution", "分辨率", [...new Set(model.durationResolutionMap?.filter(item => item.duration.includes(Number(node.data?.duration))).flatMap(item => item.resolution))])}{field("duration", "时长（秒）", [...new Set(model.durationResolutionMap?.flatMap(item => item.duration))])}
       {mediaType === "video" && model.mode?.length ? <label className="nodeField"><span>参考模式</span><select value={String(node.data?.mode ?? "")} disabled={readOnly || blocked || busy} onChange={event => void call("setConfig", { mode: JSON.parse(event.target.value) })}><option value="" disabled>选择模式</option>{matchingVideoModes(model, videoInputs).map(mode => <option key={JSON.stringify(mode)} value={JSON.stringify(mode)}>{Array.isArray(mode) ? mode.join(" · ") : ({ text: "文生视频", singleImage: "单图参考", startEndRequired: "首尾帧", startFrameOptional: "尾帧 / 首尾帧", endFrameOptional: "首帧 / 首尾帧" } as Record<string, string>)[mode] ?? mode}</option>)}</select></label> : null}
       {mediaType === "video" && model.audio === "optional" && <label className="nodeField"><span>音轨</span><select value={node.data?.generateAudio ? "1" : "0"} disabled={readOnly || blocked || busy} onChange={event => void call("setConfig", { generateAudio: event.target.value === "1" })}><option value="0">无声</option><option value="1">生成声音</option></select></label>}
+      {Object.entries(model.parameters?.properties ?? {}).map(([key, schema]) => parameterField(key, schema))}
     </div>}
     {model?.execution && <p className="nodeStatus">{({ local: "本地 / 局域网执行", remote: "远程模型服务", platform: "平台执行" })[model.execution.location]}{model.execution.cancelMode === "none" ? " · 服务未声明中止能力" : ""}</p>}
     {mediaType === "audio" && <div className="nodeFields">

@@ -646,7 +646,7 @@ func (s *server) validateMedia(v object, allowEmptyPrompt bool) error {
 	if !promptValid || (!allowEmptyPrompt && strings.TrimSpace(prompt) == "") || len(prompt) > 100000 {
 		return fail(400, "生成提示词为空或过长")
 	}
-	allowed := map[string]bool{"directory": true, "mediaType": true, "taskId": true, "providerId": true, "modelId": true, "prompt": true, "outputDirectory": true, "images": true}
+	allowed := map[string]bool{"directory": true, "mediaType": true, "taskId": true, "providerId": true, "modelId": true, "prompt": true, "outputDirectory": true, "images": true, "parameters": true}
 	keys := map[string][]string{"image": {"ratio", "size"}, "video": {"ratio", "videos", "audios", "firstFrame", "lastFrame", "resolution", "duration", "generateAudio", "mode"}, "audio": {"audios", "voice", "speed", "volume", "pitch", "language", "format", "sampleRate"}}
 	for _, key := range keys[kind] {
 		allowed[key] = true
@@ -750,6 +750,9 @@ func (s *server) validateMedia(v object, allowEmptyPrompt bool) error {
 	for _, raw := range array(p["models"]) {
 		m := asObject(raw)
 		if str(m["id"]) == str(v["modelId"]) && str(m["type"]) == kind {
+			if err := validateMediaParameters(p, m, v); err != nil {
+				return err
+			}
 			if kind == "video" {
 				if err := validateVideoInputs(m, v); err != nil {
 					return err

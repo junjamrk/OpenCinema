@@ -1,4 +1,4 @@
-import type { MediaGenerationRequest, MediaModel } from "@toonflow/tools-scaffold/runtime";
+import type { MediaGenerationRequest, MediaModel, ModelParameter } from "@toonflow/tools-scaffold/runtime";
 
 export type NodeAiModel = {
   providerId: string;
@@ -12,6 +12,7 @@ export type NodeAiModel = {
 export type NodeMediaModel = Omit<MediaModel, "mode"> & {
   mode?: (string | string[])[];
 };
+export type NodeModelParameter = ModelParameter;
 export type NodeImageRequest = {
   directory: string;
   providerId: string;
@@ -21,13 +22,14 @@ export type NodeImageRequest = {
   images?: { path: string; mimeType: string }[];
   ratio?: string;
   size?: string;
+  parameters?: MediaGenerationRequest["parameters"];
 };
 export type NodeImageResult = { path: string; mimeType: string; mediaType: "image" };
-export type NodeVideoRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "videos" | "audios" | "firstFrame" | "lastFrame" | "ratio" | "resolution" | "duration" | "generateAudio" | "mode"> & { directory: string; outputDirectory: string; operationId?: string };
+export type NodeVideoRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "videos" | "audios" | "firstFrame" | "lastFrame" | "ratio" | "resolution" | "duration" | "generateAudio" | "mode" | "parameters"> & { directory: string; outputDirectory: string; operationId?: string };
 export type NodeVideoResult = { path: string; mimeType: string; mediaType: "video" };
 export type NodeMediaPriceRequest = (NodeImageRequest & { mediaType: "image" }) | (NodeVideoRequest & { mediaType: "video" }) | (NodeAudioRequest & { mediaType: "audio" });
 export type NodeMediaPrice = { price: string; tips: string };
-export type NodeAudioRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "audios" | "voice" | "speed" | "volume" | "pitch" | "language" | "format" | "sampleRate"> & { directory: string; outputDirectory: string };
+export type NodeAudioRequest = Pick<MediaGenerationRequest, "providerId" | "modelId" | "prompt" | "images" | "audios" | "voice" | "speed" | "volume" | "pitch" | "language" | "format" | "sampleRate" | "parameters"> & { directory: string; outputDirectory: string };
 export type NodeAudioResult = { path: string; mimeType: string; mediaType: "audio" };
 export type NodeAiTool = {
   name: string;
