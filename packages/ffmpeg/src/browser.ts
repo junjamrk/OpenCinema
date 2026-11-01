@@ -25,8 +25,8 @@ function createCall(method: string, args: unknown[]): FfmpegCall {
 }
 
 function remoteError(value: unknown) {
-  const details = value as { message?: string; name?: string; code?: string };
-  return Object.assign(new Error(details.message || "FFmpeg 执行失败"), details);
+  const details = value as { message?: string; name?: string; code?: unknown; data?: { code?: string } | null };
+  return Object.assign(new Error(details.message || "FFmpeg 执行失败"), details, details.data?.code ? { code: details.data.code } : {});
 }
 
 async function request(input: BrowserFfmpegRequest, signal?: AbortSignal) {

@@ -50,6 +50,7 @@ export interface ModelParameter {
 
 export interface MediaModel {
   supportsPrice?: boolean;
+  credentialMissing?: boolean;
   providerId: string;
   providerLabel: string;
   modelId: string;

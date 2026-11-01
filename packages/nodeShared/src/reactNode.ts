@@ -8,6 +8,9 @@ import { ToolExecutionError, type ToolErrorDetails } from "@toonflow/nodes-scaff
 import { readVideoSources } from "./videoShot";
 
 export type MediaType = "image" | "video" | "audio";
+export const mediaLabels: Record<MediaType, string> = { image: "图片", video: "视频", audio: "音频" };
+// 原任务还没有结论时节点不能换输入、改配置或重新提交。
+export function isGenerationLocked(status: unknown) { return ["running", "delegated", "unknown", "interrupted", "cancelRequested", "resultReady"].includes(String(status)); }
 export type NodeViewProps = ReactNodeViewProps & { controller: ReactNodeViewProps["controller"] & ReactNodeServices };
 export const relativePathSchema = z.string().min(1).max(4096).refine(path => !/^[\\/]|^[a-z][a-z0-9+.-]*:|[\x00-\x1f]/i.test(path) && !path.replaceAll("\\", "/").split("/").includes(".."), "仅支持工作区相对路径");
 export const mediaValueSchema = z.strictObject({ url: relativePathSchema, mimeType: z.string().min(1).max(200) });
@@ -26,7 +29,7 @@ export function cloneMediaNodeData(data: Record<string, unknown>) {
     const value = copy[key];
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     const state = value as Record<string, unknown>;
-    if (["running", "delegated", "unknown", "interrupted", "cancelRequested"].includes(String(state.status))) delete copy[key];
+    if (isGenerationLocked(state.status)) delete copy[key];
     else { delete state.taskId; delete state.requestId; delete state.cost; }
   }
   return copy;
@@ -55,6 +58,8 @@ export function pluginServices(context: PluginActivationContext) {
   };
 }
 
+export function mediaByteLimit(type: MediaType) { return (type === "video" ? 2 * 1024 : 100) * 1024 ** 2; }
+
 export async function setMedia(context: PluginActivationContext, type: MediaType, value: NodeMediaValue, signal: AbortSignal, expectedRevision?: number, taskId?: string) {
   const { id, document, workbench } = pluginServices(context);
   const source = mediaValueSchema.parse(value);
@@ -62,10 +67,10 @@ export async function setMedia(context: PluginActivationContext, type: MediaType
   const revision = expectedRevision ?? document.getRevision();
   const head = workbench.files.readRange ? await workbench.files.readRange(source.url, 0, 1, undefined, signal) : undefined;
   if (head && !head.size) throw new Error("媒体文件不能为空");
-  if (head && head.size > (type === "video" ? 2 * 1024 : 100) * 1024 ** 2) throw new Error(type === "video" ? "视频须为 2 GiB 以内" : "媒体文件须为 100 MiB 以内");
+  if (head && head.size > mediaByteLimit(type)) throw new Error(type === "video" ? "视频须为 2 GiB 以内" : "媒体文件须为 100 MiB 以内");
   signal.throwIfAborted();
   const data = readNodeData(document, id);
-  if (!taskId && ["running", "delegated", "unknown", "cancelRequested"].includes(String((data.generation as { status?: string } | undefined)?.status))) throw new Error("生成任务仍在等待终态；提交实际产物时须提供原taskId");
+  if (!taskId && isGenerationLocked((data.generation as { status?: string } | undefined)?.status)) throw new Error("生成任务仍在等待终态；提交实际产物时须提供原taskId");
   if (taskId && (!data.generation || typeof data.generation !== "object" || !("taskId" in data.generation) || data.generation.taskId !== taskId)) throw new Error("生成任务标识已变化，请勿提交旧任务的结果");
   const videoSources = type === "video" ? readVideoSources(data) : [];
   if (type === "video" && taskId && !videoSources.some(value => value.path === source.url && value.sourceRevision === head?.revision)) videoSources.push({ path: source.url, ...(head ? { sourceRevision: head.revision } : {}), taskId, origin: "generated" });
@@ -84,6 +89,15 @@ const mimeTypes: Record<string, string> = {
   mp4: "video/mp4", m4v: "video/mp4", webm: "video/webm", mov: "video/quicktime", mkv: "video/x-matroska", avi: "video/x-msvideo", ogv: "video/ogg", ts: "video/mp2t",
   mp3: "audio/mpeg", wav: "audio/wav", m4a: "audio/mp4", aac: "audio/aac", ogg: "audio/ogg", flac: "audio/flac", opus: "audio/opus", aif: "audio/aiff", aiff: "audio/aiff", au: "audio/basic", caf: "audio/x-caf",
 };
+
+export function mediaFileType(file: File, type: MediaType) {
+  const mimeType = file.type.startsWith(`${type}/`) ? file.type : mimeTypes[file.name.split(".").at(-1)?.toLowerCase() ?? ""];
+  return mimeType?.startsWith(`${type}/`) ? mimeType : undefined;
+}
+
+export function mediaAccept(type: MediaType) {
+  return [`${type}/*`, ...Object.keys(mimeTypes).filter(extension => mimeTypes[extension]!.startsWith(`${type}/`)).map(extension => `.${extension}`)].join(",");
+}
 
 export async function listMediaHistory(workbench: NodeWorkbenchService, nodeId: string, type: MediaType, current?: NodeMediaValue) {
   const entries = await workbench.files.list(`assets/${nodeId}`).catch(error => {
@@ -123,6 +137,7 @@ export function registerMediaTools(context: PluginActivationContext, type: Media
 export function useMediaUrl(controller: ReactNodeViewProps["controller"], value?: NodeMediaValue) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
     let release: (() => void) | undefined;
@@ -132,8 +147,8 @@ export function useMediaUrl(controller: ReactNodeViewProps["controller"], value?
       release = media.release; setUrl(media.url);
     }).catch(reason => { if (active) setError(errorText(reason)); });
     return () => { active = false; release?.(); };
-  }, [controller, value?.url, value?.mimeType]);
-  return { url, error };
+  }, [controller, value?.url, value?.mimeType, attempt]);
+  return { url, error, retry: () => setAttempt(current => current + 1) };
 }
 
 export function errorText(error: unknown) {

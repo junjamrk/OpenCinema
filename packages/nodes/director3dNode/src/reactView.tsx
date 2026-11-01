@@ -7,6 +7,8 @@ import { PointerLockControls } from "three/addons/controls/PointerLockControls.j
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { getObjectByThreeJsonId, type SceneRuntime } from "threejson/core";
 import { errorText, useMediaUrl, type NodeViewProps } from "@toonflow/node-shared/reactNode";
+import NodeError from "@toonflow/node-shared/reactNodeNotice";
+import { useDialogKeys } from "@toonflow/node-shared/useDialogKeys";
 import { createStage, captureCamera, disposeStage, type SceneDocument } from "./scene";
 import { prepareSceneAnimation } from "./sceneAnimation";
 import { applyCamera, prepareMotion, sampleMotion } from "./motion";
@@ -475,7 +477,8 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
     }>(),
     [phase, setPhase] = useState(""),
     [progress, setProgress] = useState(0),
-    [running, setRunning] = useState(false);
+    [running, setRunning] = useState(false),
+    [taskError, setTaskError] = useState("");
   const [anchorPreviews, setAnchorPreviews] = useState<Record<string, string>>({});
   const anchorDrag = useRef<{ id: string; anchors: Snapshot["anchors"] } | undefined>(undefined);
   const runtime = useRef<SceneRuntime>(undefined),
@@ -512,6 +515,7 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
         setPhase(value.phase);
         setProgress(value.progress);
         setRunning(value.busy);
+        setTaskError(value.state === "cancelled" ? "" : value.error ?? "");
       }
     }, 350);
     return () => clearInterval(timer);
@@ -552,6 +556,12 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
       setBusy(false);
     }
   }
+  function close() {
+    if (busy || running) return;
+    setPlaying(false);
+    setOpen(false);
+  }
+  const { dialog, onEscape } = useDialogKeys(open && !!snapshot, close);
   function focusComposer(prompt?: string) {
     if (locked) return;
     try {
@@ -667,11 +677,16 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
         snapshot &&
         createPortal(
           <div
+            ref={dialog}
             className="openCinemaWorkbench directorReactDialog"
             role="dialog"
             aria-modal="true"
             aria-label="3D 导演台"
-            onKeyDown={(event) => event.stopPropagation()}>
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              onEscape(event);
+            }}>
             <header>
               <strong>3D 导演台</strong>
               <span>场景 · 相机 · 动画</span>
@@ -686,20 +701,11 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
                   取消任务
                 </button>
               )}
-              <button
-                disabled={busy || running}
-                onClick={() => {
-                  setPlaying(false);
-                  setOpen(false);
-                }}>
+              <button disabled={busy || running} onClick={close}>
                 关闭
               </button>
             </header>
-            {error && (
-              <p className="directorError" role="alert">
-                {error}
-              </p>
-            )}
+            <NodeError className="directorError" error={error || taskError} />
             <nav>
               <button
                 disabled={locked}
@@ -1038,6 +1044,7 @@ export default function DirectorNodeView({ node, controller, readOnly }: Props) 
                         </button>
                       </>
                     )}
+                    {!busy && !running && phase && <small role="status">{phase}</small>}
                     {Object.entries((node.data?.outputs as Record<string, any>) ?? {})
                       .filter(([, output]) => output?.value?.url)
                       .map(([name, output]) => (

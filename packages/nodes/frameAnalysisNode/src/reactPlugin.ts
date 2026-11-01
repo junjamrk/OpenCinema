@@ -27,14 +27,11 @@ const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
     const { id, document, workbench } = pluginServices(context);
     let task: { controller: AbortController; promise: Promise<void>; state: string; percent: number; label: string; hostPending: boolean; error?: string } | undefined;
     context.onDispose(async () => { task?.controller.abort(new Error("节点已卸载")); await task?.promise; });
-    context.onBeforeChange(async () => {
-      task?.controller.abort(new Error("节点即将变更")); await task?.promise;
-      const saved = readNodeData(document, id).analysisProgress as { status?: string } | undefined;
-      if ([task?.state, saved?.status].some(status => status === "unknown" || status === "delegated") || (!task && saved?.status === "running")) throw new Error("拉片任务尚未确认终止，暂不能修改历史或删除节点");
-    });
+    // ACT: 拉片产物写入独立目录，宿主报告按manifest校验；未确认的任务只锁本节点，不阻断画布操作。
+    context.onBeforeChange(async () => { task?.controller.abort(new Error("节点即将变更")); await task?.promise; });
     function assertIdle() {
       const saved = readNodeData(document, id).analysisProgress as { status?: string } | undefined;
-      if ([task?.state, saved?.status].some(status => ["running", "delegated", "unknown"].includes(status ?? ""))) throw new Error("请先完成当前拉片任务并确认终态；宿主已受理时等待实际报告");
+      if ([task?.state, saved?.status].some(status => ["running", "delegated", "unknown"].includes(status ?? ""))) throw new Error("请先完成当前拉片任务或解除锁定；宿主已受理时等待实际报告");
     }
     const state = () => ({ ...defaults, ...(readNodeData(document, id).frameAnalysis as object ?? {}) });
     const config = () => { const saved = state() as Record<string, unknown>; return settingsOutputSchema.parse({ ...Object.fromEntries(Object.keys(defaults).map(key => [key, saved[key]])), ...(saved.source ? { source: saved.source } : {}) }); };
@@ -106,10 +103,13 @@ const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
       async execute(args, { signal }) { workbench.assertWritable(); assertIdle(); if (!args.mimeType.startsWith("video/")) throw new Error("请选择视频文件"); await workbench.files.readRange?.(args.url, 0, 1, undefined, signal); await workbench.updateData({ frameAnalysis: { ...state(), source: args } }, undefined, signal); await document.save(); return { source: args }; } });
     context.registerTool({ name: "setAnalysisConfig", outputSchema: settingsOutputSchema, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "修改本地检测维度、阈值与宿主分析重点，不启动处理。", parameters: settingsSchema,
       async execute(args, { signal }) { assertIdle(); await workbench.updateData({ frameAnalysis: { ...state(), ...args } }, undefined, signal); await document.save(); return config(); } });
-    context.registerTool({ name: "cancelAnalysis", outputSchema: z.strictObject({ status: z.string() }), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "取消本地解码、场景检测或宿主补充分析，保留上次结果；宿主未确认远端终止时保留unknown。", parameters: z.strictObject({}), async execute() {
+    context.registerTool({ name: "cancelAnalysis", outputSchema: z.strictObject({ status: z.string() }), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }, description: "取消本地解码、场景检测或宿主补充分析，保留上次结果；宿主未确认远端终止时保留unknown。acknowledge=true放弃已无活动进程的unknown/interrupted/delegated任务并写为cancelled以解除节点锁定，原任务迟到的文件只留在其独立目录。", parameters: z.strictObject({ acknowledge: z.boolean().optional() }), async execute(args) {
       task?.controller.abort(new Error("用户取消拉片")); await task?.promise;
       const saved = readNodeData(document, id).analysisProgress as { status?: string; phase?: string } | undefined;
-      if (saved?.status === "delegated" || !task && saved?.status === "running") {
+      if (args.acknowledge && ["running", "delegated", "unknown"].includes(task?.state ?? saved?.status ?? "")) {
+        workbench.assertWritable(); task = undefined;
+        await workbench.updateRuntimeData({ analysisProgress: { ...saved, status: "abandoned", label: "已解除锁定，原任务可能仍在运行，上次结果保留" } }); await document.save();
+      } else if (saved?.status === "delegated" || !task && saved?.status === "running") {
         if (task) { task.state = "unknown"; task.label = "宿主尚未确认终止，等待实际报告"; }
         await workbench.updateRuntimeData({ analysisProgress: { ...saved, status: "unknown", label: "任务尚未确认终止，保留本地结果与原任务" } }); await document.save();
       }
@@ -171,9 +171,9 @@ const plugin: NodePluginDefinition<typeof FrameAnalysisNodeView> = {
             await document.save();
           } catch (error) {
             const unknown = !!isExecutionUnknown(error);
-            operation.state = unknown ? "unknown" : published ? "completed" : combined.aborted ? "cancelled" : "failed"; operation.error = published ? `本地拉片已完成，宿主补充分析未完成：${errorText(error)}` : errorText(error);
+            operation.state = unknown ? "unknown" : published ? "completed" : combined.aborted ? "cancelled" : "failed"; operation.error = operation.state === "cancelled" ? undefined : published ? `本地拉片已完成，宿主补充分析未完成：${errorText(error)}` : errorText(error);
             if (!published && !unknown) await workbench.files.remove(`assets/${outputId}`, true).catch(() => {});
-            if (!context.signal.aborted) await workbench.updateRuntimeData({ analysisProgress: { percent: operation.percent, label: operation.error, status: operation.state, phase: operation.hostPending ? "host" : "local" } }).then(() => document.save()).catch(() => {});
+            if (!context.signal.aborted) await workbench.updateRuntimeData({ analysisProgress: { percent: operation.percent, label: operation.error ?? "已取消", status: operation.state, phase: operation.hostPending ? "host" : "local" } }).then(() => document.save()).catch(() => {});
           }
         })();
         return { status: "running" };

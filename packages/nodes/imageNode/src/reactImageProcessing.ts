@@ -3,7 +3,7 @@ import type { PluginActivationContext, PluginToolDefinition, PluginToolContext }
 import type { NodeWorkbenchService } from "@toonflow/nodes-scaffold/workbenchServices";
 import type { NodeMediaValue } from "@toonflow/nodes-scaffold/values";
 import { uploadNodeFile } from "@toonflow/nodes-scaffold/nodeFiles";
-import { mediaValueSchema, nodePreconditionError, pluginServices, readMedia, readNodeData } from "@toonflow/node-shared/reactNode";
+import { isGenerationLocked, mediaValueSchema, nodePreconditionError, pluginServices, readMedia, readNodeData } from "@toonflow/node-shared/reactNode";
 import { buildLightingPrompt, lightingSettingsSchema, readLightingSettings } from "./imageLighting";
 import { buildMultiAnglePrompt, multiAngleSettingsSchema, readMultiAngleSettings } from "./imageMultiAngle";
 import { getPanoramaViews } from "./imagePanorama";
@@ -143,7 +143,7 @@ export function registerImageEditingTools(context: PluginActivationContext) {
   registerImageTool({ name: "setImageEditSettings", description: "保存图片打光与多角度编辑参数，不创建生成请求。", parameters: z.strictObject({ lighting: lightingSettingsSchema.optional(), multiAngle: multiAngleSettingsSchema.optional() }).refine(value => value.lighting || value.multiAngle, "请提供打光或多角度设置"), outputSchema: z.strictObject({ lighting: lightingSettingsSchema.optional(), multiAngle: multiAngleSettingsSchema.optional() }), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, async execute(args, { signal }) {
     workbench.assertWritable();
     const generation = readNodeData(document, id).generation as { status?: string } | undefined;
-    if (["running", "delegated", "unknown", "cancelRequested"].includes(generation?.status ?? "")) throw new Error("生成任务尚未完成，请先确认任务终态");
+    if (isGenerationLocked(generation?.status)) throw new Error("生成任务尚未完成，请先确认任务终态");
     const settings = { ...(args.lighting ? { lighting: readLightingSettings(args.lighting) } : {}), ...(args.multiAngle ? { multiAngle: readMultiAngleSettings(args.multiAngle) } : {}) };
     await workbench.updateData(settings, undefined, signal); await document.save(); return settings;
   } });

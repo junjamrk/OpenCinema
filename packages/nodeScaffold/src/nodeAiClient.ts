@@ -99,7 +99,7 @@ function createMediaTasks() {
       if (!task || !task.executionSettled || task.sideEffectMayContinue || !["cancelled", "completed", "failed"].includes(task.status)) throw new Error("服务端尚未确认生成任务及其外部副作用终止");
       return task;
     } catch (cause) {
-      throw Object.assign(new Error(`生成任务终态尚未确认；任务 ID：${taskId}；${cause instanceof Error ? cause.message : String(cause)}`), { code: "mediaTaskUnknown", taskId, cause });
+      throw Object.assign(new Error(`暂时无法确认任务已经停止，可以稍后重新核对\n任务 ID：${taskId}；${cause instanceof Error ? cause.message : String(cause)}`), { code: "mediaTaskUnknown", taskId, cause });
     }
   }
 
@@ -125,16 +125,16 @@ function createMediaTasks() {
               const item = byId.get(id);
               if (!item) throw new Error("生成任务响应不完整，请重试");
               task.failedAt = undefined;
-              if (item.status === "unknown" || item.sideEffectMayContinue) task.fail(Object.assign(new Error(item.result?.message || "生成任务状态未知，请保留原 taskId 查询"), { code: "mediaTaskUnknown", taskId: id }));
+              if (item.status === "unknown" || item.sideEffectMayContinue) task.fail(Object.assign(new Error(item.result?.message || "任务结果未确认，可以稍后重新核对"), { code: "mediaTaskUnknown", taskId: id }));
               else if (item.result) task.finish(item.result);
             }
           } catch (error) {
             for (const id of batch) {
               const task = pending.get(id);
               if (!task) continue;
-              // ACT: 状态查询允许 90 秒临时断线，不因几次快速失败取消已经提交的生成。
+              // ACT: 状态查询允许 90 秒临时断线。超过后只标记未确认、不发取消：服务恢复时任务可能还在正常运行，用户没有要求取消。
               task.failedAt ??= Date.now();
-              if (task.failedAt + 90000 <= Date.now()) { pending.delete(id); void cancel(directory, id).then(() => task.fail(error), reason => task.fail(reason)); }
+              if (task.failedAt + 90000 <= Date.now()) task.fail(Object.assign(new Error("连不上 OpenCinema 服务，任务结果未确认；服务恢复后节点会继续核对"), { code: "mediaTaskUnknown", taskId: id, cause: error }));
             }
           }
         }
@@ -306,13 +306,17 @@ export function createMediaAiClient(lifetime: AbortSignal = new AbortController(
       waitingSignal.throwIfAborted();
       if (started.taskId !== taskId) throw new Error("生成任务响应无效，请确认服务端已更新");
     } catch (error) {
+      let unreachable = false;
       try { await submitted; }
       catch (failure) {
         const httpStatus = failure && typeof failure === "object" && "httpStatus" in failure ? Number(failure.httpStatus) : 0;
         if (httpStatus >= 400 && httpStatus < 500 && httpStatus !== 409) throw failure;
+        unreachable = failure instanceof TypeError;
       }
-      await mediaTasks.cancel(input.directory, taskId);
-      throw error;
+      // fetch 的 TypeError 不区分连接被拒和响应丢失，只有服务答复这个任务已取消才能断定没有送达；
+      // 取消也连不上时保留未确认，否则服务恰好在受理后崩溃，用户重试会重复付费。
+      const settled = await mediaTasks.cancel(input.directory, taskId);
+      throw unreachable && settled.status === "cancelled" ? new Error("生成请求没有送达 OpenCinema 服务，请重试") : error;
     } finally {
       waitingSignal.removeEventListener("abort", abort);
     }

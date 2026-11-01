@@ -1,8 +1,12 @@
 import { z } from "zod";
+import { missingCapabilityText, nodeRequirementsSchema } from "@toonflow/nodes-scaffold/nodeCapabilities";
 import { ToolExecutionError, toolErrorDetailsSchema } from "@toonflow/nodes-scaffold/toolErrors";
 
-export const pluginPackageSchema = z.object({ manifest: z.object({ id: z.string().regex(/^[a-z][a-zA-Z0-9]{0,95}$/), apiVersion: z.literal(1), renderer: z.literal("react"), version: z.string().min(1), name: z.string().optional() }).passthrough(), source: z.string().min(1), assets: z.array(z.object({ path: z.string(), base64: z.string(), sha256: z.string(), mimeType: z.string() })).optional() });
-export const pluginSchema = z.object({ id: z.string().optional(), name: z.string(), displayName: z.string().optional(), version: z.string().optional(), revision: z.string().optional(), scope: z.enum(["node", "workspace"]).optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), canConfigure: z.boolean().optional(), configRevision: z.string().regex(/^[a-f0-9]{64}$/), config: z.record(z.string(), z.json()).nullish(), configRules: z.array(z.record(z.string(), z.json())).optional(), loadError: z.string().optional(), description: z.string().optional(), author: z.string().optional(), license: z.string().optional(), homepage: z.string().optional(), tags: z.array(z.string()).optional(), agentGuide: z.string().optional(), requires: z.record(z.string(), z.number()).optional() });
+const manifestFields = { displayName: z.string().optional(), author: z.string().optional(), license: z.string().optional(), homepage: z.string().optional(), tags: z.array(z.string()).optional(), agentGuide: z.string().optional(), requires: nodeRequirementsSchema.optional() };
+export const pluginPackageSchema = z.object({ manifest: z.object({ id: z.string().regex(/^[a-z][a-zA-Z0-9]{0,95}$/), apiVersion: z.literal(1), renderer: z.literal("react"), version: z.string().min(1), name: z.string().optional(), description: z.string().optional(), readme: z.string().optional(), providers: z.array(z.record(z.string(), z.json())).optional(), ...manifestFields }).passthrough(), source: z.string().min(1), assets: z.array(z.object({ path: z.string(), base64: z.string(), sha256: z.string(), mimeType: z.string() })).optional() });
+export const pluginSchema = z.object({ id: z.string().optional(), name: z.string(), version: z.string().optional(), revision: z.string().optional(), previousVersion: z.string().optional(), scope: z.enum(["node", "workspace"]).optional(), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), canConfigure: z.boolean().optional(), configRevision: z.string().regex(/^[a-f0-9]{64}$/), config: z.record(z.string(), z.json()).nullish(), configRules: z.array(z.record(z.string(), z.json())).optional(), loadError: z.string().optional(), category: z.string().optional().catch(undefined), description: z.string().optional().catch(undefined), icon: z.string().optional().catch(undefined), url: z.string().optional(), ...manifestFields });
+// 这里的字段都由服务端写入，清单再坏也能读出来，用户才能在设置页看到并卸载。
+const damagedPluginSchema = z.object({ name: z.string(), displayName: z.string().optional().catch(undefined), version: z.string().optional().catch(undefined), revision: z.string().optional().catch(undefined), builtin: z.boolean(), installed: z.boolean().optional(), enabled: z.boolean(), configRevision: pluginSchema.shape.configRevision, url: z.string().optional().catch(undefined) });
 const depthSchema = z.object({ available: z.boolean(), runtimeAvailable: z.boolean(), mediaToolsAvailable: z.boolean().optional(), message: z.string(), phase: z.string().optional(), preparationProgress: z.object({ phase: z.string(), received: z.number(), total: z.number(), error: z.string().optional() }).nullable().optional() });
 const providerConfigurationSchema = z.object({ providerId: z.string(), rules: z.array(z.record(z.string(), z.json())), config: z.record(z.string(), z.json()), credentialConfigured: z.record(z.string(), z.boolean()), configRevision: z.string().regex(/^[a-f0-9]{64}$/), scope: z.string() });
 export const providerModelSchema = z.object({ id: z.string().min(1).max(256), label: z.string().min(1).max(200), type: z.enum(["image", "video", "audio", "text"]) }).catchall(z.json());
@@ -20,6 +24,42 @@ export const localVideoConnectionInspectionSchema = localVideoConnectionSchema.e
   workflows: z.array(z.strictObject({ modelId: z.string(), label: z.string(), type: z.enum(["image", "video", "audio"]), missingNodes: z.array(z.string()) })), message: z.string().optional(), errorCode: z.string().optional(),
 });
 
+const zodIssueText: Record<string, string> = { invalid_type: "类型不正确", invalid_key: "键名不符合规则", invalid_value: "取值不在允许范围内", invalid_format: "格式不正确", too_big: "过长或过大", too_small: "过短或过小", unrecognized_keys: "含有未声明的字段" };
+export function pluginErrorText(error: unknown) {
+  if (!(error instanceof z.ZodError)) return error instanceof Error ? error.message : String(error);
+  return `插件声明不符合要求：${error.issues.slice(0, 4).map(issue => `${issue.path.join(".") || "声明"} ${zodIssueText[issue.code] ?? issue.message}`).join("；")}`;
+}
+export function parsePluginPackage(text: string) {
+  let value: unknown;
+  try { value = JSON.parse(text); } catch { throw new Error("插件包不是有效的 JSON 文件"); }
+  const parsed = pluginPackageSchema.safeParse(value);
+  if (!parsed.success) throw new Error(pluginErrorText(parsed.error));
+  return parsed.data;
+}
+function parsePluginCatalog(value: unknown): z.infer<typeof pluginSchema>[] {
+  return z.array(z.unknown()).parse(value).flatMap(item => {
+    const parsed = pluginSchema.safeParse(item);
+    if (parsed.success) return [parsed.data];
+    const damaged = damagedPluginSchema.safeParse(item);
+    return damaged.success ? [{ ...damaged.data, loadError: pluginErrorText(parsed.error) }] : [];
+  });
+}
+
+// ACT: 按数字段比较，不处理预发布版本，1.0.0-beta 与 1.0.0 的先后不保证；市场开始发预发布版本时换成完整的 semver 解析。
+export function compareVersions(left: string, right: string) {
+  return left.localeCompare(right, "en", { numeric: true });
+}
+export function missingCapabilities(requires: Record<string, number>, provided: Readonly<Record<string, number>>) {
+  return Object.entries(requires).flatMap(([name, requiredVersion]) => (provided[name] ?? 0) < requiredVersion ? [{ name, requiredVersion, providedVersion: provided[name] ?? 0 }] : []);
+}
+/** 不能安装的原因；空数组表示兼容。读不到 hostVersion 时跳过 minHost，能力缺失仍会由运行时报告。 */
+export function pluginIncompatibility(plugin: { requires?: Record<string, number>; minHost?: string }, provided: Readonly<Record<string, number>>, hostVersion?: string) {
+  return [
+    ...(plugin.minHost && hostVersion && compareVersions(hostVersion, plugin.minHost) < 0 ? [`需要工作台 ${plugin.minHost} 或更新，当前是 ${hostVersion}`] : []),
+    ...missingCapabilities(plugin.requires ?? {}, provided).map(item => missingCapabilityText(item.name, item.requiredVersion, item.providedVersion)),
+  ];
+}
+
 async function request(path: string, signal: AbortSignal, body?: unknown, method = "POST"): Promise<unknown> {
   const response = await fetch(`/api/${path}`, { method: body === undefined ? "GET" : method, signal, headers: { "Content-Type": "application/json", "x-toonflow-workspace": "1" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const value = await response.json();
@@ -35,10 +75,12 @@ async function request(path: string, signal: AbortSignal, body?: unknown, method
 export const workbenchSettingsClient = {
   async generalConfiguration(signal: AbortSignal) { return generalConfigurationSchema.parse(await request("settings/general", signal)); },
   async saveGeneralConfiguration(changes: Record<string, unknown>, expectedRevision: string, signal: AbortSignal) { return generalConfigurationSchema.parse(await request("settings/general", signal, { changes, expectedRevision }, "PUT")); },
-  async plugins(signal: AbortSignal) { return z.array(pluginSchema).parse(await request("nodes/get", signal)); },
+  async plugins(signal: AbortSignal) { return parsePluginCatalog(await request("nodes/get", signal)); },
+  async hostVersion(signal: AbortSignal) { return z.object({ hostVersion: z.string() }).parse(await request("nodes/capabilities", signal)).hostVersion; },
   async savePlugin(name: string, config: Record<string, unknown>, expectedRevision: string, signal: AbortSignal) { return z.object({ config: z.record(z.string(), z.json()), configRevision: z.string().regex(/^[a-f0-9]{64}$/) }).parse(await request("nodes/save", signal, { name, config, expectedRevision }, "PUT")); },
   async installPlugin(value: z.infer<typeof pluginPackageSchema>, options: { force: boolean; replaceBuiltin: boolean }, signal: AbortSignal) { return request("nodes/install", signal, { fileName: `${value.manifest.id}.js`, ...value, ...options }); },
   async uninstallPlugin(name: string, signal: AbortSignal, restoreBuiltin = false) { return request("nodes/uninstall", signal, { name, ...(restoreBuiltin ? { restoreBuiltin: true } : {}) }, "DELETE"); },
+  async rollbackPlugin(name: string, signal: AbortSignal) { return request("nodes/rollback", signal, { name }); },
   async pluginPackage(name: string, revision: string, signal: AbortSignal) { return pluginPackageSchema.parse(await request(`nodes/package?${new URLSearchParams({ name, revision })}`, signal)); },
   async providers(signal: AbortSignal) { return z.array(mediaProviderSchema).parse(await request("providers/media/list", signal)); },
   async providerCatalog(signal: AbortSignal) { return z.array(mediaProviderSchema).parse(await request("providers/media/catalog", signal)); },
@@ -72,22 +114,26 @@ export const workbenchSettingsClient = {
 export const defaultPluginMarketUrl = "https://opencinema.site/market/index.json";
 export const pluginMarketEntrySchema = z.object({
   id: z.string().regex(/^[a-z][a-zA-Z0-9]{0,95}$/), name: z.string().min(1).max(200), displayName: z.record(z.string(), z.string().max(200)).optional(), version: z.string().min(1).max(64),
-  description: z.record(z.string(), z.string().max(1000)), author: z.string().max(200), license: z.string().max(128), homepage: z.string().url().max(2048).optional(), repository: z.string().url().max(2048).optional(),
+  description: z.record(z.string(), z.string().max(1000)), author: z.string().max(200), license: z.string().max(128), homepage: z.url({ protocol: /^https?$/ }).max(2048).optional(), repository: z.url({ protocol: /^https?$/ }).max(2048).optional(),
   tags: z.array(z.string().max(32)).max(16).default([]), scope: z.enum(["node", "workspace"]).default("node"), requires: z.record(z.string(), z.number().int().min(1)).default({}),
   url: z.string().min(1).max(2048), sha256: z.string().regex(/^[a-f0-9]{64}$/), size: z.number().int().positive().max(128 * 1024 ** 2), publishedAt: z.string().optional(), minHost: z.string().optional(), agentGuide: z.boolean().optional(),
 });
-export const pluginMarketIndexSchema = z.object({ schema: z.literal("openCinema-pluginMarket-v1"), generatedAt: z.string(), name: z.string().max(200).optional(), plugins: z.array(pluginMarketEntrySchema).max(500) });
+// 条目逐条解析：一条坏记录只跳过它自己，不让所有人的市场失效。
+export const pluginMarketIndexSchema = z.object({ schema: z.literal("openCinema-pluginMarket-v1"), generatedAt: z.string(), name: z.string().max(200).optional(), plugins: z.array(z.unknown()).max(500) });
 export type PluginMarketEntry = z.infer<typeof pluginMarketEntrySchema> & { packageUrl: string };
-export type PluginMarket = { url: string; generatedAt: string; name?: string; plugins: PluginMarketEntry[] };
+export type PluginMarket = { url: string; generatedAt: string; name?: string; plugins: PluginMarketEntry[]; skipped: number };
 
 export function pluginMarketUrlOf(general: Record<string, unknown> | undefined) {
   const value = general?.pluginMarketUrl;
   return typeof value === "string" && value.trim() ? value.trim() : defaultPluginMarketUrl;
 }
+export function parseUrl(value: string, base?: URL) {
+  try { return new URL(value, base); } catch { return undefined; }
+}
 function requireMarketUrl(value: string, base?: URL) {
-  const url = new URL(value, base);
-  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
-  if (!(url.protocol === "https:" || (url.protocol === "http:" && loopback)) || url.username || url.password) throw new Error("插件市场地址须为不含凭据的 https 地址；本机开发可用 http://127.0.0.1");
+  const url = parseUrl(value, base);
+  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url?.hostname ?? "");
+  if (!url || !(url.protocol === "https:" || (url.protocol === "http:" && loopback)) || url.username || url.password) throw new Error("插件市场地址须为不含凭据的 https 地址；本机开发可用 http://127.0.0.1");
   return url;
 }
 async function readLimited(response: Response, limit: number) {
@@ -112,17 +158,24 @@ const hex = (digest: ArrayBuffer) => Array.from(new Uint8Array(digest), value =>
 export const pluginMarketClient = {
   async index(marketUrl: string, signal: AbortSignal): Promise<PluginMarket> {
     const url = requireMarketUrl(marketUrl);
-    const response = await fetch(url, { signal, cache: "no-store", headers: { Accept: "application/json" } });
+    const response = await fetch(url, { signal, cache: "no-store", headers: { Accept: "application/json" } }).catch(error => { throw signal.aborted ? error : new Error(`无法连接插件市场 ${url.host}，请检查网络后重试`); });
     if (!response.ok) throw new Error(`插件市场目录读取失败（${response.status}）`);
-    const index = pluginMarketIndexSchema.parse(JSON.parse(new TextDecoder().decode(await readLimited(response, 2 * 1024 ** 2))));
+    const text = new TextDecoder().decode(await readLimited(response, 2 * 1024 ** 2));
+    let parsed: unknown;
+    try { parsed = JSON.parse(text); } catch { parsed = undefined; }
+    const result = pluginMarketIndexSchema.safeParse(parsed);
+    if (!result.success) throw new Error("插件市场目录格式无效");
+    const index = result.data;
     const seen = new Set<string>();
-    const plugins = index.plugins.map(entry => {
-      const key = `${entry.id}@${entry.version}`;
-      if (seen.has(key)) throw new Error(`插件市场目录重复：${key}`);
+    const plugins = index.plugins.flatMap(raw => {
+      const parsed = pluginMarketEntrySchema.safeParse(raw);
+      if (!parsed.success) return [];
+      const entry = parsed.data, key = `${entry.id}@${entry.version}`;
+      if (seen.has(key)) return [];
       seen.add(key);
-      return { ...entry, packageUrl: requireMarketUrl(entry.url, url).href };
+      try { return [{ ...entry, packageUrl: requireMarketUrl(entry.url, url).href }]; } catch { return []; }
     });
-    return { url: url.href, generatedAt: index.generatedAt, name: index.name, plugins };
+    return { url: url.href, generatedAt: index.generatedAt, name: index.name, plugins, skipped: index.plugins.length - plugins.length };
   },
   /** 下载并校验：大小与 SHA-256 必须与目录一致，包内 id/version 必须与条目一致；任一不符即拒绝，不落盘。 */
   async download(entry: PluginMarketEntry, signal: AbortSignal) {
@@ -132,7 +185,7 @@ export const pluginMarketClient = {
     if (bytes.byteLength !== entry.size) throw new Error("插件包大小与市场目录不一致，已拒绝");
     const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
     if (sha256 !== entry.sha256) throw new Error("插件包 SHA-256 与市场目录不一致，已拒绝");
-    const value = pluginPackageSchema.parse(JSON.parse(new TextDecoder().decode(bytes)));
+    const value = parsePluginPackage(new TextDecoder().decode(bytes));
     if (value.manifest.id !== entry.id || value.manifest.version !== entry.version) throw new Error("插件包的 id 或版本与市场目录不一致，已拒绝");
     return { value, size: bytes.byteLength, sha256 };
   },

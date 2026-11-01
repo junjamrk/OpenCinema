@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NodeViewProps } from "@toonflow/node-shared/reactNode";
 import { errorText } from "@toonflow/node-shared/reactNode";
+import NodeError from "@toonflow/node-shared/reactNodeNotice";
+import { useDialogKeys } from "@toonflow/node-shared/useDialogKeys";
 import { ASSET_CATALOG, assetSpec } from "./nativeBlockout/assets";
 import { ASPECT_RATIOS, SENSORS, LENS_SET } from "./nativeBlockout/camera";
 import { RIGS } from "./nativeBlockout/rigs";
@@ -96,7 +98,9 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
   const setOpen = field("open"), setSceneId = field("sceneId"), setShotId = field("shotId"), setSelected = field("selected"), setSelectedIds = field("selectedIds"), setMarkId = field("markId"), setTime = field("time"), setPlaying = field("playing"), setEditScope = field("editScope"), setMode = field("mode");
   const [snapshot, setSnapshot] = useState<{ project: ProjectDoc; revision: string }>(),
     [inspectorOpen, setInspectorOpen] = useState(true),
-    [error, setError] = useState(""),
+    [error, setError] = useState<unknown>(""),
+    [removingPreset, setRemovingPreset] = useState(""),
+    [closeArmed, setCloseArmed] = useState(false),
     [saving, setSaving] = useState(false),
     [status, setStatus] = useState({ busy: false, phase: "", progress: 0, error: "" });
   const [category, setCategory] = useState("people"),
@@ -240,6 +244,22 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [playing, shot?.duration]);
+  function close() {
+    if (saving || status.busy) return;
+    if (recorder.recording && !closeArmed) { setCloseArmed(true); return; }
+    setCloseArmed(false);
+    setPlaying(false);
+    recorder.discard();
+    setOpen(false);
+  }
+  useEffect(() => setCloseArmed(false), [recorder.recording?.phase]);
+  function loadPresets() {
+    void controller
+      .callNodeTool(node.id, "listBlockoutStagePresets", {})
+      .then((value) => setPresetList(Array.isArray(value) ? value : ((value as any)?.presets ?? [])))
+      .catch((failure) => setError(errorText(failure)));
+  }
+  const { dialog, onEscape } = useDialogKeys(!!(open && snapshot && scene && shot), close);
   async function action(callback: () => Promise<any>, allowRecording = false) {
     if (baseLocked || (recorder.active && !allowRecording)) return;
     setSaving(true);
@@ -251,7 +271,7 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
       else await refresh();
       return value;
     } catch (failure) {
-      setError(errorText(failure));
+      setError(failure);
     } finally {
       setSaving(false);
     }
@@ -482,11 +502,7 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
         )}
       </button>
       {!!node.data?.blockoutPath && !outputEntries.length && <p className="nodeStatus" role="status">当前白模版本尚未发布参考；修改后须重新导出，历史文件保留。</p>}
-      {error && (
-        <p className="blockoutError" role="alert">
-          {error}
-        </p>
-      )}
+      <NodeError className="blockoutError" error={error} />
       {open &&
         view &&
         snapshot &&
@@ -494,12 +510,15 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
         shot &&
         createPortal(
           <div
+            ref={dialog}
             className="openCinemaWorkbench blockoutReactDialog"
             role="dialog"
             aria-modal="true"
             aria-label="Blockout 场景与镜头"
+            tabIndex={-1}
             onKeyDown={(event) => {
               event.stopPropagation();
+              onEscape(event);
               if ((event.ctrlKey || event.metaKey) && event.code === "KeyZ" && !locked) {
                 event.preventDefault();
                 void action(() => (event.shiftKey ? controller.redo() : controller.undo()));
@@ -530,24 +549,14 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
                   取消任务
                 </button>
               )}
-              <button
-                disabled={saving || status.busy}
-                onClick={() => {
-                  setPlaying(false);
-                  recorder.discard();
-                  setOpen(false);
-                }}>
-                <NodeIcon name="close" />关闭
+              <button disabled={saving || status.busy} onClick={close}>
+                <NodeIcon name="close" />{closeArmed ? "放弃录制并关闭" : "关闭"}
               </button>
             </header>
             {!!(node.data?.modelPath || node.data?.modelSnapshot) && (
               <p className="blockoutLegacy">旧导演台草稿已保留，Blockout 使用独立的场景文档。</p>
             )}
-            {(error || status.error) && (
-              <p className="blockoutError" role="alert">
-                {error || status.error}
-              </p>
-            )}
+            <NodeError className="blockoutError" error={error || status.error} />
             <nav className="blockoutToolbar">
               <button disabled={locked} onClick={() => void action(() => controller.undo())}>
                 <NodeIcon name="undo" />撤销
@@ -1061,15 +1070,7 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
                           setJson(JSON.stringify(snapshot.project, null, 2));
                           setJsonRevision(snapshot.revision);
                         }
-                        if (id === "presets")
-                          void controller
-                            .callNodeTool(node.id, "listBlockoutStagePresets", {})
-                            .then((value) =>
-                              setPresetList(
-                                Array.isArray(value) ? value : ((value as any)?.presets ?? []),
-                              ),
-                            )
-                            .catch((failure) => setError(errorText(failure)));
+                        if (id === "presets") loadPresets();
                       }}>
                       {title}
                     </button>
@@ -1510,7 +1511,7 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
                             sceneId: scene.id,
                             name: scene.name,
                           }),
-                        )
+                        ).then(loadPresets)
                       }>
                       保存当前布景
                     </button>
@@ -1528,17 +1529,27 @@ export default function BlockoutNodeView({ node, controller, readOnly }: Props) 
                           }>
                           {value.name}
                         </button>
-                        <button
-                          disabled={locked}
-                          onClick={() =>
-                            void action(() =>
-                              controller.callNodeTool(node.id, "removeBlockoutStagePreset", {
-                                id: value.id,
-                              }),
-                            )
-                          }>
-                          删除
-                        </button>
+                        {removingPreset === value.id ? (
+                          <>
+                            <button
+                              disabled={locked}
+                              onClick={() => {
+                                setRemovingPreset("");
+                                void action(() =>
+                                  controller.callNodeTool(node.id, "removeBlockoutStagePreset", {
+                                    id: value.id,
+                                  }),
+                                ).then(loadPresets);
+                              }}>
+                              确认删除
+                            </button>
+                            <button onClick={() => setRemovingPreset("")}>保留</button>
+                          </>
+                        ) : (
+                          <button disabled={locked} onClick={() => setRemovingPreset(value.id)}>
+                            删除
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

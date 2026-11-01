@@ -1,0 +1,18 @@
+{
+  "document": { "version": 1, "label": "读写当前节点的数据" },
+  "workbench": { "version": 1, "label": "使用工作台服务（文件、FFmpeg、宿主 Agent）" },
+  "files": { "version": 1, "label": "读写工程文件" },
+  "inputs": { "version": 1, "label": "读取上游节点的输入" },
+  "state": { "version": 1, "label": "使用工程内共享的运行状态" },
+  "documentEditing": { "version": 1, "label": "编辑节点文档" },
+  "workspaceFiles": { "version": 1, "label": "读写工程文件" },
+  "workspaceReadRange": { "version": 1, "label": "按范围读取工程内的大文件" },
+  "nodeHistory": { "version": 1, "label": "写入画布历史" },
+  "workspaceDocuments": { "version": 1, "label": "读写工程内的画布" },
+  "workspaceExtensions": { "version": 1, "label": "扩展工程功能" },
+  "collaboration": { "version": 1, "label": "参与多人协作" },
+  "pluginResources": { "version": 1, "label": "加载随包发行的模型和资源" },
+  "ffmpeg": { "version": 1, "label": "调用 FFmpeg 处理音视频" },
+  "webAssembly": { "version": 1, "label": "运行 WebAssembly" },
+  "worker": { "version": 1, "label": "在后台线程运行任务" }
+}

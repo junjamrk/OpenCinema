@@ -53,8 +53,52 @@
   .openCinemaWorkbench .managementPanel { .managementEntryActions { gap: 0; button { padding: 4px; } } .assetDirectories { flex-basis: 120px; } .managementToolbar { flex-wrap: wrap; } .managementProjectName { flex-wrap: wrap; } }
 }
 
+.openCinemaWorkbench .workspacePanel.settingsPanel {
+  > .settingsPanel {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 148px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-auto-rows: auto;
+    min-height: 0;
+
+    > nav {
+      grid-row: 1 / span 3;
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      gap: 2px;
+      padding: 12px 8px;
+      border-right: 1px solid var(--borderSubtle);
+      border-bottom: 0;
+      button { justify-content: flex-start; width: 100%; }
+    }
+    > .settingsContent,
+    > .nodeMenuSettings { grid-column: 2; min-height: 0; overflow: auto; overscroll-behavior: contain; align-content: start; }
+    > .settingsStatus,
+    > .settingsError { grid-column: 2; margin: 0; padding: 10px 16px; border-top: 1px solid var(--borderSubtle); }
+  }
+
+  @media (max-width: 760px) {
+    > .settingsPanel {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      > nav { grid-row: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--borderSubtle); button { width: auto; } }
+      > .settingsContent, > .nodeMenuSettings, > .settingsStatus, > .settingsError { grid-column: 1; }
+    }
+  }
+}
+
 .openCinemaWorkbench .settingsPanel {
-  > nav { flex-wrap: wrap; }
+  .settingsContent.providerSettings {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    align-items: start;
+    > p, > .localModelSetting { grid-column: 1 / -1; }
+    @media (max-width: 760px) { grid-template-columns: minmax(0, 1fr); }
+  }
+  .providerMaster { display: grid; gap: 12px; min-width: 0; > label { display: grid; gap: 8px; color: var(--textSecondary); } }
+  .providerDetail { display: grid; gap: 16px; min-width: 0; }
+  .providerPlaceholder { padding: 16px; border: 1px dashed var(--borderSubtle); border-radius: var(--radiusPanel); line-height: var(--lineHeightBody) !important; }
 
   .settingsContent {
     .settingEditor, .pluginSettingsCard, .settingConfirmation {
@@ -68,7 +112,21 @@
       > button { justify-self: start; }
     }
 
-    .pluginSettingsCard .pluginSetting { padding: 0; border: 0; }
+    .pluginSettingsCard .pluginSetting { display: flex; padding: 0; border: 0; }
+    .pluginSettingsCard[data-focused="true"] { border-color: var(--borderSelected); box-shadow: 0 0 0 1px var(--borderSelected); }
+    .pluginDescription, .pluginFocusNotice { margin: 0; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); }
+    .pluginPackageReview {
+      dl.pluginFacts { display: grid; gap: 6px; margin: 0; font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall);
+        > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; }
+        dt { color: var(--textMuted); }
+        dd { display: grid; gap: 2px; margin: 0; color: var(--textSecondary); }
+        dd em { color: var(--statusWarning); font-style: normal; }
+        ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+      }
+      .pluginReadme pre { max-height: 240px; margin: 8px 0 0; overflow: auto; color: var(--textSecondary); font: 11px / 18px var(--fontMono); white-space: pre-wrap; }
+      .pluginBlockers { display: grid; gap: 2px; color: var(--statusError); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); strong { font-weight: var(--fontWeightTitle); } }
+      .pluginTrustNotice { margin: 0; padding: 8px 10px; border: 1px solid var(--statusWarningBorder); border-radius: var(--radiusControl); background: var(--statusWarningSurface); color: var(--textPrimary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); }
+    }
     .pluginMarket { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--borderSubtle); border-radius: var(--radiusPanel); background: var(--surfaceCanvas); }
     .pluginMarketBar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; strong { color: var(--textPrimary); } > span { flex: 1 1 200px; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); } }
     .pluginMarketCard { p { margin: 0; color: var(--textSecondary); font-size: var(--fontSizeSmall); line-height: var(--lineHeightSmall); } }

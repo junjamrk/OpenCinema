@@ -86,7 +86,7 @@ export default function TextNodeView({ node, controller, readOnly }: NodeViewPro
   const path = String(node.data?.textPath ?? `assets/${node.id}/content.md`);
   useEffect(() => {
     let active = true;
-    void controller.readNodeText(node.id).then(value => { if (active) { setText(value); setTextError(""); setReady(true); } }).catch(reason => { if (active) setTextError(errorText(reason)); });
+    void controller.readNodeText(node.id).then(value => { if (active) { setText(value); setTextError(""); setReady(true); if (!value.trim()) setMode(current => current === "preview" ? "rich" : current); } }).catch(reason => { if (active) setTextError(errorText(reason)); });
     return () => { active = false; };
   }, [controller, node.id, node.data?.textPath, inlineText]);
   useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 1600); return () => clearTimeout(timer); }, [copied]);

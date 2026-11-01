@@ -171,14 +171,15 @@ func generateGptImage(ctx context.Context, base string, config, v, refs object) 
 	}
 	request.Header.Set("Authorization", "Bearer "+key)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	markMediaSubmitted(ctx)
+	submitting := markMediaSubmitted(ctx)
 	response, err := safeClient().Do(request)
 	if err != nil {
-		return nil, err
+		return nil, submissionError(submitting, err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fail(502, fmt.Sprintf("GPT Image 编辑 HTTP %d", response.StatusCode))
+		detail, _ := io.ReadAll(io.LimitReader(response.Body, 64*1024))
+		return nil, providerResponseError(submitting, response.StatusCode, strings.ReplaceAll(string(detail), key, "[REDACTED]"))
 	}
 	var result object
 	if err = json.NewDecoder(io.LimitReader(response.Body, 100*1024*1024)).Decode(&result); err != nil {
@@ -196,6 +197,8 @@ func imageResultURLs(result object) []string {
 	return urls
 }
 func reviewApiMartImages(ctx context.Context, base string, config object, images []any) ([]any, error) {
+	// 素材审核不是生成请求，失败时没有任务需要等待。
+	ctx = context.WithValue(ctx, mediaSubmissionKey{}, nil)
 	assets := []any{}
 	for i, image := range images {
 		assets = append(assets, object{"url": image, "name": fmt.Sprintf("reference%d", i)})

@@ -11,6 +11,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -60,6 +61,9 @@ type server struct {
 	referenceBindingsMu    sync.Mutex
 	referenceBindingURLs   map[string]string
 }
+
+// 工作台对外的版本号，/api/hello、MCP serverInfo 和插件 minHost 比较共用这一处；发版时与 package.json 一起改。
+const hostVersion = "0.4.0"
 
 func main() {
 	address := flag.String("listen", "127.0.0.1:47920", "HTTP listen address")
@@ -307,6 +311,7 @@ func respond(w http.ResponseWriter, status int, v any) {
 func failure(w http.ResponseWriter, err error) {
 	status := 500
 	code := ""
+	message := err.Error()
 	var a *apiError
 	if errors.As(err, &a) {
 		status = a.status
@@ -314,12 +319,15 @@ func failure(w http.ResponseWriter, err error) {
 	} else if os.IsNotExist(err) {
 		status = 404
 		code = "ENOENT"
+		message = pathMessage(err, "文件或文件夹不存在")
 	} else if os.IsExist(err) {
 		status = 409
 		code = "EEXIST"
+		message = pathMessage(err, "目标已存在")
 	} else if os.IsPermission(err) {
 		status = 403
 		code = "EACCES"
+		message = pathMessage(err, "没有访问权限")
 	}
 	var data any
 	var toolError *mcpCallError
@@ -336,7 +344,14 @@ func failure(w http.ResponseWriter, err error) {
 			data = object{"code": code}
 		}
 	}
-	respond(w, status, object{"code": status, "data": data, "message": err.Error()})
+	respond(w, status, object{"code": status, "data": data, "message": message})
+}
+func pathMessage(err error, reason string) string {
+	var pathError *fs.PathError
+	if errors.As(err, &pathError) && pathError.Path != "" {
+		return reason + "：" + pathError.Path
+	}
+	return reason
 }
 func decode(r *http.Request) (object, error) {
 	defer r.Body.Close()
@@ -542,7 +557,7 @@ func (s *server) route(w http.ResponseWriter, r *http.Request) error {
 		success(w, object{"aiModels": []any{}})
 		return nil
 	case p == "/api/hello":
-		success(w, object{"runtime": "go", "version": "0.3.0"})
+		success(w, object{"runtime": "go", "version": hostVersion})
 		return nil
 	}
 	return fail(404, "接口不存在: "+p)

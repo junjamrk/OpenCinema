@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 var moduleRevision = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -97,7 +98,7 @@ func (s *server) nodePackage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *server) installNodeModule(name, source string, manifest, input object) (object, error) {
+func (s *server) installNodeModule(name, source string, manifest, input object, staleProviders []string) (object, error) {
 	directory := filepath.Join(s.dataDirectory, "nodes")
 	pointer := filepath.Join(directory, name+".json")
 	release, err := s.lockFiles(pointer, filepath.Join(directory, name))
@@ -179,6 +180,7 @@ func (s *server) installNodeModule(name, source string, manifest, input object) 
 	manifest = asObject(clone(manifest))
 	delete(manifest, "revision")
 	delete(manifest, "url")
+	delete(manifest, "loadError")
 	manifest["assets"] = metadata
 	seed, _ := json.Marshal(object{"source": source, "manifest": manifest})
 	revision := hash(seed)
@@ -232,10 +234,77 @@ func (s *server) installNodeModule(name, source string, manifest, input object) 
 		return nil, e
 	}
 	// 最后发布入口；此前失败保留旧版本，已发布版本目录不再覆盖。
-	if err = atomicWrite(pointer, data, !force, 0600); err != nil {
+	if err = s.publishNodeModule(pointer, versions, revision, data, !force, staleProviders); err != nil {
 		return nil, err
 	}
 	return manifest, nil
+}
+
+// 走到这里包已全部校验通过。凭据紧贴发布清理：此前失败不动旧凭据，清理失败则不发布，新地址拿不到旧 Key。
+func (s *server) publishNodeModule(pointer, versions, revision string, data []byte, exclusive bool, staleProviders []string) error {
+	if err := s.forgetProviderConfigs(staleProviders); err != nil {
+		return err
+	}
+	if err := atomicWrite(pointer, data, exclusive, 0600); err != nil {
+		return err
+	}
+	// 目录时间即发布时间，重新发布旧修订也要排到最前。
+	// ACT: 不回收旧修订：已打开的页面还可能按需加载它的分块和资产，确认没有客户端引用的办法之前宁可占磁盘。
+	now := time.Now()
+	_ = os.Chtimes(filepath.Join(versions, revision), now, now)
+	return nil
+}
+
+// 除当前修订外的版本目录，最近发布的在前。
+func previousRevisions(versions, current string) []string {
+	entries, _ := os.ReadDir(versions)
+	published := map[string]time.Time{}
+	revisions := []string{}
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err == nil && entry.IsDir() && moduleRevision.MatchString(entry.Name()) && entry.Name() != current {
+			published[entry.Name()] = info.ModTime()
+			revisions = append(revisions, entry.Name())
+		}
+	}
+	sort.Slice(revisions, func(i, j int) bool { return published[revisions[i]].After(published[revisions[j]]) })
+	return revisions
+}
+
+func (s *server) rollbackNodeModule(name string) (object, error) {
+	directory := filepath.Join(s.dataDirectory, "nodes")
+	pointer, versions := filepath.Join(directory, name+".json"), filepath.Join(directory, name)
+	release, err := s.lockFiles(pointer, versions)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	var current, manifest object
+	data, err := os.ReadFile(pointer)
+	if err == nil {
+		err = json.Unmarshal(data, &current)
+	}
+	if err != nil {
+		return nil, err
+	}
+	previous := previousRevisions(versions, str(current["revision"]))
+	if len(previous) == 0 {
+		return nil, fail(409, "没有可回退的上一版本")
+	}
+	if data, err = os.ReadFile(filepath.Join(versions, previous[0], "manifest.json")); err == nil {
+		err = json.Unmarshal(data, &manifest)
+	}
+	if err != nil {
+		return nil, err
+	}
+	providers, err := parsePluginProviders(manifest)
+	if err == nil {
+		err = s.checkPluginProviders(name, providers)
+	}
+	if err == nil {
+		err = s.publishNodeModule(pointer, versions, previous[0], data, false, staleProviderIDs(s.pluginOwnProviders(name), providers))
+	}
+	return manifest, err
 }
 func (s *server) serveNodeModule(w http.ResponseWriter, r *http.Request) error {
 	parts := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/api/nodes/modules/"), "/", 3)

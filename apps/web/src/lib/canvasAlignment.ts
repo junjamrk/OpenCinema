@@ -20,6 +20,22 @@ export type CanvasAlignmentResult = { dx: number; dy: number; guides: CanvasAlig
 type AlignmentBounds = Pick<CanvasAlignmentNode, "x" | "y" | "width" | "height">;
 type AlignmentCandidate = { delta: number; distance: number; gap: number; centerDistance: number; anchorDifference: number; anchor: number; target: CanvasAlignmentNode };
 
+// ACT: 按节点大小的网格逐圈探测，最多比较 625 格；更远的空位不找，全满时退回原点由用户拖开。
+export function findOpenPosition(origin: { x: number; y: number }, occupied: readonly AlignmentBounds[], size = { width: 360, height: 220 }, gap = 40) {
+  const isFree = (x: number, y: number) => !occupied.some(item => x < item.x + item.width + gap && x + size.width + gap > item.x && y < item.y + item.height + gap && y + size.height + gap > item.y);
+  for (let ring = 0; ring <= 12; ring++) {
+    const cells: { x: number; y: number }[] = [];
+    for (let row = -ring; row <= ring; row++) for (let column = -ring; column <= ring; column++) {
+      if (Math.max(Math.abs(column), Math.abs(row)) === ring) cells.push({ x: origin.x + column * (size.width + gap), y: origin.y + row * (size.height + gap) });
+    }
+    // 画布从左向右连线，同圈内优先放在同一行的右侧。
+    cells.sort((left, right) => Math.abs(left.y - origin.y) - Math.abs(right.y - origin.y) || right.x - left.x || right.y - left.y);
+    const open = cells.find(cell => isFree(cell.x, cell.y));
+    if (open) return open;
+  }
+  return origin;
+}
+
 /** 输入均为本帧拟移动后的画布绝对左上矩形；返回统一位移，不修改父子关系或任何输入。 */
 export function getCanvasAlignment({ nodes, movingIds, zoom, thresholdPx = 6, maxGapPx = 240 }: {
   nodes: readonly CanvasAlignmentNode[];

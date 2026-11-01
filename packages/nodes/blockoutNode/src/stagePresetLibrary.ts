@@ -443,12 +443,15 @@ export async function removeStagePreset(
   signal?.throwIfAborted();
   try {
     check();
+    const { fileRevision } = z.object({ fileRevision: z.string() }).parse(
+      await request(`/api/assets/stat?path=${encodeURIComponent(path)}`, { method: "GET" }, signal),
+    );
     await request(
       "/api/assets/remove",
       {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path }),
+        body: JSON.stringify({ path, expectedRevision: fileRevision }),
       },
       signal,
     );

@@ -23,13 +23,11 @@ var videoProviderCatalog []byte
 type videoRequestRejected struct {
 	status int
 	code   string
+	detail string
 }
 
 func (e *videoRequestRejected) Error() string {
-	if e.code != "" {
-		return fmt.Sprintf("媒体供应商拒绝请求（HTTP %d，%s）；未接受生成", e.status, e.code)
-	}
-	return fmt.Sprintf("媒体供应商拒绝请求（HTTP %d）；未接受生成", e.status)
+	return providerFailureText(e.status, strings.TrimSpace(e.code+" "+e.detail))
 }
 
 func builtinMediaProviders() []any {
@@ -539,7 +537,7 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 	}
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("媒体供应商连接失败: %w", err)
+		return nil, submissionError(method == "POST", fmt.Errorf("媒体供应商连接失败: %w", err))
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		code := ""
@@ -553,11 +551,10 @@ func videoRequest(ctx context.Context, provider, config object, method, relative
 			}
 		}
 		response.Body.Close()
-		switch response.StatusCode {
-		case 400, 401, 403, 404, 405, 422:
+		if providerRejected(response.StatusCode) {
 			return nil, &videoRequestRejected{status: response.StatusCode, code: code}
 		}
-		return nil, fail(502, fmt.Sprintf("媒体供应商 HTTP %d；未读取可能包含凭据的错误正文", response.StatusCode))
+		return nil, fail(502, providerFailureText(response.StatusCode, ""))
 	}
 	return response, nil
 }

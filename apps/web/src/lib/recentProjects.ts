@@ -1,3 +1,6 @@
+import axios from "axios";
+import { workspaceFileClient } from "./workspaceFileClient";
+
 // 复用控制器维护的工程缓存；这里只负责读取和移除列表项，不触碰磁盘上的工程目录。
 const storageKey = "toonflow.projectList";
 const recentLimit = 6;
@@ -19,4 +22,13 @@ export function forgetRecentProject(directory: string) {
   try { localStorage.setItem(storageKey, JSON.stringify({ ...cache, projectList: (Array.isArray(cache.projectList) ? cache.projectList as { directory?: unknown }[] : []).filter(item => item?.directory !== directory) })); }
   catch { /* 无痕窗口或宿主禁用存储时，列表项保留到下次读取。 */ }
   return readRecentProjects();
+}
+
+// 只有服务端明确答复不存在才标记；断线或无权限时列表项保持可点，由打开时报告原因。
+export async function findMissingProjects(directories: string[], signal: AbortSignal) {
+  const results = await Promise.all(directories.map(async directory => {
+    try { await workspaceFileClient.get("/check", { baseURL: "/api/workspaces", params: { directory }, signal }); }
+    catch (error) { if (axios.isAxiosError(error) && error.response?.status === 404) return directory; }
+  }));
+  return new Set(results.filter(directory => directory !== undefined));
 }

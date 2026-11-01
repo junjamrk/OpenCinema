@@ -1,11 +1,13 @@
 import axios from "axios";
 import { z } from "zod";
 import { ToolExecutionError, toolErrorDetailsSchema } from "@toonflow/nodes-scaffold/toolErrors";
+import { explainRequestError } from "./workspaceFileClient";
 
 export type AssetLibraryEntry = { name: string; path: string; type: "file" | "directory"; children?: AssetLibraryEntry[] };
 const assetEntrySchema: z.ZodType<AssetLibraryEntry> = z.lazy(() => z.object({ name: z.string(), path: z.string(), type: z.enum(["file", "directory"]), children: z.array(assetEntrySchema).optional() }));
 const assetInfoSchema = z.object({ path: z.string(), type: z.enum(["file", "directory"]), size: z.number().int().nonnegative(), fileRevision: z.string().regex(/^[a-f0-9]{64}$/) });
 const client = axios.create({ baseURL: "/api/assets", headers: { "x-toonflow-workspace": "1" } });
+client.interceptors.response.use(undefined, explainRequestError);
 export const assetDragType = "application/toonflow-asset";
 
 async function resourceRequest<T>(request: Promise<T>): Promise<T> {

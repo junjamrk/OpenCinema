@@ -396,6 +396,9 @@ func (c comfyConnection) submit(ctx context.Context, provider, config, input, wo
 	if response.StatusCode == http.StatusBadRequest {
 		return nil, discard(fail(400, "ComfyUI 拒绝工作流："+comfyRejection(body)))
 	}
+	if providerRejected(response.StatusCode) {
+		return nil, discard(&videoRequestRejected{status: response.StatusCode})
+	}
 	if response.StatusCode != http.StatusOK {
 		return nil, fail(502, fmt.Sprintf("ComfyUI /prompt 返回 HTTP %d", response.StatusCode))
 	}
